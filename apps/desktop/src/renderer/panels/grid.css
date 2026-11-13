@@ -1,0 +1,156 @@
+/* Grid view layout and styling. Uses Fenna Slides tokens exclusively. */
+
+.grid-view {
+  grid-row: 2;
+  overflow: auto;
+  min-height: 0;
+  padding: 64px 32px 64px;
+  outline: none;
+}
+
+.grid-content {
+  max-width: 1120px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.grid-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.grid-section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.grid-section-title {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--text);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: var(--r-sm);
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: none;
+}
+
+.grid-section-title:hover {
+  background: var(--hover);
+}
+
+.grid-section-input {
+  font-size: var(--fs-lg);
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--text);
+  background: var(--field);
+  border: 1px solid var(--sel);
+  border-radius: var(--r-sm);
+  padding: 2px 6px;
+  outline: none;
+  min-width: 160px;
+  max-width: 100%;
+}
+
+.grid-thumbs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+.grid-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+  outline: none;
+}
+
+.grid-item.dragging {
+  opacity: 0.5;
+}
+
+.grid-thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--r-sm);
+  outline: 1px solid var(--line);
+  background: var(--stage);
+  cursor: pointer;
+  transition: outline-color 120ms var(--ease), opacity 120ms var(--ease);
+}
+
+.grid-thumb:hover {
+  outline-color: var(--line-strong);
+}
+
+.grid-thumb.selected,
+.grid-thumb.current {
+  outline: 2px solid var(--sel);
+  outline-offset: 1px;
+}
+
+.grid-thumb.skipped {
+  opacity: 0.4;
+}
+
+.grid-thumb-flag {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--warn);
+  pointer-events: none;
+}
+
+.grid-thumb-meta {
+  display: flex;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.grid-thumb-num {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  line-height: 1;
+}
+
+.grid-item.current .grid-thumb-num {
+  color: var(--text);
+}
+
+.grid-insert-bar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--sel);
+  border-radius: 1px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.grid-insert-bar.before {
+  left: -11px;
+}
+
+.grid-insert-bar.after {
+  right: -11px;
+}

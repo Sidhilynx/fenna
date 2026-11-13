@@ -1,0 +1,15 @@
+{
+  "name": "@opendeck/shell",
+  "version": "0.0.1",
+  "private": true,
+  "description": "The shared app shell: window tabs, Home, and the chat with the user's own AI. Every app (slides, docs, sheets) plugs into it.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "exports": {
+    ".": "./renderer/index.ts",
+    "./base.css": "./renderer/base.css",
+    "./main": "./main/index.cjs",
+    "./main/*": "./main/*",
+    "./threads": "./renderer/comments/threads.ts"
+  }
+}

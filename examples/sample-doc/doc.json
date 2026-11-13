@@ -1,0 +1,52 @@
+{
+  "format": "fenna-docs/0",
+  "title": "Fenna Docs launch plan",
+  "tabs": [
+    {
+      "id": "overview",
+      "title": "Overview",
+      "children": []
+    },
+    {
+      "id": "plan",
+      "title": "Plan",
+      "children": [
+        {
+          "id": "risks",
+          "title": "Risks",
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "notes",
+      "title": "Meeting notes",
+      "children": []
+    }
+  ],
+  "fonts": {
+    "headings": "serif",
+    "text": "sans"
+  },
+  "wide": false,
+  "dropdowns": [
+    {
+      "id": "status",
+      "name": "Status",
+      "options": [
+        { "id": "not-started", "label": "Not started", "color": "gray" },
+        { "id": "in-progress", "label": "In progress", "color": "blue" },
+        { "id": "done", "label": "Done", "color": "green" }
+      ]
+    },
+    {
+      "id": "priority",
+      "name": "Priority",
+      "options": [
+        { "id": "low", "label": "Low", "color": "gray" },
+        { "id": "medium", "label": "Medium", "color": "yellow" },
+        { "id": "high", "label": "High", "color": "red" }
+      ]
+    }
+  ]
+}

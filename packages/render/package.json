@@ -1,0 +1,10 @@
+{
+  "name": "@opendeck/render",
+  "version": "0.0.1",
+  "description": "Turns slides into browser markup: one renderer for the editor, thumbnails, present mode and export.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": { "@opendeck/format": "0.0.1" }
+}

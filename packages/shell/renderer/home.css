@@ -1,0 +1,135 @@
+/* Home (a new tab), in the shell's tokens. Hairlines instead
+   of shadows, one light primary button, square-shouldered controls. */
+
+.hm { display: grid; grid-template-columns: 232px minmax(0, 1fr); height: 100%; min-height: 0; background: var(--bg); color: var(--text-2); }
+
+/* ── Sidebar ───────────────────────────────────────────────────────────── */
+.hm-side {
+  display: flex; flex-direction: column; gap: 2px; min-height: 0;
+  padding: 8px 8px 10px; overflow-y: auto; overflow-x: hidden;
+  background: var(--panel); border-right: 1px solid var(--line);
+}
+.hm-gap { height: 12px; flex-shrink: 0; }
+.hm-nav {
+  display: flex; align-items: center; gap: 9px; width: 100%; height: 30px; padding: 0 8px;
+  border: 0; border-radius: var(--r-md); background: transparent; color: var(--text-2);
+  font-size: var(--fs-md); text-align: left;
+  transition: background 150ms var(--ease), color 150ms var(--ease);
+}
+.hm-nav:hover { background: var(--wash); color: var(--text); }
+.hm-nav[aria-current="page"] { background: var(--hover); color: var(--text); }
+.hm-nav svg { flex-shrink: 0; width: 15px; height: 15px; color: var(--text-2); }
+.hm-nav-n { margin-left: auto; font-size: var(--fs-sm); color: var(--text-3); font-variant-numeric: tabular-nums; transition: opacity 120ms var(--ease); }
+/* Decks carries its own "new" action, shown on hover in place of the count. */
+.hm-nav-row { position: relative; }
+.hm-nav-add {
+  position: absolute; top: 3px; right: 3px; display: grid; place-items: center; width: 24px; height: 24px;
+  border: 0; border-radius: var(--r-md); background: transparent; color: var(--text-3); opacity: 0;
+  transition: opacity 120ms var(--ease), background 120ms var(--ease), color 120ms var(--ease);
+}
+.hm-nav-row:hover .hm-nav-add, .hm-nav-add:focus-visible { opacity: 1; }
+.hm-nav-row:hover .hm-nav-n { opacity: 0; }
+.hm-nav-add:hover { background: var(--hover); color: var(--text); }
+.hm-sect {
+  display: flex; align-items: center; gap: 4px; width: 100%; height: 24px; margin-top: 14px; padding: 0 8px;
+  border: 0; border-radius: var(--r-md); background: transparent; color: var(--text-3); font-size: var(--fs-sm); text-align: left;
+  transition: color 150ms var(--ease);
+}
+.hm-sect:hover { color: var(--text-2); }
+.hm-sect svg { transition: transform 150ms var(--ease); }
+.hm-sect[aria-expanded="false"] svg { transform: rotate(-90deg); }
+.hm-rec {
+  display: flex; align-items: center; flex-shrink: 0; gap: 6px; width: 100%; height: 28px; padding: 0 8px;
+  border: 0; border-radius: var(--r-md); background: transparent; color: var(--text-3); font-size: var(--fs-sm); text-align: left;
+}
+.hm-rec span:first-child { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.hm-rec span:last-child { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.hm-rec:hover { background: var(--wash); color: var(--text); }
+.hm-side-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; padding: 14px 4px 0 8px; }
+.hm-update { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: var(--fs-sm); color: var(--text-2); }
+
+/* ── Main column: 680px, starting a fifth of the way down ──────────────── */
+.hm-main { min-width: 0; min-height: 0; overflow-y: auto; display: flex; justify-content: center; padding: 0 24px; }
+.hm-in { width: 100%; max-width: 680px; padding: max(64px, 20vh) 0 48px; }
+.hm-hello { margin: 0 0 16px; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
+.hm-line { margin: 14px 0 0; color: var(--text-3); }
+
+/* One composer, shaped like a chat box: the draft on top, the ways in below. */
+.hm-start { display: flex; flex-direction: column; gap: 10px; }
+.hm-composer {
+  display: flex; flex-direction: column; min-width: 0;
+  border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel);
+  transition: border-color 150ms var(--ease);
+}
+.hm-composer:focus-within { border-color: var(--line-strong); }
+.hm-composer-in {
+  display: block; width: 100%; max-height: 200px; resize: none; overflow-y: auto;
+  padding: 14px 16px 4px; border: 0; outline: none; background: transparent;
+  font-size: var(--fs-lg); line-height: 20px; color: var(--text-2); user-select: text;
+}
+.hm-composer-in:focus { color: var(--text); }
+.hm-composer-in::placeholder { color: var(--text-3); }
+.hm-composer-in:disabled { opacity: 0.6; }
+.hm-composer-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px 8px; }
+.hm-composer-act { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.hm-composer-end { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.hm-hint { display: flex; align-items: center; gap: 4px 6px; font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; }
+.hm-hint kbd { padding: 0 4px; border: 1px solid var(--line); border-radius: var(--r-sm); font: inherit; line-height: 16px; }
+.hm-send {
+  display: grid; place-items: center; width: 28px; height: 28px;
+  border: 0; border-radius: var(--r-md); background: var(--wash-2); color: var(--text);
+  transition: background 150ms var(--ease);
+}
+.hm-send:hover { background: var(--hover); }
+.hm-send:disabled { opacity: 0.4; }
+.hm-start-foot { margin: 0; font-size: var(--fs-sm); color: var(--text-3); }
+
+.hm-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 28px; padding: 0 10px;
+  border: 0; border-radius: var(--r-md); background: transparent; color: var(--text-2);
+  font-size: var(--fs-md); white-space: nowrap;
+  transition: background 150ms var(--ease), color 150ms var(--ease), opacity 150ms var(--ease);
+}
+.hm-btn:hover, .hm-btn[aria-expanded="true"] { background: var(--wash-2); color: var(--text); }
+.hm-btn:disabled { opacity: 0.5; }
+.hm-btn-pri { background: var(--pri); color: var(--pri-ink); }
+.hm-btn-pri:hover { background: var(--pri-hover); color: var(--pri-ink); }
+
+/* ── Recent decks: compact rows, a picture of the first slide ──────────── */
+.hm-recent { margin: 40px 0 0; }
+.hm-recent h2 { margin: 0 0 8px; padding: 0 8px; font-size: var(--fs-md); font-weight: 400; color: var(--text-2); }
+.hm-search {
+  display: flex; align-items: center; gap: 8px; height: 32px; margin-bottom: 6px; padding: 0 10px;
+  border-radius: var(--r-md); background: var(--panel); box-shadow: inset 0 0 0 1px var(--line); color: var(--text-3);
+}
+.hm-search:focus-within { box-shadow: inset 0 0 0 1px var(--line-strong); }
+.hm-search input { flex: 1; min-width: 0; border: 0; outline: none; background: none; color: var(--text-2); font-size: var(--fs-md); user-select: text; }
+.hm-search input::placeholder { color: var(--text-3); }
+.hm-list { display: flex; flex-direction: column; }
+.hm-row {
+  display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 8px;
+  border-radius: var(--r-md); color: var(--text-2); cursor: pointer; outline: none;
+  transition: background 120ms var(--ease), color 120ms var(--ease);
+}
+.hm-row:hover, .hm-row:focus-visible { background: var(--wash); color: var(--text); }
+.hm-row:focus-visible { outline: 2px solid var(--sel); outline-offset: -1px; }
+.hm-cover { position: relative; display: block; flex-shrink: 0; width: 48px; height: 27px; overflow: hidden; border-radius: var(--r-sm); background: var(--raised); box-shadow: inset 0 0 0 1px var(--line); }
+.hm-cover-ini { position: absolute; inset: 0; display: grid; place-items: center; font-size: var(--fs-xs); color: var(--text-3); }
+.hm-row-nm { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.hm-row-when { flex-shrink: 0; min-width: 84px; text-align: right; font-size: var(--fs-sm); color: var(--text-3); }
+.hm-none { margin: 10px 8px 0; font-size: var(--fs-sm); color: var(--text-3); }
+.hm-all { margin: 6px 0 0 8px; padding: 0; border: 0; background: none; font-size: var(--fs-sm); color: var(--text-3); transition: color 120ms var(--ease); }
+.hm-all:hover { color: var(--text); }
+
+.hm-nav:focus-visible, .hm-rec:focus-visible, .hm-sect:focus-visible, .hm-btn:focus-visible, .hm-send:focus-visible, .hm-all:focus-visible, .hm-nav-add:focus-visible {
+  outline: 2px solid var(--sel); outline-offset: 1px;
+}
+
+/* A narrow window: the sidebar gives its room to the page. */
+@media (max-width: 760px) {
+  .hm { grid-template-columns: minmax(0, 1fr); }
+  .hm-side { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hm *, .hm *::before, .hm *::after { transition: none !important; }
+}

@@ -1,0 +1,36 @@
+{
+  "format": "fenna-sheets/0",
+  "title": "Q3 Revenue & Launch Tracker",
+  "locale": "en-US",
+  "timeZone": "Asia/Kolkata",
+  "sheets": [
+    { "id": "overview", "title": "Revenue" },
+    { "id": "tasks", "title": "Launch Tasks" }
+  ],
+  "dropdowns": [
+    {
+      "id": "status",
+      "name": "Status",
+      "options": [
+        { "id": "not-started", "label": "Not started", "color": "gray" },
+        { "id": "in-progress", "label": "In progress", "color": "blue" },
+        { "id": "done", "label": "Done", "color": "green" }
+      ]
+    },
+    {
+      "id": "priority",
+      "name": "Priority",
+      "options": [
+        { "id": "low", "label": "Low", "color": "gray" },
+        { "id": "medium", "label": "Medium", "color": "yellow" },
+        { "id": "high", "label": "High", "color": "red" }
+      ]
+    }
+  ],
+  "people": [
+    { "name": "Priya Nair", "email": "priya@example.com" },
+    { "name": "Maya Lin", "email": "maya@example.com" },
+    { "name": "Sam Rivera", "email": "sam@example.com" }
+  ]
+}
+

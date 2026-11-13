@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "threads": [
+    {
+      "id": "t-growth",
+      "sheetId": "overview",
+      "range": "F5",
+      "resolved": false,
+      "comments": [
+        {
+          "id": "c1",
+          "author": "you",
+          "text": "72% growth for Marketplace looks high. Is the July figure right?",
+          "at": 1794477600000
+        },
+        {
+          "id": "c2",
+          "author": "ai",
+          "text": "July is $11,200, the lowest month, so the jump to $19,300 in September is 72%. The figures match the inputs in B5:D5.",
+          "at": 1794477660000
+        }
+      ]
+    }
+  ]
+}

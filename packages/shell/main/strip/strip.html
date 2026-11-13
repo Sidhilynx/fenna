@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en" data-theme="dark" data-platform="win32">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tabs</title>
+  <link rel="stylesheet" href="strip.css" />
+</head>
+<body>
+  <div id="bar">
+    <button id="mark" class="ctl btn" type="button" aria-label="Home"><span class="mark" aria-hidden="true"></span></button>
+    <div id="scroller" class="ctl">
+      <div id="tabs" role="tablist" aria-label="Open tabs" aria-orientation="horizontal"></div>
+    </div>
+    <button id="plus" class="ctl btn" type="button" aria-label="New tab" title="New tab (Ctrl+T)"></button>
+    <div id="space"></div>
+    <button id="list" class="ctl btn" type="button" aria-label="All tabs" aria-haspopup="menu"></button>
+  </div>
+  <div id="card" role="presentation" aria-hidden="true">
+    <div class="c-title"></div>
+    <div class="c-meta"></div>
+    <div class="c-thumb" hidden><img alt="" draggable="false" /></div>
+  </div>
+  <script src="glyphs.js"></script>
+  <script src="strip.js"></script>
+</body>
+</html>

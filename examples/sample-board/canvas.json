@@ -1,0 +1,21 @@
+{
+  "items": [
+    {"id":"t-title","kind":"text","x":100,"y":30,"width":520,"height":67,"text":"Product roadmap","size":"title","bold":true},
+    {"id":"d-underline","kind":"drawing","x":102,"y":100,"width":300,"height":10,"points":[0,6,60,2,140,8,220,3,300,6],"color":"orange"},
+    {"id":"f-themes","kind":"frame","x":100,"y":170,"width":560,"height":280,"title":"Q4 themes","color":"blue"},
+    {"id":"s-fast","kind":"sticky","x":130,"y":210,"width":220,"height":200,"text":"Fast local search\nUnder 50 ms across every board","color":"yellow","author":"Priya","frame":"f-themes"},
+    {"id":"s-mcp","kind":"sticky","x":400,"y":210,"width":220,"height":200,"text":"Expand the MCP tools\nBatch edits and schema checks","color":"green","author":"Priya","frame":"f-themes"},
+    {"id":"st-star","kind":"sticker","x":612,"y":146,"width":64,"height":64,"sticker":"star"},
+    {"id":"s-shortcuts","kind":"sticky","x":740,"y":170,"width":200,"height":200,"text":"Keyboard shortcut cheat sheet","color":"pink","author":"Alice"},
+    {"id":"s-toolbar","kind":"sticky","x":970,"y":170,"width":200,"height":200,"text":"Let people reorder the toolbar","color":"pink","author":"Alice"},
+    {"id":"s-backup","kind":"sticky","x":740,"y":400,"width":200,"height":200,"text":"Daily backup to a local folder","color":"purple","author":"Bob"},
+    {"id":"s-snapshots","kind":"sticky","x":970,"y":400,"width":200,"height":200,"text":"Keep a version on every save","color":"purple","author":"Bob"},
+    {"id":"t-arch","kind":"text","x":100,"y":520,"width":420,"height":39,"text":"How it fits together","size":"large","bold":true},
+    {"id":"sh-app","kind":"shape","shape":"rect","x":100,"y":600,"width":200,"height":100,"text":"Desktop app","fill":"blue"},
+    {"id":"sh-folder","kind":"shape","shape":"cylinder","x":420,"y":580,"width":150,"height":140,"text":"Board folder","fill":"gray"},
+    {"id":"sh-ai","kind":"shape","shape":"cloud","x":700,"y":650,"width":220,"height":130,"text":"Any MCP client","fill":"purple"},
+    {"id":"c-io","kind":"connector","from":{"item":"sh-app"},"to":{"item":"sh-folder"},"label":"reads and writes"},
+    {"id":"c-mcp","kind":"connector","from":{"item":"sh-ai","side":"left"},"to":{"item":"sh-folder","side":"bottom"},"lineStyle":"dashed","label":"MCP"},
+    {"id":"tb-sprints","kind":"table","x":980,"y":660,"width":520,"height":132,"cells":[["Sprint","Focus","Status"],["1","Format and MCP","Done"],["2","Whiteboard editor","In progress"]]}
+  ]
+}

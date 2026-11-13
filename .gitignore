@@ -1,0 +1,11 @@
+node_modules/
+dist/
+out/
+*.log
+.DS_Store
+# Reference screenshots of other products stay local, never in the public repo.
+example-screenshots-*/
+release/
+# Built per app by "npm run build"; never committed.
+apps/*/build/mcp/
+apps/*/release/

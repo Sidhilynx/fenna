@@ -1,0 +1,24 @@
+/* Comment pins on the stage, and where the open thread sits. The thread card
+   itself is the shell's (ThreadCard). Tokens only. */
+
+.cm-pins { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+.cm-pin {
+  position: absolute; display: grid; place-items: center; width: 26px; height: 26px; padding: 0;
+  pointer-events: auto; border-radius: 50% 50% 50% 3px; border: 1.5px solid var(--wash-2);
+  background: var(--sel); color: var(--pri-ink); box-shadow: var(--shadow);
+  font: 600 var(--fs-xs)/1 var(--font-ui); font-variant-numeric: tabular-nums;
+  transition: transform 140ms var(--ease);
+}
+.cm-pin:hover { transform: scale(1.1); }
+.cm-pin.open { background: var(--text); border-color: var(--line); color: var(--bg); }
+
+.cm-thread { position: fixed; z-index: 20; animation: cm-enter 140ms var(--ease) both; }
+@keyframes cm-enter {
+  from { opacity: 0; transform: scale(0.96) translateY(-4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cm-thread { animation: none; }
+  .cm-pin { transition: none; }
+  .cm-pin:hover { transform: none; }
+}

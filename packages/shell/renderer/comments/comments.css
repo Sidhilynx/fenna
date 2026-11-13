@@ -1,0 +1,88 @@
+/* A comment thread card. Where it sits is the app's; tokens only. */
+
+.cm-card {
+  position: relative; width: 300px; max-height: min(480px, calc(100vh - 16px));
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--raised); border: 1px solid var(--line-strong);
+  border-radius: var(--r-lg); box-shadow: var(--shadow);
+  text-align: left; color: var(--text);
+}
+
+/* Resolve, close and more sit in the card's corner, beside the first comment. */
+.cm-head { position: absolute; top: 8px; right: 8px; z-index: 1; display: flex; align-items: center; gap: 0; }
+.cm-head .icon-btn { min-width: 28px; height: 28px; padding: 0; }
+.cm-head + .cm-quote { margin-right: 100px; }
+.cm-head ~ .cm-list .cm-item:first-child .cm-meta { padding-right: 92px; }
+
+.cm-quote {
+  margin: 14px 14px 0; padding-left: 9px; border-left: 2px solid var(--line-strong);
+  font-size: var(--fs-sm); color: var(--text-2); line-height: 1.5;
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+
+.cm-list {
+  overflow-y: auto; padding: 14px 14px 10px; display: flex; flex-direction: column; gap: 14px;
+  user-select: text; scrollbar-width: thin;
+}
+.cm-item { display: flex; gap: 10px; align-items: flex-start; }
+.cm-body { flex: 1; min-width: 0; }
+.cm-avatar { flex: none; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; background: var(--hover); color: var(--text-2); }
+.cm-avatar.ai { background: var(--text); color: var(--bg); }
+.cm-meta { display: flex; align-items: center; gap: 8px; min-height: 24px; margin-bottom: 1px; }
+.cm-author { font-size: var(--fs-md); font-weight: 600; color: var(--text); }
+.cm-time, .cm-count { font-size: var(--fs-xs); color: var(--text-3); }
+.cm-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; color: var(--text); font-size: var(--fs-md); }
+.cm-item.error .cm-text { color: var(--warn); }
+.cm-working {
+  font-size: var(--fs-sm); color: var(--text-3);
+  animation: cm-pulse 1s var(--ease) infinite alternate;
+}
+
+/* Collapsed: a quiet summary that opens the thread */
+.cm-collapsed {
+  display: flex; flex-direction: column; gap: 2px; padding: 10px 12px;
+  box-shadow: none; border-color: var(--line); background: var(--panel); cursor: pointer;
+  transition: border-color 120ms var(--ease), background 120ms var(--ease);
+}
+.cm-collapsed:hover { border-color: var(--line-strong); background: var(--raised); }
+.cm-clamp { white-space: normal; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+
+/* The reply box */
+.cm-input {
+  padding: 10px 12px 12px; flex: none;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.cm-input textarea {
+  display: block; width: 100%; padding: 8px 10px; resize: none; user-select: text;
+  border: 1px solid transparent; border-radius: var(--r-md);
+  background: var(--field); color: var(--text);
+  font: var(--fs-md)/1.5 var(--font-ui); outline: none;
+  transition: border-color 120ms var(--ease);
+}
+.cm-input textarea:focus { border-color: var(--sel); }
+.cm-input textarea::placeholder { color: var(--text-3); }
+
+.cm-actions { display: flex; align-items: center; justify-content: space-between; }
+.cm-ask {
+  display: flex; align-items: center; gap: 7px;
+  font-size: var(--fs-sm); color: var(--text-2); cursor: pointer;
+  user-select: none;
+}
+.cm-ask:hover { color: var(--text); }
+.cm-ask input { margin: 0; width: 14px; height: 14px; accent-color: var(--sel); cursor: pointer; }
+
+.cm-send-btn {
+  width: 30px; height: 30px; display: grid; place-items: center; flex: none;
+  border: 0; border-radius: 50%;
+  background: var(--pri); color: var(--pri-ink);
+  transition: background 120ms var(--ease), transform 80ms var(--ease);
+}
+.cm-send-btn:hover:not(:disabled) { transform: scale(1.08); }
+.cm-send-btn:disabled { background: var(--hover); color: var(--text-3); }
+
+@keyframes cm-pulse { from { opacity: 0.45; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .cm-working { animation: none; }
+  .cm-send-btn:hover:not(:disabled) { transform: none; }
+  .cm-collapsed { transition: none; }
+}

@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "threads": [
+    {
+      "id": "t-sticky-change",
+      "item": "s-mcp",
+      "resolved": false,
+      "comments": [
+        {
+          "id": "c1",
+          "author": "you",
+          "text": "Please add that it also syncs in real time with other local clients.",
+          "at": 1794500000000
+        }
+      ]
+    }
+  ]
+}

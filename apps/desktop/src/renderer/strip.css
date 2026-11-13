@@ -1,0 +1,108 @@
+/* Slide strip: drag, multi-select, hover menu, inline section editing */
+
+.strip {
+  position: relative;
+  outline: none;
+}
+
+.strip:focus-visible {
+  outline: 2px solid var(--sel);
+  outline-offset: -2px;
+}
+
+.thumb {
+  cursor: pointer;
+  user-select: none;
+  animation: thumb-in 160ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+@keyframes thumb-in {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* A slide changed from outside (the AI) rings once in the strip. */
+.thumb-img.touched { animation: thumb-touch 900ms var(--ease); }
+
+@keyframes thumb-touch {
+  0%, 60% { outline: 2px solid var(--ai-flash); outline-offset: 1px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thumb, .thumb-img.touched { animation: none; }
+}
+
+.thumb.selected:not(.current) .thumb-img {
+  outline: 2px solid var(--sel);
+  outline-offset: 1px;
+}
+
+.thumb.selected .thumb-num {
+  color: var(--text);
+}
+
+.thumb.dragging {
+  opacity: 0.28;
+  transform: scale(0.97);
+  transition: opacity 100ms, transform 100ms;
+}
+
+.thumb-more-btn {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  padding: 0;
+  background: var(--raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  color: var(--text-2);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms var(--ease), background 120ms var(--ease), color 120ms var(--ease);
+  z-index: 2;
+}
+
+.thumb:hover .thumb-more-btn,
+.thumb-more-btn:focus-visible,
+.thumb-more-btn[aria-expanded="true"] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.thumb-more-btn:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.strip-drop-line {
+  position: absolute;
+  left: 24px;
+  right: 8px;
+  height: 2px;
+  background: var(--sel);
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 10;
+  box-shadow: 0 0 6px var(--sel-soft);
+}
+
+.strip-section {
+  cursor: default;
+  user-select: none;
+}
+
+.strip-section-input {
+  display: block;
+  width: calc(100% - 28px);
+  margin: 10px 0 4px 28px;
+  padding: 2px 6px;
+  background: var(--field);
+  border: 1px solid var(--sel);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font: var(--fs-xs)/1.4 var(--font-ui);
+  outline: none;
+}

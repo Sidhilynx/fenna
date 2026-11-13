@@ -1,0 +1,24 @@
+{
+  "format": "fenna-slides/0",
+  "title": "Fenna — Sample Deck",
+  "slides": ["cover", "problem", "statement", "how", "roadmap", "business"],
+  "sections": [
+    { "title": "Why this project exists", "start": "cover" },
+    { "title": "How the AI plugs into the apps", "start": "how" },
+    { "title": "What ships when, and how it makes money", "start": "roadmap" }
+  ],
+  "theme": {
+    "colors": { "ink": "#151515", "paper": "#f3f1ec", "card": "#fbfaf7", "line": "#ddd8cf", "muted": "#6b675f", "body": "#4a4741", "accent": "#ff6b35", "soft": "#b8b4ac" },
+    "fonts": [
+      { "family": "Instrument Serif", "source": "google" },
+      { "family": "Inter", "source": "google", "weights": [400, 600] }
+    ],
+    "textStyles": {
+      "eyebrow": "font-family:Inter, Arial, sans-serif;font-size:24px;font-weight:600;letter-spacing:4px;text-transform:uppercase",
+      "display": "font-family:'Instrument Serif', Georgia, serif;font-size:120px;font-weight:400;line-height:1.05",
+      "title": "font-family:'Instrument Serif', Georgia, serif;font-size:72px;font-weight:400;line-height:1.1",
+      "card-title": "font-family:'Instrument Serif', Georgia, serif;font-size:44px;font-weight:400;line-height:1.2",
+      "body": "font-size:32px;line-height:1.4"
+    }
+  }
+}

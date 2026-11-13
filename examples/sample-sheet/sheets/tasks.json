@@ -1,0 +1,165 @@
+{
+  "id": "tasks",
+  "title": "Launch Tasks",
+  "rows": 1000,
+  "cols": 26,
+  "rowHeights": {},
+  "colWidths": {
+    "0": 65,
+    "1": 220,
+    "2": 140,
+    "3": 120,
+    "4": 120,
+    "5": 120
+  },
+  "frozenRows": 1,
+  "frozenCols": 0,
+  "showGridlines": true,
+  "cells": {
+    "A1": {
+      "v": "Done",
+      "s": {
+        "bold": true,
+        "alignH": "center"
+      }
+    },
+    "B1": {
+      "v": "Deliverable",
+      "s": {
+        "bold": true
+      }
+    },
+    "C1": {
+      "v": "Owner",
+      "s": {
+        "bold": true
+      }
+    },
+    "D1": {
+      "v": "Priority",
+      "s": {
+        "bold": true
+      }
+    },
+    "E1": {
+      "v": "Status",
+      "s": {
+        "bold": true
+      }
+    },
+    "F1": {
+      "v": "Target Date",
+      "s": {
+        "bold": true
+      }
+    },
+    "A2": {
+      "v": true,
+      "t": "checkbox",
+      "s": {
+        "alignH": "center"
+      }
+    },
+    "B2": {
+      "v": "Formula engine & dependency graph"
+    },
+    "C2": {
+      "v": "Priya Nair",
+      "t": "person",
+      "person": {
+        "name": "Priya Nair"
+      }
+    },
+    "D2": {
+      "v": "High",
+      "t": "dropdown",
+      "dropdownId": "priority"
+    },
+    "E2": {
+      "v": "Done",
+      "t": "dropdown",
+      "dropdownId": "status"
+    },
+    "F2": {
+      "v": 46338,
+      "t": "date",
+      "s": {
+        "numFmt": "date_short"
+      }
+    },
+    "A3": {
+      "v": false,
+      "t": "checkbox",
+      "s": {
+        "alignH": "center"
+      }
+    },
+    "B3": {
+      "v": "XLSX & CSV import/export"
+    },
+    "C3": {
+      "v": "Maya Lin",
+      "t": "person",
+      "person": {
+        "name": "Maya Lin"
+      }
+    },
+    "D3": {
+      "v": "Medium",
+      "t": "dropdown",
+      "dropdownId": "priority"
+    },
+    "E3": {
+      "v": "In progress",
+      "t": "dropdown",
+      "dropdownId": "status"
+    },
+    "F3": {
+      "v": 46344,
+      "t": "date",
+      "s": {
+        "numFmt": "date_short"
+      }
+    },
+    "A4": {
+      "v": false,
+      "t": "checkbox",
+      "s": {
+        "alignH": "center"
+      }
+    },
+    "B4": {
+      "v": "Public docs & release build"
+    },
+    "C4": {
+      "v": "Sam Rivera",
+      "t": "person",
+      "person": {
+        "name": "Sam Rivera"
+      }
+    },
+    "D4": {
+      "v": "Low",
+      "t": "dropdown",
+      "dropdownId": "priority"
+    },
+    "E4": {
+      "v": "Not started",
+      "t": "dropdown",
+      "dropdownId": "status"
+    },
+    "F4": {
+      "v": 46350,
+      "t": "date",
+      "s": {
+        "numFmt": "date_short"
+      }
+    }
+  },
+  "merges": [],
+  "rules": [],
+  "charts": [],
+  "filter": null,
+  "colGroups": [],
+  "rowGroups": []
+}

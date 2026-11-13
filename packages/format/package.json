@@ -1,0 +1,16 @@
+{
+  "name": "@opendeck/format",
+  "version": "0.0.1",
+  "description": "The Fenna Slides format: parse, validate and normalize deck folders.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "dom-serializer": "^2.0.0",
+    "domhandler": "^5.0.3",
+    "htmlparser2": "^10.1.0"
+  }
+}

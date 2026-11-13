@@ -1,0 +1,22 @@
+name: Idea
+description: Something Fenna should do
+labels: [idea, triage]
+body:
+  - type: dropdown
+    id: app
+    attributes:
+      label: App
+      options: [Fenna Slides, Fenna Docs, Fenna Sheets, Fenna Whiteboard, All of them]
+    validations:
+      required: true
+  - type: textarea
+    id: need
+    attributes:
+      label: What you're trying to do
+      description: The work you're doing and where Fenna gets in the way. This matters more than a proposed solution.
+    validations:
+      required: true
+  - type: textarea
+    id: how
+    attributes:
+      label: How it could work (optional)

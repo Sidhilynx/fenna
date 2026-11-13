@@ -1,0 +1,97 @@
+{
+  "name": "@opendeck/desktop",
+  "productName": "Fenna Slides",
+  "version": "0.9.0",
+  "private": true,
+  "description": "Slides that live on your computer and work with any AI.",
+  "license": "AGPL-3.0-only",
+  "author": {
+    "name": "Sidhilynx",
+    "url": "https://github.com/Sidhilynx"
+  },
+  "main": "src/main/main.cjs",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "vite build && node scripts/build-mcp.mjs",
+    "start": "electron .",
+    "dist": "npm run build && electron-builder",
+    "pack": "npm run build && electron-builder --dir"
+  },
+  "dependencies": {
+    "@opendeck/shell": "0.0.1"
+  },
+  "devDependencies": {
+    "@opendeck/format": "0.0.1",
+    "@opendeck/render": "0.0.1",
+    "@opendeck/mcp": "0.0.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "electron": "^45.3.0",
+    "electron-builder": "^26.18.0",
+    "esbuild": "^0.28.2",
+    "pptxgenjs": "^4.0.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "vite": "^8.3.8"
+  },
+  "build": {
+    "appId": "com.sidhilynx.fenna.slides",
+    "electronVersion": "45.3.0",
+    "productName": "Fenna Slides",
+    "copyright": "Copyright © 2026 Sidhilynx. AGPL-3.0.",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/main/**",
+      "dist/**",
+      "package.json",
+      "!**/*.map"
+    ],
+    "extraResources": [
+      {
+        "from": "build/mcp",
+        "to": "mcp"
+      }
+    ],
+    "asar": true,
+    "npmRebuild": false,
+    "nodeGypRebuild": false,
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "artifactName": "Fenna-Slides-${version}-setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "Fenna Slides",
+      "uninstallDisplayName": "Fenna Slides"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.productivity",
+      "artifactName": "Fenna-Slides-${version}-${arch}.${ext}",
+      "identity": "-",
+      "hardenedRuntime": false
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Office",
+      "artifactName": "Fenna-Slides-${version}-${arch}.${ext}",
+      "maintainer": "Sidhilynx",
+      "executableName": "fenna-slides"
+    },
+    "publish": null
+  },
+  "homepage": "https://github.com/Sidhilynx/fenna"
+}

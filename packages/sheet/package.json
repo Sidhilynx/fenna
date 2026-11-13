@@ -1,0 +1,12 @@
+{
+  "name": "@opendeck/sheet",
+  "version": "0.0.1",
+  "description": "The Fenna Sheets format: workbook/sheet schema, formula engine, formatting, CSV and Excel import/export.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}
+

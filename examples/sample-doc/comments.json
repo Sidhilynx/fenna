@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "threads": [
+    {
+      "id": "why-html",
+      "tab": "overview",
+      "block": "why-1",
+      "quote": "one HTML file per tab",
+      "resolved": false,
+      "comments": [
+        { "id": "c-why-1", "author": "you", "text": "Why HTML and not Markdown?", "at": 1794304800000 },
+        { "id": "c-why-2", "author": "ai", "text": "HTML keeps tables, colors, dates and comment anchors that Markdown would lose. Any browser or text editor still opens it.", "at": 1794304860000 }
+      ]
+    },
+    {
+      "id": "long-docs",
+      "tab": "risks",
+      "block": "r-table",
+      "quote": "Very long docs feel slow",
+      "resolved": false,
+      "comments": [
+        { "id": "c-long-1", "author": "you", "text": "How long is very long? Let's put a number on it.", "at": 1794319200000 }
+      ]
+    }
+  ]
+}

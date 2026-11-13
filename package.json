@@ -1,0 +1,25 @@
+{
+  "name": "opendeck-monorepo",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p packages/format && tsc -p packages/render && tsc -p packages/mcp && tsc -p packages/shell && tsc -p packages/doc && tsc -p packages/doc-mcp && tsc -p packages/sheet && tsc -p packages/sheet-mcp && tsc -p packages/board && tsc -p packages/board-mcp && tsc -p apps/desktop && tsc -p apps/docs && tsc -p apps/sheets && tsc -p apps/whiteboard"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "typescript": "5.9",
+    "vitest": "^5.1.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "electron@45.3.0": true
+  }
+}

@@ -1,0 +1,374 @@
+{
+  "id": "overview",
+  "title": "Revenue",
+  "rows": 1000,
+  "cols": 26,
+  "rowHeights": {
+    "0": 28
+  },
+  "colWidths": {
+    "0": 150,
+    "1": 115,
+    "2": 115,
+    "3": 115,
+    "4": 120,
+    "5": 110,
+    "6": 120
+  },
+  "frozenRows": 1,
+  "frozenCols": 0,
+  "showGridlines": true,
+  "cells": {
+    "A1": {
+      "v": "Channel",
+      "s": {
+        "bold": true,
+        "borders": {
+          "bottom": {
+            "style": "medium"
+          }
+        }
+      }
+    },
+    "B1": {
+      "v": "July",
+      "s": {
+        "bold": true,
+        "alignH": "right",
+        "borders": {
+          "bottom": {
+            "style": "medium"
+          }
+        }
+      }
+    },
+    "C1": {
+      "v": "August",
+      "s": {
+        "bold": true,
+        "alignH": "right",
+        "borders": {
+          "bottom": {
+            "style": "medium"
+          }
+        }
+      }
+    },
+    "D1": {
+      "v": "September",
+      "s": {
+        "bold": true,
+        "alignH": "right",
+        "borders": {
+          "bottom": {
+            "style": "medium"
+          }
+        }
+      }
+    },
+    "E1": {
+      "v": "Q3 Total",
+      "s": {
+        "bold": true,
+        "alignH": "right",
+        "borders": {
+          "bottom": {
+            "style": "medium"
+          }
+        }
+      }
+    },
+    "F1": {
+      "v": "Growth",
+      "s": {
+        "bold": true,
+        "alignH": "right",
+        "borders": {
+          "bottom": {
+            "style": "medium"
+          }
+        }
+      }
+    },
+    "G1": {
+      "v": "Status",
+      "s": {
+        "bold": true,
+        "borders": {
+          "bottom": {
+            "style": "medium"
+          }
+        }
+      }
+    },
+    "A2": {
+      "v": "Direct Pro"
+    },
+    "B2": {
+      "v": 42500,
+      "s": {
+        "numFmt": "currency_rounded"
+      }
+    },
+    "C2": {
+      "v": 48900,
+      "s": {
+        "numFmt": "currency_rounded"
+      }
+    },
+    "D2": {
+      "v": 56200,
+      "s": {
+        "numFmt": "currency_rounded"
+      }
+    },
+    "E2": {
+      "f": "=SUM(B2:D2)",
+      "s": {
+        "bold": true,
+        "numFmt": "currency_rounded"
+      }
+    },
+    "F2": {
+      "f": "=(D2-B2)/B2",
+      "s": {
+        "numFmt": "percent"
+      }
+    },
+    "G2": {
+      "v": "Done",
+      "t": "dropdown",
+      "dropdownId": "status"
+    },
+    "A3": {
+      "v": "Team Cloud"
+    },
+    "B3": {
+      "v": 28400,
+      "s": {
+        "numFmt": "currency_rounded"
+      }
+    },
+    "C3": {
+      "v": 33100,
+      "s": {
+        "numFmt": "currency_rounded"
+      }
+    },
+    "D3": {
+      "v": 41800,
+      "s": {
+        "numFmt": "currency_rounded"
+      }
+    },
+    "E3": {
+      "f": "=SUM(B3:D3)",
+      "s": {
+        "bold": true,
+        "numFmt": "currency_rounded"
+      }
+    },
+    "F3": {
+      "f": "=(D3-B3)/B3",
+      "s": {
+        "numFmt": "percent"
+      }
+    },
+    "G3": {
+      "v": "Done",
+      "t": "dropdown",
+      "dropdownId": "status"
+    },
+    "A4": {
+      "v": "Enterprise"
+    },
+    "B4": {
+      "v": 61000,
+      "s": {
+        "numFmt": "currency_rounded"
+      }
+    },
+    "C4": {
+      "v": 59500,
+      "s": {
+        "numFmt": "currency_rounded"
+      }
+    },
+    "D4": {
+      "v": 72400,
+      "s": {
+        "numFmt": "currency_rounded"
+      }
+    },
+    "E4": {
+      "f": "=SUM(B4:D4)",
+      "s": {
+        "bold": true,
+        "numFmt": "currency_rounded"
+      }
+    },
+    "F4": {
+      "f": "=(D4-B4)/B4",
+      "s": {
+        "numFmt": "percent"
+      }
+    },
+    "G4": {
+      "v": "In progress",
+      "t": "dropdown",
+      "dropdownId": "status"
+    },
+    "A5": {
+      "v": "Marketplace"
+    },
+    "B5": {
+      "v": 11200,
+      "s": {
+        "numFmt": "currency_rounded"
+      }
+    },
+    "C5": {
+      "v": 14600,
+      "s": {
+        "numFmt": "currency_rounded"
+      }
+    },
+    "D5": {
+      "v": 19300,
+      "s": {
+        "numFmt": "currency_rounded"
+      }
+    },
+    "E5": {
+      "f": "=SUM(B5:D5)",
+      "s": {
+        "bold": true,
+        "numFmt": "currency_rounded"
+      }
+    },
+    "F5": {
+      "f": "=(D5-B5)/B5",
+      "s": {
+        "numFmt": "percent"
+      }
+    },
+    "G5": {
+      "v": "In progress",
+      "t": "dropdown",
+      "dropdownId": "status"
+    },
+    "A6": {
+      "v": "Total",
+      "s": {
+        "bold": true,
+        "borders": {
+          "top": {
+            "style": "thin"
+          }
+        }
+      }
+    },
+    "B6": {
+      "f": "=SUM(B2:B5)",
+      "s": {
+        "bold": true,
+        "numFmt": "currency_rounded",
+        "borders": {
+          "top": {
+            "style": "thin"
+          }
+        }
+      }
+    },
+    "C6": {
+      "f": "=SUM(C2:C5)",
+      "s": {
+        "bold": true,
+        "numFmt": "currency_rounded",
+        "borders": {
+          "top": {
+            "style": "thin"
+          }
+        }
+      }
+    },
+    "D6": {
+      "f": "=SUM(D2:D5)",
+      "s": {
+        "bold": true,
+        "numFmt": "currency_rounded",
+        "borders": {
+          "top": {
+            "style": "thin"
+          }
+        }
+      }
+    },
+    "E6": {
+      "f": "=SUM(E2:E5)",
+      "s": {
+        "bold": true,
+        "numFmt": "currency_rounded",
+        "borders": {
+          "top": {
+            "style": "double"
+          }
+        }
+      }
+    },
+    "F6": {
+      "f": "=(D6-B6)/B6",
+      "s": {
+        "bold": true,
+        "numFmt": "percent",
+        "borders": {
+          "top": {
+            "style": "thin"
+          }
+        }
+      }
+    },
+    "G6": {
+      "v": "",
+      "s": {
+        "borders": {
+          "top": {
+            "style": "thin"
+          }
+        }
+      }
+    }
+  },
+  "merges": [],
+  "rules": [
+    {
+      "id": "rule-growth",
+      "kind": "highlight",
+      "range": "F2:F5",
+      "condition": "gt",
+      "values": [
+        "0.3"
+      ],
+      "style": {
+        "color": "#238a31",
+        "bold": true
+      }
+    }
+  ],
+  "charts": [
+    {
+      "id": "chart-revenue",
+      "type": "bar",
+      "title": "Revenue by channel",
+      "range": "A1:D5",
+      "x": 861,
+      "y": 8,
+      "w": 460,
+      "h": 280,
+      "headerRow": true
+    }
+  ],
+  "filter": null,
+  "colGroups": [],
+  "rowGroups": []
+}

@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "threads": [
+    {
+      "id": "cover-name",
+      "slide": "cover",
+      "addr": "0",
+      "snippet": "[Product name] · Open source",
+      "resolved": false,
+      "comments": [
+        { "id": "c-name-1", "author": "you", "text": "What do we call it? Keep the placeholder until we decide.", "at": 1794304800000 },
+        { "id": "c-name-2", "author": "ai", "text": "Kept [Product name] here and on slide 2, so both change together once you pick a name.", "at": 1794304860000 }
+      ]
+    },
+    {
+      "id": "shorter-card",
+      "slide": "problem",
+      "addr": "1.0.1",
+      "snippet": "Each lab ships its own slides, docs and canvases.",
+      "resolved": false,
+      "comments": [
+        { "id": "c-short-1", "author": "you", "text": "Shorter: just \"Each lab ships its own tools.\"", "at": 1794319200000 }
+      ]
+    },
+    {
+      "id": "notes-row",
+      "slide": "roadmap",
+      "addr": "1.4.1",
+      "snippet": "Sheets",
+      "resolved": false,
+      "comments": [
+        { "id": "c-notes-1", "author": "you", "text": "We're calling the fourth one Notes now: notes that link to slides.", "at": 1794322800000 }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "name": "@opendeck/sheet-mcp",
+  "version": "0.0.1",
+  "description": "The Fenna Sheets MCP server: any AI that speaks MCP can read and edit a workbook through it.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "bin": {
+    "fenna-sheets-mcp": "src/cli.ts"
+  },
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "@opendeck/sheet": "0.0.1",
+    "zod": "^4.6.7",
+    "@opendeck/shell": "0.0.1"
+  }
+}

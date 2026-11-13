@@ -1,0 +1,15 @@
+{
+  "name": "@opendeck/doc",
+  "version": "0.0.1",
+  "description": "The Fenna Docs format: parse, validate and normalize doc folders; render, and export to Markdown and Word.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "domhandler": "^5.0.3",
+    "htmlparser2": "^10.1.0"
+  }
+}
