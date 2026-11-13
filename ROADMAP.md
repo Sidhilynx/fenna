@@ -21,13 +21,13 @@ with an MCP server and a chat for the AI you already use. No account.
 
 ## Next: new apps, built in parallel
 
-| App | For |
-|---|---|
-| **Fenna Brand** | One brand file (colors, fonts, logo, text styles, components) that every other app reads, so a deck, a doc and a design look like they come from the same company. |
-| **Fenna Data** | Dashboards, metrics pages and reports from CSV files, sheets and databases. Every number shows where it came from. |
-| **Fenna Design** | A canvas of artboards for screens, landing pages, posters, social posts and ads, exported to PNG, SVG and PDF. |
-| **Fenna Meeting** | Record or import a meeting, transcribe it on your own computer, and turn it into notes, decisions and action items in Docs and Sheets. |
-| **Fenna Motion** | Animated scenes and short videos on a timeline: title cards, product reveals, explainers, exported to MP4 and GIF. |
+| | App | For |
+|---|---|---|
+| <img src="docs/media/icons/brand.png" width="40" alt=""> | **Fenna Brand** | One brand file (colors, fonts, logo, text styles, components) that every other app reads, so a deck, a doc and a design look like they come from the same company. |
+| <img src="docs/media/icons/data.png" width="40" alt=""> | **Fenna Data** | Dashboards, metrics pages and reports from CSV files, sheets and databases. Every number shows where it came from. |
+| <img src="docs/media/icons/design.png" width="40" alt=""> | **Fenna Design** | A canvas of artboards for screens, landing pages, posters, social posts and ads, exported to PNG, SVG and PDF. |
+| <img src="docs/media/icons/meeting.png" width="40" alt=""> | **Fenna Meeting** | Record or import a meeting, transcribe it on your own computer, and turn it into notes, decisions and action items in Docs and Sheets. |
+| <img src="docs/media/icons/motion.png" width="40" alt=""> | **Fenna Motion** | Animated scenes and short videos on a timeline: title cards, product reveals, explainers, exported to MP4 and GIF. |
 
 Each one follows the same rules as the first four: a file is a folder you
 own, any AI can work in it through MCP, and nothing needs an account.
