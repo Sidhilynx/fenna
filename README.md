@@ -4,12 +4,12 @@
 
 Fenna is four free desktop apps for Windows, macOS and Linux:
 
-| App | For |
-|---|---|
-| **Fenna Slides** | Decks and presentations, with present mode and PowerPoint, PDF and web export |
-| **Fenna Docs** | Memos, plans and notes, with tabs, comments and suggested edits, and Word and Markdown export |
-| **Fenna Sheets** | Spreadsheets with formulas, charts and conditional formatting, and Excel and CSV import and export |
-| **Fenna Whiteboard** | Brainstorms, flowcharts and retros on an infinite canvas |
+| | App | For |
+|---|---|---|
+| <img src="docs/media/icons/slides.png" width="40" alt=""> | **Fenna Slides** | Decks and presentations, with present mode and PowerPoint, PDF and web export |
+| <img src="docs/media/icons/docs.png" width="40" alt=""> | **Fenna Docs** | Memos, plans and notes, with tabs, comments and suggested edits, and Word and Markdown export |
+| <img src="docs/media/icons/sheets.png" width="40" alt=""> | **Fenna Sheets** | Spreadsheets with formulas, charts and conditional formatting, and Excel and CSV import and export |
+| <img src="docs/media/icons/whiteboard.png" width="40" alt=""> | **Fenna Whiteboard** | Brainstorms, flowcharts and retros on an infinite canvas |
 
 Each one is built so an AI can work in it as easily as you can. Claude, GPT,
 Gemini or an open model connects through MCP and gets the same tools you
