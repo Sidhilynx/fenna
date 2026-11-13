@@ -32,7 +32,8 @@ have; you watch every change land and can take over at any moment.
 
 > Fenna is new (version 0.9). Expect rough edges, and please
 > [tell us about them](https://github.com/Sidhilynx/fenna/issues).
-> What's coming next is in the [roadmap](ROADMAP.md).
+> Coming next: Fenna Data, Design, Brand, Meeting and Motion, built side by
+> side. See the [roadmap](ROADMAP.md).
 
 ## Download
 
