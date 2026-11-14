@@ -95,6 +95,7 @@ last read.
 | Docs | `doc.json` (title, tabs, fonts) and one HTML file per tab |
 | Sheets | `sheet.json` (title, locale, sheet list) and one JSON file per sheet |
 | Whiteboard | `board.json` and `canvas.json` (every item and connector) |
+| Design | `design.json` (pages, artboard positions, tweaks, text styles) and one standalone HTML file per artboard in `artboards/` |
 
 Images and fonts sit in `assets/`. The formats are strict, documented
 subsets that people and models can both read and write by hand.
@@ -122,8 +123,10 @@ packages/render       slides: one renderer for editor, thumbnails, present and e
 packages/doc          docs: format            packages/doc-mcp    docs: MCP server
 packages/sheet        sheets: format          packages/sheet-mcp  sheets: MCP server
 packages/board        whiteboard: format      packages/board-mcp  whiteboard: MCP server
+packages/artboard     design: format          packages/artboard-mcp  design: MCP server
 apps/desktop          Fenna Slides            apps/docs           Fenna Docs
 apps/sheets           Fenna Sheets            apps/whiteboard     Fenna Whiteboard
+apps/design           Fenna Design
 examples/             a sample of each kind of file
 ```
 

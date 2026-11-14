@@ -7,6 +7,7 @@
 //   node scripts/agy-try.mjs --doc <folder> "<request>"
 //   node scripts/agy-try.mjs --sheet <folder> "<request>"
 //   node scripts/agy-try.mjs --board <folder> "<request>"
+//   node scripts/agy-try.mjs --design <folder> "<request>"
 //
 // Run it on a COPY of a sample, never on examples/ itself. See what the
 // model did with node scripts/agy-trace.mjs.
@@ -29,11 +30,12 @@ const deckArg = opt("--deck", "");
 const docArg = opt("--doc", "");
 const sheetArg = opt("--sheet", "");
 const boardArg = opt("--board", "");
+const designArg = opt("--design", "");
 const model = opt("--model", "gemini-3.8-flash-medium");
 const prompt = args.join(" ");
-const target = deckArg || docArg || sheetArg || boardArg;
+const target = deckArg || docArg || sheetArg || boardArg || designArg;
 if (!target || !prompt) {
-  console.error('usage: node scripts/agy-try.mjs --deck|--doc|--sheet|--board <folder> [--model m] "<request>"');
+  console.error('usage: node scripts/agy-try.mjs --deck|--doc|--sheet|--board|--design <folder> [--model m] "<request>"');
   process.exit(2);
 }
 
@@ -44,7 +46,9 @@ const server = deckArg
     ? { name: "fenna-docs", cli: "packages/doc-mcp/src/cli.ts", flag: `--doc=${path.resolve(docArg)}` }
     : sheetArg
       ? { name: "fenna-sheets", cli: "packages/sheet-mcp/src/cli.ts", flag: `--sheet=${path.resolve(sheetArg)}` }
-      : { name: "fenna-whiteboard", cli: "packages/board-mcp/src/cli.ts", flag: `--board=${path.resolve(boardArg)}` };
+      : boardArg
+        ? { name: "fenna-whiteboard", cli: "packages/board-mcp/src/cli.ts", flag: `--board=${path.resolve(boardArg)}` }
+        : { name: "fenna-design", cli: "packages/artboard-mcp/src/cli.ts", flag: `--design=${path.resolve(designArg)}` };
 // The long form of the path: Windows' TEMP is often an 8.3 short name
 // (JORDAN~1), and Antigravity's permission rules match the long one.
 const home = path.join(realpathSync.native(tmpdir()), "opendeck-agy-home");

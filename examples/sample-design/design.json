@@ -1,0 +1,48 @@
+{
+  "format": "fenna-design/0",
+  "title": "Design demo",
+  "pages": [
+    {
+      "id": "page-1",
+      "name": "Page 1"
+    },
+    {
+      "id": "page-mobile",
+      "name": "Mobile"
+    }
+  ],
+  "boards": {
+    "Card.html": {
+      "x": 80,
+      "y": 80,
+      "w": 880,
+      "h": 420,
+      "title": "Card",
+      "page": "page-1"
+    },
+    "Landing.html": {
+      "x": 1040,
+      "y": 80,
+      "w": 1280,
+      "h": 920,
+      "title": "Landing",
+      "page": "page-1",
+      "expand": "fill"
+    }
+  },
+  "order": [
+    "Card.html",
+    "Landing.html"
+  ],
+  "tweaks": {
+    "--accent": "#d97757"
+  },
+  "textStyles": {
+    "Heading 1": "font-size: 72px; font-weight: 700; line-height: 1.1;",
+    "Body": "font-size: 24px; font-weight: 400; line-height: 1.4;",
+    "Caption": "font-size: 16px; font-weight: 400; line-height: 1.4;"
+  },
+  "fonts": [
+    "Inter"
+  ]
+}

@@ -7,8 +7,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repo = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
-const APPS = ["desktop", "docs", "sheets", "whiteboard"].map((a) => path.join(repo, "apps", a, "package.json"));
-const SERVERS = ["mcp", "doc-mcp", "sheet-mcp", "board-mcp"].map((p) => path.join(repo, "packages", p, "src", "index.ts"));
+const APPS = ["desktop", "docs", "sheets", "whiteboard", "design"].map((a) => path.join(repo, "apps", a, "package.json"));
+const SERVERS = ["mcp", "doc-mcp", "sheet-mcp", "board-mcp", "artboard-mcp"].map((p) => path.join(repo, "packages", p, "src", "index.ts"));
 const SERVER_VERSION = /(new McpServer\(\{ name: "fenna-[a-z]+", version: )"([^"]+)"/;
 const PLAIN = /^\d+\.\d+\.\d+$/;
 
