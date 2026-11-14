@@ -1,0 +1,5 @@
+{
+  "items": [
+    {"id":"s-1","kind":"sticky","text":"Card for the launch post. Copy still needs a pass.","fill":"yellow","x":80,"y":560,"w":240,"h":160,"page":"page-1"}
+  ]
+}

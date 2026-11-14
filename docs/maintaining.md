@@ -23,7 +23,7 @@ The robots in `.github/workflows/`:
 - **CI** (`ci.yml`) runs `npm test` and the typecheck on every pull request
   and every push to `main`. A red cross on a PR means it is not ready.
 - **Release** (`release.yml`) runs when a tag like `v0.9.1` is pushed. It
-  builds all four apps on Windows, macOS and Linux and puts every installer
+  builds every app on Windows, macOS and Linux and puts every installer
   on a **draft** release. Nothing is public until a maintainer publishes it.
 - **CLA** (`cla.yml`) asks each new contributor to sign [CLA.md](../CLA.md)
   by posting one comment, and records it on the `cla-signatures` branch.
