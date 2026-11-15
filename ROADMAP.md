@@ -11,7 +11,7 @@ built side by side, not one after another.
 
 ## Now: 0.9, the first public release
 
-Fenna Slides, Docs, Sheets and Whiteboard for Windows, macOS and Linux, each
+Fenna Slides, Docs, Sheets, Whiteboard and Design for Windows, macOS and Linux, each
 with an MCP server and a chat for the AI you already use. No account.
 
 - Fix what the first users find. Bugs come before anything new.
@@ -25,7 +25,6 @@ with an MCP server and a chat for the AI you already use. No account.
 |---|---|---|
 | <img src="docs/media/icons/brand.png" width="40" alt=""> | **Fenna Brand** | One brand file (colors, fonts, logo, text styles, components) that every other app reads, so a deck, a doc and a design look like they come from the same company. |
 | <img src="docs/media/icons/data.png" width="40" alt=""> | **Fenna Data** | Dashboards, metrics pages and reports from CSV files, sheets and databases. Every number shows where it came from. |
-| <img src="docs/media/icons/design.png" width="40" alt=""> | **Fenna Design** | A canvas of artboards for screens, landing pages, posters, social posts and ads, exported to PNG, SVG and PDF. |
 | <img src="docs/media/icons/meeting.png" width="40" alt=""> | **Fenna Meeting** | Record or import a meeting, transcribe it on your own computer, and turn it into notes, decisions and action items in Docs and Sheets. |
 | <img src="docs/media/icons/motion.png" width="40" alt=""> | **Fenna Motion** | Animated scenes and short videos on a timeline: title cards, product reveals, explainers, exported to MP4 and GIF. |
 
