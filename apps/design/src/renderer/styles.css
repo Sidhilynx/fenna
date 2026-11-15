@@ -1,0 +1,194 @@
+/* Fenna Design: the canvas and what sits around it. Colors, sizes and radii
+   come from the shell's tokens (packages/shell/renderer/base.css); the few
+   below are the canvas's own, for both themes. The artboards themselves are
+   drawn by @opendeck/artboard's renderer, inside shadow roots. */
+
+:root {
+  --dg-canvas: #1a1a1a;
+  --dg-grid: #212121;
+  --dg-handle: #ffffff;
+  --dg-on-sel: #ffffff;
+  --dg-frame-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --dg-canvas: #f3f3f1;
+    --dg-grid: #ebebe8;
+    --dg-frame-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), 0 12px 32px rgba(0, 0, 0, 0.08);
+  }
+}
+:root[data-theme="light"] {
+  --dg-canvas: #f3f3f1;
+  --dg-grid: #ebebe8;
+  --dg-frame-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), 0 12px 32px rgba(0, 0, 0, 0.08);
+}
+
+/* ── Layout ─────────────────────────────────────────────────────────── */
+.dg { height: 100%; display: flex; flex-direction: column; background: var(--bg); }
+.dg-loading { flex: 1; background: var(--dg-canvas); }
+.dg-top { flex: none; height: 46px; display: flex; align-items: center; gap: 4px; padding: 0 10px; border-bottom: 1px solid var(--line); }
+.dg-title { max-width: 44vw; font-size: var(--fs-lg); }
+.dg-title-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dg-fill { flex: 1; }
+.dg-body { flex: 1; min-height: 0; display: flex; }
+.dg-stage { position: relative; flex: 1; min-width: 0; overflow: hidden; }
+.dg-problem { position: absolute; z-index: 16; top: 60px; left: 50%; transform: translateX(-50%); max-width: min(640px, calc(100% - 32px)); padding: 8px 14px; background: var(--raised); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow); color: var(--warn); font-size: var(--fs-sm); }
+
+/* ── The canvas ─────────────────────────────────────────────────────── */
+.dg-canvas {
+  position: absolute; inset: 0; overflow: hidden; outline: none; touch-action: none;
+  background-color: var(--dg-canvas);
+  background-image: linear-gradient(var(--dg-grid) 1px, transparent 1px), linear-gradient(90deg, var(--dg-grid) 1px, transparent 1px);
+}
+.dg-world { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; }
+.dg-frame { position: absolute; overflow: hidden; box-shadow: var(--dg-frame-shadow); }
+.dg-frame.grows { overflow: visible; }
+.dg-artboard { display: block; }
+.dg-broken { height: 100%; min-height: 160px; display: flex; flex-direction: column; justify-content: center; gap: 8px; padding: 24px; background: var(--raised); border: 1px dashed var(--line-strong); color: var(--text-2); font-size: var(--fs-md); overflow: hidden; }
+.dg-broken strong { color: var(--warn); font-weight: 600; }
+.dg-strokes { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; pointer-events: none; }
+.dg-strokes polyline { fill: none; stroke: var(--text); stroke-linecap: round; stroke-linejoin: round; }
+.dg-sticky { position: absolute; box-sizing: border-box; padding: 14px; border-radius: 2px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25); font-size: 16px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
+.dg-sticky-empty { opacity: 0.55; }
+.dg-note-editor { display: block; width: 100%; margin: 0; padding: 0; border: 0; outline: none; resize: none; overflow: hidden; background: transparent; color: inherit; font: inherit; user-select: text; }
+
+.dg-overlay { position: absolute; inset: 0; pointer-events: none; }
+.dg-strip { position: absolute; height: 24px; display: flex; align-items: center; gap: 8px; color: var(--text-3); font-size: var(--fs-sm); pointer-events: auto; }
+.dg-strip.on { color: var(--text-2); }
+.dg-strip-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--fw-ui); }
+.dg-strip-input { flex: 1; min-width: 80px; max-width: 280px; height: 22px; padding: 0 5px; border: 1px solid var(--sel); border-radius: var(--r-sm); background: var(--raised); color: var(--text); font-size: var(--fs-sm); outline: none; user-select: text; }
+.dg-strip-actions { margin-left: auto; display: flex; gap: 2px; opacity: 0; transition: opacity 120ms var(--ease); }
+.dg-strip:hover .dg-strip-actions, .dg-strip.on .dg-strip-actions, .dg-strip-actions:focus-within { opacity: 1; }
+.dg-strip-btn { width: 22px; height: 22px; display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--r-sm); background: none; color: var(--icon); }
+.dg-strip-btn:hover, .dg-strip-btn[aria-expanded="true"] { background: var(--hover); color: var(--text); }
+.dg-strip-btn[aria-pressed="true"] { color: var(--sel); }
+.dg-sel { position: absolute; box-shadow: 0 0 0 1.5px var(--sel); }
+.dg-sel.soft { box-shadow: 0 0 0 1px var(--sel-soft); }
+.dg-sel.layer { box-shadow: 0 0 0 1.5px var(--sel); }
+.dg-sel.typing { box-shadow: 0 0 0 1px var(--sel-soft); }
+.dg-hover { position: absolute; box-shadow: 0 0 0 1px var(--sel); opacity: 0.55; }
+.dg-guide { position: absolute; outline: 1px dashed var(--sel); outline-offset: -1px; opacity: 0.45; }
+.dg-handle { position: absolute; width: 9px; height: 9px; background: var(--dg-handle); border: 1.5px solid var(--sel); border-radius: 2px; pointer-events: auto; }
+.dg-handle.nw { left: -5px; top: -5px; cursor: nwse-resize; }
+.dg-handle.ne { right: -5px; top: -5px; cursor: nesw-resize; }
+.dg-handle.se { right: -5px; bottom: -5px; cursor: nwse-resize; }
+.dg-handle.sw { left: -5px; bottom: -5px; cursor: nesw-resize; }
+.dg-marquee { position: absolute; border: 1px solid var(--sel); background: var(--sel-soft); }
+.dg-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 24px; text-align: center; color: var(--text-2); pointer-events: none; }
+.dg-empty p { margin: 0; max-width: 420px; }
+.dg-empty .btn { pointer-events: auto; }
+
+/* ── The bar over the selection ─────────────────────────────────────── */
+.dg-fbar { position: absolute; z-index: 20; display: flex; align-items: center; gap: 2px; height: 40px; padding: 0 5px; background: var(--raised); border: 1px solid var(--line-strong); border-radius: var(--r-lg); box-shadow: var(--shadow); white-space: nowrap; }
+.dg-fb-btn { width: 30px; padding: 0; }
+.dg-fb-btn[aria-pressed="true"] { background: var(--hover); color: var(--text); }
+.dg-fb-sep { flex: none; width: 1px; height: 18px; margin: 0 3px; background: var(--line-strong); }
+.dg-fb-style { height: 30px; gap: 4px; padding: 0 6px 0 10px; }
+.dg-fb-style svg { color: var(--text-3); }
+.dg-swatch { display: block; width: 16px; height: 16px; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--line-strong); }
+.dg-swatch.none { background: repeating-linear-gradient(45deg, transparent 0 3px, var(--text-3) 3px 4px); }
+.dg-link { display: flex; align-items: center; gap: 6px; padding-left: 6px; color: var(--icon); }
+.dg-link input { width: 280px; height: 30px; padding: 0 8px; border: 1px solid var(--sel); border-radius: var(--r-md); background: var(--field); color: var(--text); outline: none; user-select: text; }
+.dg-link input[aria-invalid="true"] { border-color: var(--danger); }
+
+/* ── Tools at the bottom ────────────────────────────────────────────── */
+.dg-bottom { position: absolute; z-index: 15; left: 0; right: 0; bottom: 14px; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
+.dg-bottom > * { pointer-events: auto; }
+.dg-dock-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; max-width: calc(100% - 16px); }
+.dg-dock { display: flex; align-items: center; gap: 2px; height: 44px; padding: 0 5px; background: var(--raised); border: 1px solid var(--line-strong); border-radius: var(--r-lg); box-shadow: var(--shadow); }
+.dg-tool { width: 34px; height: 34px; display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--r-md); background: none; color: var(--icon); transition: background 120ms var(--ease), color 120ms var(--ease); }
+.dg-tool:hover { background: var(--hover); color: var(--text); }
+.dg-tool[aria-pressed="true"] { background: var(--sel-soft); color: var(--sel); }
+.dg-dock-sep { flex: none; width: 1px; height: 20px; margin: 0 4px; background: var(--line-strong); }
+.dg-ask { height: 34px; margin-left: 4px; padding: 0 12px; border: 0; border-radius: var(--r-md); background: var(--hover); color: var(--text); font-weight: 600; white-space: nowrap; }
+.dg-ask:hover, .dg-ask.on { background: var(--line-strong); }
+.dg-fly { display: flex; align-items: center; gap: 2px; padding: 5px; background: var(--raised); border: 1px solid var(--line-strong); border-radius: var(--r-lg); box-shadow: var(--shadow); }
+.dg-fly-size { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 84px; padding: 5px 10px; border: 0; border-radius: var(--r-md); background: none; color: var(--text); font-weight: var(--fw-ui); }
+.dg-fly-size:hover { background: var(--hover); }
+.dg-fly-size[aria-pressed="true"] { background: var(--sel-soft); }
+.dg-fly-dim { color: var(--text-3); font-size: var(--fs-xs); font-weight: 400; font-variant-numeric: tabular-nums; }
+.dg-dot { display: block; border-radius: 50%; background: currentColor; }
+
+/* ── Pages, play, properties and zoom ───────────────────────────────── */
+.dg-view { position: absolute; z-index: 15; top: 12px; right: 12px; }
+.dg-pages { position: absolute; z-index: 15; top: 12px; left: 12px; max-width: calc(100% - 220px); }
+.dg-pill, .dg-page-btn { display: flex; align-items: center; gap: 2px; height: 40px; padding: 0 4px; background: var(--raised); border: 1px solid var(--line-strong); border-radius: var(--r-lg); box-shadow: var(--shadow); }
+.dg-page-btn { gap: 6px; max-width: 100%; padding: 0 10px 0 14px; font-weight: 600; }
+.dg-page-btn:hover:not(:disabled), .dg-page-btn[aria-expanded="true"] { background: var(--raised); border-color: var(--line-strong); }
+.dg-page-btn svg, .dg-zoom svg { color: var(--text-3); }
+.dg-page-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dg-pill .icon-btn[aria-pressed="true"] { background: var(--sel-soft); color: var(--sel); }
+.dg-zoom { height: 30px; gap: 4px; padding: 0 6px 0 10px; font-variant-numeric: tabular-nums; }
+
+/* ── An artboard on its own ─────────────────────────────────────────── */
+.dg-focus { position: absolute; z-index: 30; inset: 0; display: flex; flex-direction: column; background: var(--dg-canvas); outline: none; }
+.dg-focus-bar { flex: none; display: flex; align-items: center; gap: 6px; height: 46px; padding: 0 10px; background: var(--bg); border-bottom: 1px solid var(--line); }
+.dg-focus-title { min-width: 0; margin: 0 0 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-md); font-weight: 600; }
+.dg-focus-stage { flex: 1; min-height: 0; padding: 32px; overflow: hidden; }
+.dg-seg { display: flex; gap: 2px; padding: 2px; border-radius: var(--r-md); background: var(--field); }
+.dg-seg-btn { min-width: 48px; height: 26px; padding: 0 10px; border: 0; border-radius: var(--r-sm); background: none; color: var(--text-2); font-size: var(--fs-sm); font-weight: var(--fw-ui); }
+.dg-seg-btn:hover { color: var(--text); }
+.dg-seg-btn[aria-pressed="true"] { background: var(--hover); color: var(--text); }
+.dg-scaled { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.dg-scaled.fill { align-items: flex-start; overflow-x: hidden; overflow-y: auto; }
+.dg-scaled-size { flex: none; overflow: hidden; box-shadow: var(--dg-frame-shadow); }
+.dg-scaled-art { transform-origin: 0 0; overflow: hidden; }
+.dg-cover { width: 100%; height: 100%; padding: 10%; background: var(--dg-canvas); pointer-events: none; }
+.dg-cover .dg-scaled-size { box-shadow: none; }
+
+/* ── Comments on the canvas ─────────────────────────────────────────── */
+.dg-pin { position: absolute; z-index: 12; width: 26px; height: 26px; margin: -28px 0 0 -2px; display: grid; place-items: center; padding: 0; border: 2px solid var(--dg-handle); border-radius: 50% 50% 50% 4px; background: var(--sel); color: var(--dg-on-sel); box-shadow: var(--shadow); font-size: var(--fs-xs); font-weight: 700; cursor: pointer; }
+.dg-pin.on { outline: 2px solid var(--sel); outline-offset: 2px; }
+.dg-pin.resolved { background: var(--text-3); }
+.dg-comment-card { position: absolute; z-index: 25; width: 320px; }
+
+/* ── Ask ────────────────────────────────────────────────────────────── */
+.ask { width: min(560px, calc(100% - 32px)); display: flex; flex-direction: column; gap: 8px; padding: 10px 10px 8px; background: var(--raised); border: 1px solid var(--line-strong); border-radius: var(--r-lg); box-shadow: var(--shadow); }
+.ask-chips { display: flex; }
+.ask-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; height: 24px; padding: 0 4px 0 8px; border-radius: var(--r-md); background: var(--hover); font-size: var(--fs-sm); }
+.ask-chip svg { color: var(--icon); flex: none; }
+.ask-chip-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
+.ask-chip-what { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 4px; }
+.ask-chip-x { width: 18px; height: 18px; display: grid; place-items: center; flex: none; padding: 0; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-3); }
+.ask-chip-x:hover { background: var(--wash-2); color: var(--text); }
+.ask-status { display: flex; align-items: center; gap: 8px; padding: 2px 4px; font-size: var(--fs-sm); color: var(--text-2); }
+.ask-status.error { color: var(--warn); }
+.ask-reply { flex: 1; white-space: pre-wrap; max-height: 120px; overflow: auto; user-select: text; }
+.ask-row { display: flex; align-items: center; gap: 6px; }
+.ask-row input { flex: 1; min-width: 0; height: 32px; padding: 0 4px; border: 0; background: none; outline: none; color: var(--text); font-size: var(--fs-lg); user-select: text; }
+.ask-row input::placeholder { color: var(--text-3); }
+.ask-send { width: 32px; height: 32px; display: grid; place-items: center; flex: none; border: 0; border-radius: 50%; background: var(--pri); color: var(--pri-ink); }
+.ask-send:disabled { background: var(--hover); color: var(--text-3); }
+
+/* ── Side column ────────────────────────────────────────────────────── */
+.rp { width: var(--chat-w); flex: none; display: flex; flex-direction: column; min-height: 0; background: var(--panel); border-left: 1px solid var(--line); }
+.rp-head { flex: none; display: flex; align-items: center; gap: 2px; height: 46px; padding: 0 8px 0 16px; border-bottom: 1px solid var(--line); }
+.rp-title { flex: 1; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-md); font-weight: 600; }
+.rp-body { flex: 1; min-height: 0; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 4px; }
+.rp-empty { margin: auto; padding: 20px 16px; text-align: center; color: var(--text-3); }
+.rp-empty p { margin: 0; }
+.rp-hint { margin-top: 6px !important; font-size: var(--fs-sm); }
+.cm-list { gap: 10px; padding: 12px; }
+.cm-resolved { margin: 0 2px 4px; font-size: var(--fs-xs); color: var(--text-2); }
+.c-avatar { width: 16px; height: 16px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--sel); color: var(--dg-on-sel); font-size: var(--fs-xs); font-weight: 600; }
+.vh-list { gap: 0; padding: 6px 8px; }
+.vh-item { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 12px 10px; border-radius: var(--r-md); border-bottom: 1px solid var(--line); }
+.vh-item:hover { background: var(--hover); }
+.vh-when { font-weight: var(--fw-ui); }
+.vh-current { margin-left: 10px; font-size: var(--fs-sm); color: var(--text-3); }
+.vh-who { display: flex; align-items: center; gap: 7px; font-size: var(--fs-sm); color: var(--text-2); min-width: 0; }
+.vh-what { color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vh-more { position: absolute; right: 8px; top: 10px; opacity: 0; }
+.vh-item:hover .vh-more, .vh-more:focus-visible, .vh-more[aria-expanded="true"] { opacity: 1; }
+
+/* ── Dialogs ────────────────────────────────────────────────────────── */
+.dlg-form { display: flex; flex-direction: column; gap: 8px; }
+.dlg-form label { font-size: var(--fs-sm); color: var(--text-2); font-weight: var(--fw-ui); }
+.dlg-form input { height: 34px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--field); outline: none; user-select: text; }
+.dlg-form input:focus { border-color: var(--sel); }
+.dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dg-tool, .dg-strip-actions { transition: none; }
+}

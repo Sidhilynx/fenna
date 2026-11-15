@@ -43,7 +43,7 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: |
-          for app in desktop docs sheets whiteboard; do
+          for app in desktop docs sheets whiteboard design; do
             npm run dist -w "@opendeck/$app" -- ${{ matrix.target }} --publish never
           done
       - uses: actions/upload-artifact@v4

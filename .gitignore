@@ -9,3 +9,6 @@ release/
 # Built per app by "npm run build"; never committed.
 apps/*/build/mcp/
 apps/*/release/
+# Review captures and notes on the reference products stay local.
+shots/
+docs/apps/*-reference.md

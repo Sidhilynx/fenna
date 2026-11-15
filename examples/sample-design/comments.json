@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "threads": [
+    {
+      "id": "t-card-copy",
+      "file": "Card.html",
+      "addr": "1.1",
+      "snippet": "This is one artboard. Edit the text, or pick a color in the ",
+      "resolved": false,
+      "comments": [
+        {
+          "id": "c-1",
+          "author": "you",
+          "text": "Too long for a card. Shorten this to one short sentence.",
+          "at": 1794500000000
+        }
+      ]
+    }
+  ]
+}

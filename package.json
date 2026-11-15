@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc -p packages/format && tsc -p packages/render && tsc -p packages/mcp && tsc -p packages/shell && tsc -p packages/doc && tsc -p packages/doc-mcp && tsc -p packages/sheet && tsc -p packages/sheet-mcp && tsc -p packages/board && tsc -p packages/board-mcp && tsc -p apps/desktop && tsc -p apps/docs && tsc -p apps/sheets && tsc -p apps/whiteboard"
+    "typecheck": "tsc -p packages/format && tsc -p packages/render && tsc -p packages/mcp && tsc -p packages/shell && tsc -p packages/doc && tsc -p packages/doc-mcp && tsc -p packages/sheet && tsc -p packages/sheet-mcp && tsc -p packages/board && tsc -p packages/board-mcp && tsc -p packages/artboard && tsc -p packages/artboard-mcp && tsc -p apps/desktop && tsc -p apps/docs && tsc -p apps/sheets && tsc -p apps/whiteboard && tsc -p apps/design"
   },
   "engines": {
     "node": ">=22"

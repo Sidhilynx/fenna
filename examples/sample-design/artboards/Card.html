@@ -1,0 +1,33 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Card</title>
+  <style>
+    :root {
+      --accent: #d97757;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Inter, system-ui, sans-serif; }
+    button, input { font-family: inherit; }
+    [data-style="Heading 1"] { font-size: 72px; font-weight: 700; line-height: 1.1; }
+    [data-style="Body"] { font-size: 24px; font-weight: 400; line-height: 1.4; }
+    [data-style="Caption"] { font-size: 16px; font-weight: 400; line-height: 1.4; }
+    x-shape { display: block; min-width: 8px; min-height: 8px; background: currentColor; }
+    x-shape[kind="rounded"] { border-radius: 16px; }
+  </style>
+</head>
+<body>
+  <div style="width:880px;height:420px;padding:64px;background:#f4f1ea;display:flex;flex-direction:column;justify-content:space-between;color:#1c1b19">
+    <div style="display:flex;flex-direction:row;justify-content:space-between;align-items:center">
+      <p style="margin:0;font-size:14px;font-weight:500;letter-spacing:0.12em;text-transform:uppercase;color:#6b6861">Design demo</p>
+      <p style="margin:0;font-size:14px;font-weight:600;color:var(--accent)">Card 01</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <h1 style="margin:0;font-size:64px;font-weight:700;line-height:1.05;letter-spacing:-0.02em">Hello from a canvas</h1>
+      <p style="margin:0;max-width:460px;font-size:22px;line-height:1.4;color:#403e38">This is one artboard. Edit the text, or pick a color in the properties panel.</p>
+      <x-shape kind="rounded" style="width:140px;height:6px;margin:16px 0 0;border-radius:3px;background:var(--accent)"></x-shape>
+    </div>
+  </div>
+</body>
+</html>

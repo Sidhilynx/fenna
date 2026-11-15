@@ -9,7 +9,7 @@
 //   node scripts/shot.mjs --app whiteboard --home --out shots/home.png        (Home, no file open)
 //
 // Options:
-//   --app      desktop | docs | sheets | whiteboard
+//   --app      desktop | docs | sheets | whiteboard | design
 //   --file     the document folder; it is copied first
 //   --home     open on Home instead of a file
 //   --size     1440x900 (default) or 1000x700 ...
@@ -61,6 +61,7 @@ const APPS = {
   docs: { dir: "apps/docs", env: "OPENDECK_DOC" },
   sheets: { dir: "apps/sheets", env: "OPENDECK_SHEET" },
   whiteboard: { dir: "apps/whiteboard", env: "OPENDECK_BOARD" },
+  design: { dir: "apps/design", env: "OPENDECK_DESIGN" },
 };
 
 const appName = opt("--app", "");
@@ -75,7 +76,7 @@ const delay = opt("--delay", "9000");
 const out = path.resolve(opt("--out", "shots/shot.png"));
 const app = APPS[appName];
 if (!app || (!file && !home)) {
-  console.error("usage: node scripts/shot.mjs --app desktop|docs|sheets|whiteboard (--file <folder> | --home) [--size WxH] [--theme dark|light] [--all] [--script steps.json] --out <file.png|folder>");
+  console.error("usage: node scripts/shot.mjs --app desktop|docs|sheets|whiteboard|design (--file <folder> | --home) [--size WxH] [--theme dark|light] [--all] [--script steps.json] --out <file.png|folder>");
   process.exit(2);
 }
 const electron = path.join(repo, "node_modules", "electron", "dist", process.platform === "win32" ? "electron.exe" : "electron");
