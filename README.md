@@ -1,8 +1,8 @@
 # Fenna
 
-**Slides, docs, sheets and a whiteboard that live on your computer and work with any AI.**
+**Slides, docs, sheets, a whiteboard and design canvas that live on your computer and work with any AI.**
 
-Fenna is four free desktop apps for Windows, macOS and Linux:
+Fenna is five free desktop apps for Windows, macOS and Linux:
 
 | | App | For |
 |---|---|---|
@@ -10,13 +10,14 @@ Fenna is four free desktop apps for Windows, macOS and Linux:
 | <img src="docs/media/icons/docs.png" width="40" alt=""> | **Fenna Docs** | Memos, plans and notes, with tabs, comments and suggested edits, and Word and Markdown export |
 | <img src="docs/media/icons/sheets.png" width="40" alt=""> | **Fenna Sheets** | Spreadsheets with formulas, charts and conditional formatting, and Excel and CSV import and export |
 | <img src="docs/media/icons/whiteboard.png" width="40" alt=""> | **Fenna Whiteboard** | Brainstorms, flowcharts and retros on an infinite canvas |
+| <img src="docs/media/icons/design.png" width="40" alt=""> | **Fenna Design** | A canvas of artboards for screens, landing pages, posters and social posts, exported to PNG, SVG and PDF |
 
 Each one is built so an AI can work in it as easily as you can. Claude, GPT,
 Gemini or an open model connects through MCP and gets the same tools you
 have; you watch every change land and can take over at any moment.
 
 - **No account.** Install it and start. Nothing to sign up for.
-- **Your files stay yours.** A deck, doc, sheet or board is a plain folder on
+- **Your files stay yours.** A deck, doc, sheet, board or design is a plain folder on
   your computer. No upload, no lock-in; it outlives the app.
 - **Use the AI you already pay for.** The chat beside your work runs
   Claude Code, Codex or Antigravity on your own plan, on this computer.
@@ -29,10 +30,11 @@ have; you watch every change land and can take over at any moment.
 |---|---|
 | ![Fenna Slides](docs/media/slides.png) **Slides** | ![Fenna Docs](docs/media/docs.png) **Docs** |
 | ![Fenna Sheets](docs/media/sheets.png) **Sheets** | ![Fenna Whiteboard](docs/media/whiteboard.png) **Whiteboard** |
+| ![Fenna Design](docs/media/design.png) **Design** | |
 
 > Fenna is new (version 0.9). Expect rough edges, and please
 > [tell us about them](https://github.com/Sidhilynx/fenna/issues).
-> Coming next: Fenna Data, Design, Brand, Meeting and Motion, built side by
+> Coming next: Fenna Data, Brand, Meeting and Motion, built side by
 > side. See the [roadmap](ROADMAP.md).
 
 ## Download
@@ -45,6 +47,7 @@ Get the installers from the [latest release](https://github.com/Sidhilynx/fenna/
 | Docs | `Fenna-Docs-…-setup.exe` | `Fenna-Docs-…-arm64.dmg` / `-x64.dmg` | `.AppImage` or `.deb` |
 | Sheets | `Fenna-Sheets-…-setup.exe` | `Fenna-Sheets-…-arm64.dmg` / `-x64.dmg` | `.AppImage` or `.deb` |
 | Whiteboard | `Fenna-Whiteboard-…-setup.exe` | `Fenna-Whiteboard-…-arm64.dmg` / `-x64.dmg` | `.AppImage` or `.deb` |
+| Design | `Fenna-Design-…-setup.exe` | `Fenna-Design-…-arm64.dmg` / `-x64.dmg` | `.AppImage` or `.deb` |
 
 The apps aren't code-signed yet, so your system will ask before the first start:
 
@@ -64,10 +67,11 @@ repository (Node 22.18 or later, which runs TypeScript directly):
 
 ```sh
 npm install
-node packages/mcp/src/cli.ts       --deck  examples/sample-deck     # fenna-slides
-node packages/doc-mcp/src/cli.ts   --doc   examples/sample-doc      # fenna-docs
-node packages/sheet-mcp/src/cli.ts --sheet examples/sample-sheet    # fenna-sheets
-node packages/board-mcp/src/cli.ts --board examples/sample-board    # fenna-whiteboard
+node packages/mcp/src/cli.ts          --deck   examples/sample-deck     # fenna-slides
+node packages/doc-mcp/src/cli.ts      --doc    examples/sample-doc      # fenna-docs
+node packages/sheet-mcp/src/cli.ts    --sheet  examples/sample-sheet    # fenna-sheets
+node packages/board-mcp/src/cli.ts    --board  examples/sample-board    # fenna-whiteboard
+node packages/artboard-mcp/src/cli.ts --design examples/sample-design   # fenna-design
 ```
 
 For example, in Claude Code:
@@ -82,6 +86,7 @@ claude mcp add fenna-docs -- node /path/to/fenna/packages/doc-mcp/src/cli.ts --d
 | `fenna-docs` | `doc_overview`, `format_guide`, `read_tab`, `edit_blocks`, `write_tab`, `check_tab`, `delete_tab`, `update_doc`, `read_comments`, `comment` |
 | `fenna-sheets` | `workbook_overview`, `format_guide`, `read_range`, `find`, `write_cells`, `format_cells`, `clear_cells`, `edit_structure`, `manage_rules`, `manage_charts`, `add_sheet`, `delete_sheet`, `update_workbook`, `read_comments`, `comment` |
 | `fenna-whiteboard` | `read_board`, `add_items`, `edit_items`, `delete_items`, `arrange`, `rename_board`, `format_guide`, `read_comments`, `comment` |
+| `fenna-design` | `design_overview`, `format_guide`, `read_artboards`, `edit_artboard`, `write_artboard`, `check_artboard`, `delete_artboards`, `arrange_artboards`, `update_design`, `read_comments`, `comment` |
 
 Every edit is checked against the file format and saved whole or not at all.
 Files carry versions, so an AI never overwrites a change you made after it
@@ -106,7 +111,7 @@ subsets that people and models can both read and write by hand.
 npm install
 npm test
 npm run typecheck
-npm run dev -w @opendeck/desktop       # Slides, with hot reload (also docs, sheets, whiteboard)
+npm run dev -w @opendeck/desktop       # Slides, with hot reload (also docs, sheets, whiteboard, design)
 npm run dist -w @opendeck/desktop      # installers in apps/desktop/release/
 ```
 
