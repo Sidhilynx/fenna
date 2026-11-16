@@ -74,21 +74,26 @@ function assertSenderAny(e) {
   }
 }
 
+function getEditorHtmlPath(kind) {
+  const packaged = path.join(__dirname, "..", "..", "dist", "editors", kind, "index.html");
+  if (fs.existsSync(packaged)) return packaged;
+  const devFolder = {
+    deck: "desktop",
+    doc: "docs",
+    sheet: "sheets",
+    board: "whiteboard",
+    design: "design",
+  }[kind] || "desktop";
+  return path.join(__dirname, "..", "..", "..", devFolder, "dist", "index.html");
+}
+
 function loadPageForTab(wc, tab) {
   if (!tab || !tab.root) {
     if (DEV_URL) return wc.loadURL(DEV_URL);
     return wc.loadFile(path.join(__dirname, "..", "..", "dist", "index.html"));
   }
   const kind = detectProductKind(tab.root) || "deck";
-  const appMap = {
-    deck: path.join(__dirname, "..", "..", "..", "desktop", "dist", "index.html"),
-    doc: path.join(__dirname, "..", "..", "..", "docs", "dist", "index.html"),
-    sheet: path.join(__dirname, "..", "..", "..", "sheets", "dist", "index.html"),
-    board: path.join(__dirname, "..", "..", "..", "whiteboard", "dist", "index.html"),
-    design: path.join(__dirname, "..", "..", "..", "design", "dist", "index.html"),
-  };
-  const target = appMap[kind] || appMap.deck;
-  return wc.loadFile(target);
+  return wc.loadFile(getEditorHtmlPath(kind));
 }
 
 const themeMode = () => (nativeTheme.shouldUseDarkColors ? "dark" : "light");
@@ -239,54 +244,67 @@ app.whenReady().then(async () => {
   }
 
   registerShell({ assertSender: assertSenderAny, releases: "Sidhilynx/fenna" });
-  registerAgent({ getRoot: rootOfAny, assertSender: assertSenderAny, profile: require("../../../desktop/src/main/assistant.cjs") });
+  registerAgent({ getRoot: rootOfAny, assertSender: assertSenderAny, profile: require("./assistant.cjs") });
+
+  const loadExport = (name) => {
+    const local = path.join(__dirname, "exports", `${name}.cjs`);
+    if (fs.existsSync(local)) return require(local);
+    const folder = {
+      deckExport: "desktop",
+      docExport: "docs",
+      sheetExport: "sheets",
+      boardExport: "whiteboard",
+      designExport: "design",
+    }[name] || name;
+    return require(`../../../${folder}/src/main/export.cjs`);
+  };
 
   // Register app-specific export handlers
   try {
-    require("../../../desktop/src/main/export.cjs").register({
+    loadExport("deckExport").register({
       getWin: () => win,
       getDeckRoot: hosts.deck.rootOf,
       setRoot: hosts.deck.setRoot,
       preload: PRELOAD,
-      load: (w, hash) => w.loadFile(path.join(__dirname, "..", "..", "..", "desktop", "dist", "index.html"), hash ? { hash } : undefined),
+      load: (w, hash) => w.loadFile(getEditorHtmlPath("deck"), hash ? { hash } : undefined),
       assertSender: hosts.deck.assertSender,
       trust: hosts.deck.trust,
     });
   } catch {}
 
   try {
-    require("../../../docs/src/main/export.cjs").register({
+    loadExport("docExport").register({
       getWin: () => win,
       getRoot: hosts.doc.rootOf,
       setRoot: hosts.doc.setRoot,
       preload: PRELOAD,
-      load: (w, hash) => w.loadFile(path.join(__dirname, "..", "..", "..", "docs", "dist", "index.html"), hash ? { hash } : undefined),
+      load: (w, hash) => w.loadFile(getEditorHtmlPath("doc"), hash ? { hash } : undefined),
       assertSender: hosts.doc.assertSender,
       trust: hosts.doc.trust,
     });
   } catch {}
 
   try {
-    require("../../../sheets/src/main/export.cjs").register({
+    loadExport("sheetExport").register({
       getWin: () => win,
       assertSender: hosts.sheet.assertSender,
     });
   } catch {}
 
   try {
-    require("../../../whiteboard/src/main/export.cjs").register({
+    loadExport("boardExport").register({
       getWin: () => win,
       assertSender: hosts.board.assertSender,
     });
   } catch {}
 
   try {
-    require("../../../design/src/main/export.cjs").register({
+    loadExport("designExport").register({
       getWin: () => win,
       getRoot: hosts.design.rootOf,
       setRoot: hosts.design.setRoot,
       preload: PRELOAD,
-      load: (w, hash) => w.loadFile(path.join(__dirname, "..", "..", "..", "design", "dist", "index.html"), hash ? { hash } : undefined),
+      load: (w, hash) => w.loadFile(getEditorHtmlPath("design"), hash ? { hash } : undefined),
       assertSender: hosts.design.assertSender,
       trust: hosts.design.trust,
     });

@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fenna Workspace · Give any AI agent its own docs, slides, and whiteboard</title>
+  <meta name="description" content="Open source, local-first office workspace for AI agents. Slides, docs, sheets, whiteboard, and design. Zero account. Works with any local MCP client.">
+  <link rel="icon" type="image/png" href="assets/icons/fenna.png">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Background grid layer -->
+  <div class="bg-grid"></div>
+
+  <!-- Navigation -->
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="index.html" class="brand">
+        <img src="assets/icons/fenna.png" alt="Fenna" class="brand-icon">
+        <span>Fenna Workspace</span>
+        <span class="brand-badge">AGPLv3</span>
+      </a>
+      <nav class="nav-links">
+        <a href="changelog.html" class="nav-link">Changelog</a>
+        <a href="download.html" class="nav-link">Download</a>
+        <a href="https://github.com/Sidhilynx/fenna" class="nav-link" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="download.html" class="nav-btn">Download ▾</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <!-- Hero Section -->
+    <section class="hero container">
+      <a href="changelog.html" class="hero-announcement">
+        <span class="hero-badge-tag">New</span>
+        <span>Fenna Workspace 0.9 is live · Explore the release →</span>
+      </a>
+
+      <h1 class="hero-title">Give any AI agent its own docs, slides, and whiteboard.</h1>
+      <p class="hero-sub">Open source. Local-first. No account. Built so your agent can inspect, format, and organize files directly on your computer over MCP.</p>
+      
+      <div class="hero-actions">
+        <a href="https://github.com/Sidhilynx/fenna/releases/download/v0.9.3/Fenna-Workspace-0.9.3-setup.exe" id="hero-download-btn" class="btn-primary">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span>Download Fenna Workspace</span>
+        </a>
+        <a href="https://github.com/Sidhilynx/fenna" class="btn-secondary" target="_blank" rel="noopener noreferrer">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          <span>Star on GitHub</span>
+        </a>
+      </div>
+
+      <div class="hero-meta">
+        Latest release: <span id="hero-version" style="font-family: ui-monospace, monospace; color: #ededed;">latest</span> · <a href="download.html">All downloads & standalone apps →</a> · (<a href="download.html#unsigned-guide">how to open unsigned</a>)
+      </div>
+
+      <!-- Linear-style Elevated App Window -->
+      <div class="hero-window-wrapper">
+        <div class="hero-window-glow"></div>
+        <div class="hero-window">
+          <div class="window-titlebar">
+            <div class="window-controls">
+              <span class="win-dot" style="background: #ff5f56;"></span>
+              <span class="win-dot" style="background: #ffbd2e;"></span>
+              <span class="win-dot" style="background: #27c93f;"></span>
+            </div>
+            <div class="window-title">fenna-workspace — ~/workspace</div>
+            <div class="window-status">
+              <span class="pulse-dot"></span>
+              <span>stdio MCP active</span>
+            </div>
+          </div>
+          <div class="window-body">
+            <img src="assets/docs-demo.gif" alt="Live edits arriving through the Fenna MCP server">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- How It Works (3 Steps) -->
+    <section class="section container">
+      <div class="section-head">
+        <div class="section-tag">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          Workflow
+        </div>
+        <h2 class="section-title">Designed for autonomous agents</h2>
+      </div>
+
+      <div class="steps-grid">
+        <div class="step-card">
+          <div class="step-num">01 / INSTALL</div>
+          <h3 class="step-title">Run Fenna Workspace</h3>
+          <p class="step-desc">A single desktop app for Windows, macOS, or Linux. No account, no login screen, and no remote servers.</p>
+        </div>
+
+        <div class="step-card">
+          <div class="step-num">02 / CONNECT</div>
+          <h3 class="step-title">Connect your agent</h3>
+          <p class="step-desc">Open the built-in MCP guide to copy the configuration for Claude Desktop, Claude Code, Cursor, or Antigravity.</p>
+        </div>
+
+        <div class="step-card">
+          <div class="step-num">03 / BUILD</div>
+          <h3 class="step-title">Ask it to make something</h3>
+          <p class="step-desc">Prompt your agent to outline slides, draft docs, compute sheets, or arrange boards. Edits land live on your disk.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- The 5 Tools (Bento Grid) -->
+    <section class="section container">
+      <div class="section-head">
+        <div class="section-tag">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+          Tools
+        </div>
+        <h2 class="section-title">Five tools in one window</h2>
+      </div>
+
+      <div class="bento-grid">
+        <!-- Whiteboard (Hero Bento - Span 12) -->
+        <div class="bento-card bento-hero">
+          <div class="bento-content">
+            <span class="bento-badge">Spatial Canvas</span>
+            <h3 class="bento-title">Fenna Whiteboard</h3>
+            <p class="bento-desc">Brainstorms, flowcharts, and retros on an infinite canvas with sticky notes, shapes, and connectors.</p>
+            <div class="bento-format">board.json · canvas.json</div>
+          </div>
+          <div class="bento-img-wrapper">
+            <img src="assets/screenshots/workspace-board.png" alt="Fenna Whiteboard interface">
+          </div>
+        </div>
+
+        <!-- Slides (Span 6) -->
+        <div class="bento-card bento-half">
+          <div class="bento-content">
+            <span class="bento-badge">Presentations</span>
+            <h3 class="bento-title">Fenna Slides</h3>
+            <p class="bento-desc">Decks and presentations with present mode and PowerPoint, PDF, and web export.</p>
+            <div class="bento-format">deck.json · slides/*.html</div>
+          </div>
+          <div class="bento-img-wrapper">
+            <img src="assets/screenshots/workspace-deck.png" alt="Fenna Slides interface">
+          </div>
+        </div>
+
+        <!-- Docs (Span 6) -->
+        <div class="bento-card bento-half">
+          <div class="bento-content">
+            <span class="bento-badge">Documents</span>
+            <h3 class="bento-title">Fenna Docs</h3>
+            <p class="bento-desc">Memos, plans, and notes with tabs, comments, and Word and Markdown export.</p>
+            <div class="bento-format">doc.json · tabs/*.html</div>
+          </div>
+          <div class="bento-img-wrapper">
+            <img src="assets/screenshots/workspace-doc.png" alt="Fenna Docs interface">
+          </div>
+        </div>
+
+        <!-- Sheets (Span 6) -->
+        <div class="bento-card bento-half">
+          <div class="bento-content">
+            <span class="bento-badge">Spreadsheets</span>
+            <h3 class="bento-title">Fenna Sheets</h3>
+            <p class="bento-desc">Spreadsheets with formulas, charts, and conditional formatting, plus Excel and CSV import and export.</p>
+            <div class="bento-format">sheet.json · sheets/*.json</div>
+          </div>
+          <div class="bento-img-wrapper">
+            <img src="assets/screenshots/workspace-sheet.png" alt="Fenna Sheets interface">
+          </div>
+        </div>
+
+        <!-- Design (Span 6) -->
+        <div class="bento-card bento-half">
+          <div class="bento-content">
+            <span class="bento-badge">Vector Canvas</span>
+            <h3 class="bento-title">Fenna Design</h3>
+            <p class="bento-desc">A canvas of artboards for screens, landing pages, posters, and social posts, exported to PNG, SVG, and PDF.</p>
+            <div class="bento-format">design.json · artboards/*.html</div>
+          </div>
+          <div class="bento-img-wrapper">
+            <img src="assets/screenshots/workspace-design.png" alt="Fenna Design interface">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- The Honest Block -->
+    <section class="section container">
+      <div class="section-head">
+        <div class="section-tag">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Principles
+        </div>
+        <h2 class="section-title">Built on plain truths</h2>
+      </div>
+
+      <div class="honest-grid">
+        <div class="honest-card">
+          <h4>Plain folders on your disk</h4>
+          <p>Every deck, doc, sheet, board, and design is stored as human-readable HTML and JSON files in folders on your machine. No lock-in; your files outlive the app.</p>
+        </div>
+
+        <div class="honest-card">
+          <h4>No account, no analytics</h4>
+          <p>Fenna has no login and collects no analytics. The app only checks GitHub once a day for releases. Read our full <a href="https://github.com/Sidhilynx/fenna/blob/main/PRIVACY.md" target="_blank" rel="noopener noreferrer" style="text-decoration: underline; color: #fff;">privacy policy</a>.</p>
+        </div>
+
+        <div class="honest-card">
+          <h4>Works with local MCP agents</h4>
+          <p>Tested with Claude Desktop, Claude Code, Cursor, and Antigravity over local stdio. Your agent inspects and modifies files using strict schema validation.</p>
+        </div>
+
+        <div class="honest-card">
+          <h4>GNU AGPLv3 open source</h4>
+          <p>Free and open-source software under the AGPL-3.0 license. You can inspect every line, audit every network request, and build it from source.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Download Section -->
+    <section id="download" class="section download-section container">
+      <div class="section-head">
+        <div class="section-tag">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Get Started
+        </div>
+        <h2 class="section-title">Download Fenna Workspace</h2>
+      </div>
+
+      <div class="download-matrix">
+        <!-- macOS -->
+        <div class="download-card" id="card-mac">
+          <div class="download-card-header">
+            <div class="os-name">
+              <span>macOS</span>
+              <span class="os-tag">Apple Silicon & Intel</span>
+            </div>
+            <p class="os-details">macOS 12 or later · DMG</p>
+          </div>
+          <div class="download-buttons">
+            <a href="https://github.com/Sidhilynx/fenna/releases/latest" id="dl-mac-arm" class="btn-dl primary-dl">
+              <span>Apple Silicon</span>
+              <span class="btn-dl-arch">.dmg</span>
+            </a>
+            <a href="https://github.com/Sidhilynx/fenna/releases/latest" id="dl-mac-intel" class="btn-dl">
+              <span>Intel Mac</span>
+              <span class="btn-dl-arch">.dmg</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Windows -->
+        <div class="download-card" id="card-windows">
+          <div class="download-card-header">
+            <div class="os-name">
+              <span>Windows</span>
+              <span class="os-tag">64-bit</span>
+            </div>
+            <p class="os-details">Windows 10, 11 · Setup Installer</p>
+          </div>
+          <div class="download-buttons">
+            <a href="https://github.com/Sidhilynx/fenna/releases/latest" id="dl-win" class="btn-dl primary-dl">
+              <span>Windows Installer</span>
+              <span class="btn-dl-arch">.exe</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Linux -->
+        <div class="download-card" id="card-linux">
+          <div class="download-card-header">
+            <div class="os-name">
+              <span>Linux</span>
+              <span class="os-tag">x64</span>
+            </div>
+            <p class="os-details">Universal AppImage & Debian Package</p>
+          </div>
+          <div class="download-buttons">
+            <a href="https://github.com/Sidhilynx/fenna/releases/latest" id="dl-linux-appimage" class="btn-dl primary-dl">
+              <span>AppImage</span>
+              <span class="btn-dl-arch">.AppImage</span>
+            </a>
+            <a href="https://github.com/Sidhilynx/fenna/releases/latest" id="dl-linux-deb" class="btn-dl">
+              <span>Debian / Ubuntu</span>
+              <span class="btn-dl-arch">.deb</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Unsigned Binary Guide -->
+      <div id="unsigned-guide" class="unsigned-box">
+        <h3 class="unsigned-title">Unsigned for now: how to open on first start</h3>
+        <p class="unsigned-subtitle">The installers are not code-signed yet, so your operating system will display an alert on first launch.</p>
+
+        <div class="guide-tabs">
+          <button type="button" class="tab-btn active" data-tab="mac">macOS</button>
+          <button type="button" class="tab-btn" data-tab="windows">Windows</button>
+          <button type="button" class="tab-btn" data-tab="linux">Linux</button>
+        </div>
+
+        <!-- macOS Tab -->
+        <div id="tab-mac" class="tab-content active">
+          <ol class="guide-steps">
+            <li>Open the downloaded <code>.dmg</code> and drag <strong>Fenna Workspace</strong> to your <code>/Applications</code> folder.</li>
+            <li>Double-click to open. When macOS warns that the app cannot be opened, click <strong>Done</strong>.</li>
+            <li>Open <strong>System Settings → Privacy & Security</strong>, scroll down to the <strong>Security</strong> section, and click <strong>Open Anyway</strong>.</li>
+          </ol>
+          <div class="code-box">
+            <code>xattr -cr "/Applications/Fenna Workspace.app"</code>
+            <button type="button" class="btn-copy" data-copy="xattr -cr &quot;/Applications/Fenna Workspace.app&quot;">Copy</button>
+          </div>
+        </div>
+
+        <!-- Windows Tab -->
+        <div id="tab-windows" class="tab-content">
+          <ol class="guide-steps">
+            <li>Launch <code>Fenna-Workspace-*-setup.exe</code>.</li>
+            <li>When the blue "Windows protected your PC" SmartScreen alert appears, click <strong>More info</strong>.</li>
+            <li>Click <strong>Run anyway</strong> to start installation.</li>
+          </ol>
+        </div>
+
+        <!-- Linux Tab -->
+        <div id="tab-linux" class="tab-content">
+          <ol class="guide-steps">
+            <li>Make the downloaded <code>.AppImage</code> executable:</li>
+          </ol>
+          <div class="code-box">
+            <code>chmod +x Fenna-Workspace-*.AppImage && ./Fenna-Workspace-*.AppImage</code>
+            <button type="button" class="btn-copy" data-copy="chmod +x Fenna-Workspace-*.AppImage && ./Fenna-Workspace-*.AppImage">Copy</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div>
+        Fenna Workspace is free software licensed under <a href="https://github.com/Sidhilynx/fenna/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" style="color: #fff;">GNU AGPLv3</a>.
+      </div>
+      <div class="footer-links">
+        <a href="https://github.com/Sidhilynx/fenna" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="changelog.html">Changelog</a>
+        <a href="https://github.com/Sidhilynx/fenna/blob/main/PRIVACY.md" target="_blank" rel="noopener noreferrer">Privacy</a>
+        <a href="https://github.com/Sidhilynx/fenna/issues" target="_blank" rel="noopener noreferrer">Issues</a>
+      </div>
+      <div>
+        Made by SidhiLynx, Chennai
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/download.js"></script>
+</body>
+</html>
