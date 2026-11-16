@@ -104,7 +104,7 @@ export function checkIndex(raw: unknown, fallbackTitle = "Untitled design"): { i
   const say = (message: string) => problems.push({ where: "design.json", message });
   const obj = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
   if (obj !== raw) say("design.json must be a JSON object");
-  if (obj.format !== undefined && obj.format !== FORMAT) say(`format is "${String(obj.format)}"; this app reads ${FORMAT}`);
+  if (obj.format !== undefined && obj.format !== FORMAT && obj.format !== "fenna-design/v1") say(`format is "${String(obj.format)}"; this app reads ${FORMAT}`);
 
   const index = emptyIndex(typeof obj.title === "string" && obj.title.trim() ? obj.title.trim().slice(0, LIMITS.titleChars) : fallbackTitle);
 

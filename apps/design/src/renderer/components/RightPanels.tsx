@@ -30,7 +30,7 @@ function view(): ChatView | null {
   if (!context) return null;
   const what = selectionLabel();
   const title = getState().index.title;
-  return { context, label: what ? `${title} · ${what}` : title };
+  return { context, label: what ? (title ? `${title} · ${what}` : what) : title && title !== "Untitled design" && title.length > 2 ? title : "Design canvas" };
 }
 
 function AssistantPanel() {

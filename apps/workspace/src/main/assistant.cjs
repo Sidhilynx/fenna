@@ -22,6 +22,8 @@ function toolLabel(tool, p = {}) {
   switch (tool) {
     case "workspace_overview":
       return "Looked at the workspace";
+    case "workspace_guide":
+      return "Read workspace guide";
     case "deck_overview":
       return "Looked at the deck";
     case "format_guide":
@@ -55,9 +57,11 @@ function toolLabel(tool, p = {}) {
     case "design_overview":
       return "Looked at the design canvas";
     case "read_artboard":
-      return `Read artboard “${p.file ?? ""}”`;
+      return `Read artboard “${p.name || p.file || ""}”`;
     case "write_artboard":
-      return `Wrote artboard “${p.file ?? ""}”`;
+      return `Saved artboard “${p.name || p.file || ""}”`;
+    case "edit_artboard":
+      return `Edited artboard “${p.name || p.file || ""}”`;
     default:
       return null;
   }

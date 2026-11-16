@@ -21,6 +21,17 @@ function registerShell({ assertSender, releases }) {
       return "";
     }
   });
+  ipcMain.handle("shell:theme", (e, nextMode) => {
+    assertSender(e);
+    const { nativeTheme } = require("electron");
+    if (nextMode && ["dark", "light", "system"].includes(nextMode)) {
+      nativeTheme.themeSource = nextMode;
+    }
+    return {
+      mode: nativeTheme.themeSource,
+      dark: nativeTheme.shouldUseDarkColors,
+    };
+  });
 }
 
 module.exports = {

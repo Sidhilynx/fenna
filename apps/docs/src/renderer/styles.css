@@ -57,6 +57,27 @@
     --mark: rgba(250, 210, 60, 0.45);
   }
 }
+:root[data-theme="light"] {
+  --doc-code-bg: rgba(15, 18, 30, 0.05);
+  --flash: rgba(91, 124, 250, 0.12);
+  --ins: rgba(40, 160, 80, 0.16);
+  --del: #c2382c;
+  --comment: rgba(229, 165, 75, 0.25);
+  --comment-open: rgba(229, 165, 75, 0.5);
+  --chip-gray: rgba(15, 18, 30, 0.07);
+  --chip-blue: rgba(60, 100, 240, 0.14);
+  --chip-green: rgba(40, 160, 80, 0.15);
+  --chip-yellow: rgba(220, 180, 30, 0.2);
+  --chip-orange: rgba(230, 130, 40, 0.18);
+  --chip-red: rgba(220, 70, 60, 0.15);
+  --chip-purple: rgba(140, 80, 220, 0.15);
+  --tx-red: #c93a32;
+  --tx-yellow: #a77a00;
+  --tx-green: #24864f;
+  --tx-teal: #0f8578;
+  --tx-purple: #7546c8;
+  --mark: rgba(250, 210, 60, 0.45);
+}
 
 /* â”€â”€ Frame â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .docs { height: 100%; display: flex; flex-direction: column; background: var(--bg); }

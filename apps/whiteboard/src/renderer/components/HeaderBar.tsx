@@ -1,7 +1,7 @@
 // The header: the board's name and its menu, Export, and the chat.
 
 import { useEffect, useState } from "react";
-import { ago, Dialog, ExportButton, Icon, McpGuideDialog, MenuButton, shortcut, type ExportFormat } from "@opendeck/shell";
+import { ago, Dialog, ExportButton, Icon, McpGuideDialog, MenuButton, ThemeToggle, shortcut, type ExportFormat } from "@opendeck/shell";
 import { exportBoard, type ExportKind } from "../export.ts";
 import { duplicateBoard, redo, reload, renameBoard, setPanel, togglePanel, undo, useBoard } from "../store.ts";
 
@@ -61,6 +61,7 @@ export function HeaderBar() {
         formats={FORMATS}
         onExport={(k) => void exportBoard(k)}
       />
+      <ThemeToggle className="icon-btn" />
       <button className={`btn ghost${panel === "chat" ? " on" : ""}`} aria-pressed={panel === "chat"} onClick={() => togglePanel("chat")} title="Chat">
         <Icon name="panelRight" size={16} /> {panel === "chat" ? "Hide chat" : "Show chat"}
       </button>

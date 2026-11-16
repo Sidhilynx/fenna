@@ -9,6 +9,7 @@ export { Home, type HomeItem, type HomeProps } from "./Home.tsx";
 export { Dialog } from "./ui/Dialog.tsx";
 export { McpGuideDialog, MCP_APPS, type McpGuideDialogProps, type McpAppDef } from "./McpGuideDialog.tsx";
 export { ExportButton, type ExportFormat } from "./ui/ExportButton.tsx";
+export { ThemeToggle, type ThemeMode } from "./ui/ThemeToggle.tsx";
 export { Icon, type IconName } from "./ui/icons.tsx";
 export { Menu, MenuButton, shortcut, type MenuEntry, type MenuPrompt } from "./ui/Menu.tsx";
 export { readPref, writePref } from "./prefs.ts";

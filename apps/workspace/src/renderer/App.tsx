@@ -58,6 +58,7 @@ export function App() {
   const [busy, setBusy] = useState(false);
   const [showMcp, setShowMcp] = useState(false);
   const [recentOpen, setRecentOpen] = useState(true);
+  const [themeMode, setThemeMode] = useState<"dark" | "light" | "system">("system");
   const searchInput = useRef<HTMLInputElement>(null);
 
   const loadRecent = async () => {
@@ -72,6 +73,7 @@ export function App() {
   useEffect(() => {
     void loadRecent();
     void userName().then((n) => setName(greetingName(n))).catch(() => {});
+    void api.getTheme().then((t) => setThemeMode(t.mode)).catch(() => {});
   }, []);
 
   const currentProductDef = PRODUCTS.find((p) => p.id === selectedProduct) ?? null;
@@ -115,6 +117,15 @@ export function App() {
 
   const handleChoose = async (kind?: ProductKind) => {
     await api.choose(kind);
+  };
+
+  const handleToggleTheme = async () => {
+    const next = themeMode === "dark" ? "light" : themeMode === "light" ? "system" : "dark";
+    setThemeMode(next);
+    try {
+      const res = await api.setTheme(next);
+      document.documentElement.dataset.theme = res.dark ? "dark" : "light";
+    } catch {}
   };
 
   // Global keyboard shortcuts: / to search, N to start new
@@ -220,6 +231,19 @@ export function App() {
             )}
           </>
         )}
+
+        <div className="ws-side-spacer" />
+        <div className="ws-side-divider" />
+        <button
+          type="button"
+          className="ws-nav ws-theme-nav"
+          onClick={handleToggleTheme}
+          title={`Switch theme (current: ${themeMode})`}
+          aria-label={`Toggle theme: ${themeMode}`}
+        >
+          <Icon name={themeMode === "dark" ? "moon" : themeMode === "light" ? "sun" : "viewport"} size={16} />
+          <span className="ws-nav-title">Theme: {themeMode.charAt(0).toUpperCase() + themeMode.slice(1)}</span>
+        </button>
       </aside>
 
       {/* Main Content Area */}

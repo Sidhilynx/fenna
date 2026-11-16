@@ -61,6 +61,34 @@
     --err: #c23636;
   }
 }
+:root[data-theme="light"] {
+  --grid-line: #e4e4e2;
+  --grid-head: #f3f3f2;
+  --grid-head-on: rgba(47, 107, 255, 0.1);
+  --grid-cell: #ffffff;
+  --freeze-line: #c9c9c6;
+  --opt-gray: rgba(115, 115, 115, 0.12);
+  --opt-gray-ink: #4a4a4a;
+  --opt-blue: rgba(47, 107, 255, 0.12);
+  --opt-blue-ink: #2147b8;
+  --opt-green: rgba(35, 138, 49, 0.13);
+  --opt-green-ink: #166026;
+  --opt-yellow: rgba(181, 120, 24, 0.15);
+  --opt-yellow-ink: #7a4f08;
+  --opt-orange: rgba(191, 86, 36, 0.13);
+  --opt-orange-ink: #8a3a12;
+  --opt-red: rgba(194, 54, 54, 0.12);
+  --opt-red-ink: #962121;
+  --opt-purple: rgba(93, 66, 199, 0.12);
+  --opt-purple-ink: #4a2fa8;
+  --chart-1: #2f6bff;
+  --chart-2: #238a31;
+  --chart-3: #b57818;
+  --chart-4: #bd3176;
+  --chart-5: #168c70;
+  --chart-6: #5d42c7;
+  --err: #c23636;
+}
 
 /* ── Layout ─────────────────────────────────────────────────────────── */
 .sheets { height: 100%; display: flex; flex-direction: column; background: var(--bg); }

@@ -69,11 +69,15 @@
 .dg-sel.typing { box-shadow: 0 0 0 1px var(--sel-soft); }
 .dg-hover { position: absolute; box-shadow: 0 0 0 1px var(--sel); opacity: 0.55; }
 .dg-guide { position: absolute; outline: 1px dashed var(--sel); outline-offset: -1px; opacity: 0.45; }
-.dg-handle { position: absolute; width: 9px; height: 9px; background: var(--dg-handle); border: 1.5px solid var(--sel); border-radius: 2px; pointer-events: auto; }
+.dg-handle { position: absolute; width: 9px; height: 9px; background: var(--dg-handle, var(--raised)); border: 1.5px solid var(--sel); border-radius: 2px; pointer-events: auto; }
 .dg-handle.nw { left: -5px; top: -5px; cursor: nwse-resize; }
 .dg-handle.ne { right: -5px; top: -5px; cursor: nesw-resize; }
 .dg-handle.se { right: -5px; bottom: -5px; cursor: nwse-resize; }
 .dg-handle.sw { left: -5px; bottom: -5px; cursor: nesw-resize; }
+.dg-handle.n { left: calc(50% - 4.5px); top: -5px; cursor: ns-resize; }
+.dg-handle.s { left: calc(50% - 4.5px); bottom: -5px; cursor: ns-resize; }
+.dg-handle.w { left: -5px; top: calc(50% - 4.5px); cursor: ew-resize; }
+.dg-handle.e { right: -5px; top: calc(50% - 4.5px); cursor: ew-resize; }
 .dg-marquee { position: absolute; border: 1px solid var(--sel); background: var(--sel-soft); }
 .dg-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 24px; text-align: center; color: var(--text-2); pointer-events: none; }
 .dg-empty p { margin: 0; max-width: 420px; }

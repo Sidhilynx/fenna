@@ -1,7 +1,7 @@
 {
   "name": "@opendeck/desktop",
   "productName": "Fenna Slides",
-  "version": "0.9.3",
+  "version": "0.9.4",
   "private": true,
   "description": "Slides that live on your computer and work with any AI.",
   "license": "AGPL-3.0-only",

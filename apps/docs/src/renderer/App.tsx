@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { flattenTabs, tabLabel } from "@opendeck/doc";
-import { Dialog, Icon, McpGuideDialog, MenuButton, Toast, shortcut, tabs } from "@opendeck/shell";
+import { Dialog, Icon, McpGuideDialog, MenuButton, ThemeToggle, Toast, shortcut, tabs } from "@opendeck/shell";
 import { Page } from "./Page.tsx";
 import { loadComments } from "./editor/comments.ts";
 import { AssistantPanel } from "./panels/AssistantPanel.tsx";
@@ -73,6 +73,7 @@ export function App() {
         </MenuButton>
         <span className="dt-fill" />
         {doc && <ExportMenu />}
+        <ThemeToggle className="icon-btn" />
         <button className={`btn ghost${chat ? " on" : ""}`} aria-pressed={chat} onClick={() => togglePanel("chat")}>
           <Icon name="panelRight" size={16} /> {chat ? "Hide chat" : "Show chat"}
         </button>
