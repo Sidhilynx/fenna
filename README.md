@@ -117,8 +117,10 @@ subsets that people and models can both read and write by hand.
 npm install
 npm test
 npm run typecheck
-npm run dev -w @opendeck/desktop       # Slides, with hot reload (also docs, sheets, whiteboard, design)
-npm run dist -w @opendeck/desktop      # installers in apps/desktop/release/
+npm run build --workspaces --if-present  # build all six apps; Workspace loads the other five
+npm start -w @opendeck/workspace           # Fenna Workspace: every app in one window
+npm run dev -w @opendeck/desktop           # one app with hot reload (also docs, sheets, whiteboard, design)
+npm run dist -w @opendeck/workspace        # installers in apps/workspace/release/
 ```
 
 On Windows, use PowerShell and a path with a capital drive letter
