@@ -299,7 +299,7 @@ class TabHost {
     const [w, h] = this.window.getContentSize();
     view.setBounds(layoutBounds(w, h, this.overlay).page);
     view.setVisible(!!visible);
-    this.o.load(tab.wc);
+    this.o.load(tab.wc, tab);
   }
 
   wire(tab) {
@@ -333,9 +333,25 @@ class TabHost {
     if (!tab) return;
     tab.root = root || null;
     tab.title = clip(title, TITLE_MAX);
+    tab.product = null;
     this.emit();
     this.scheduleSave();
     this.updateWindowTitle();
+  }
+
+  productOf(tab) {
+    if (!tab || !tab.root) return this.o.product || (this.o.products && this.o.products[0]) || { name: "Home", kind: "home", kindName: "New tab" };
+    if (tab.product) return tab.product;
+    if (Array.isArray(this.o.products) && this.o.products.length > 0) {
+      for (const p of this.o.products) {
+        if (p.marker && fs.existsSync(path.join(tab.root, p.marker))) {
+          tab.product = p;
+          return p;
+        }
+      }
+      return this.o.products[0];
+    }
+    return this.o.product || { name: "Fenna", kind: "doc", kindName: "Document", marker: "doc.json" };
   }
 
   // ── activate, page reports ──
@@ -388,7 +404,9 @@ class TabHost {
   updateWindowTitle() {
     if (this.disposed || this.window.isDestroyed()) return;
     const t = this.active();
-    this.window.setTitle(`${t ? displayTitle(t) : HOME_TITLE} — ${this.o.product.name}`);
+    const prod = t && t.root ? this.productOf(t) : (this.o.product || (this.o.products && this.o.products[0]));
+    const appName = this.o.name || (this.o.product && this.o.product.name) || (prod && prod.name) || "Fenna Workspace";
+    this.window.setTitle(`${t ? displayTitle(t) : HOME_TITLE} — ${appName}`);
   }
 
   // ── closing, moving ──
@@ -492,7 +510,19 @@ class TabHost {
       focused: alive ? win.isFocused() : false,
       fullscreen: alive ? win.isFullScreen() : false,
       activeId: this.activeId || "",
-      tabs: this.tabs.map((t) => ({ id: t.id, title: displayTitle(t), kind: t.root ? this.o.product.kind : "home", kindName: t.root ? this.o.product.kindName : HOME_TITLE, loading: t.loading, state: deriveState(t), label: t.label, path: t.root || "" })),
+      tabs: this.tabs.map((t) => {
+        const prod = this.productOf(t);
+        return {
+          id: t.id,
+          title: displayTitle(t),
+          kind: t.root ? prod.kind : "home",
+          kindName: t.root ? prod.kindName : HOME_TITLE,
+          loading: t.loading,
+          state: deriveState(t),
+          label: t.label,
+          path: t.root || "",
+        };
+      }),
     };
   }
 
@@ -620,7 +650,10 @@ class TabHost {
     Menu.buildFromTemplate([
       { label: "New tab to the right", click: () => this.open(null, { index: idx + 1 }) },
       { label: "Reload", click: () => tab.wc && !tab.wc.isDestroyed() && tab.wc.reload() },
-      ...(tab.root ? [{ label: "Show in folder", click: () => shell.showItemInFolder(path.join(tab.root, this.o.product.marker)) }] : []),
+      ...(tab.root ? [{ label: "Show in folder", click: () => {
+        const prod = this.productOf(tab);
+        shell.showItemInFolder(path.join(tab.root, prod.marker || ""));
+      } }] : []),
       { type: "separator" },
       { label: "Close", click: () => this.close(tab.id) },
       { label: "Close other tabs", enabled: this.tabs.length > 1, click: () => this.closeOthers(tab.id) },

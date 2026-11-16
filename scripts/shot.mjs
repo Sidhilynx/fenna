@@ -62,6 +62,7 @@ const APPS = {
   sheets: { dir: "apps/sheets", env: "OPENDECK_SHEET" },
   whiteboard: { dir: "apps/whiteboard", env: "OPENDECK_BOARD" },
   design: { dir: "apps/design", env: "OPENDECK_DESIGN" },
+  workspace: { dir: "apps/workspace", env: "OPENDECK_WORKSPACE" },
 };
 
 const appName = opt("--app", "");

@@ -4,10 +4,12 @@
 // way the panel changes it, and parseChats reads any saved version back,
 // including the single chat older versions kept.
 
-import type { AgentKind } from "./agents.ts";
+import type { AgentKind, AttachedImage } from "./agents.ts";
+
+export type { AttachedImage } from "./agents.ts";
 
 export type ChatItem =
-  | { role: "user"; text: string; about?: string }
+  | { role: "user"; text: string; about?: string; images?: AttachedImage[] }
   | { role: "assistant"; text: string }
   | { role: "tool"; id: string; label: string; status: "running" | "done" | "failed" }
   | { role: "error"; text: string; fix?: "signin" | "install" };
@@ -47,13 +49,37 @@ export function newChat(from?: Pick<Chat, "kind" | "model" | "effort">, now = Da
 /** A chat's name: its first message, one line; "New chat" until there is one. */
 export function chatTitle(c: Chat): string {
   const first = c.items.find((i) => i.role === "user");
-  return first ? first.text.replace(/\s+/g, " ").trim() || "New chat" : "New chat";
+  if (!first || first.role !== "user") return "New chat";
+  const txt = first.text.replace(/\s+/g, " ").trim();
+  if (txt) return txt;
+  if (first.images && first.images.length > 0) return "Image prompt";
+  return "New chat";
 }
 
 function cleanItem(raw: unknown): ChatItem | null {
   const i = raw as Record<string, unknown> | null;
   if (!i || typeof i !== "object") return null;
-  if (i.role === "user" && typeof i.text === "string") return { role: "user", text: i.text, ...(typeof i.about === "string" ? { about: i.about } : {}) };
+  if (i.role === "user" && typeof i.text === "string") {
+    const images: AttachedImage[] = [];
+    if (Array.isArray(i.images)) {
+      for (const img of i.images) {
+        if (img && typeof img === "object" && typeof (img as Record<string, unknown>).data === "string") {
+          const d = (img as Record<string, unknown>).data as string;
+          images.push({
+            name: typeof (img as Record<string, unknown>).name === "string" ? str((img as Record<string, unknown>).name, 120) : "image",
+            mimeType: typeof (img as Record<string, unknown>).mimeType === "string" ? str((img as Record<string, unknown>).mimeType, 40) : "image/png",
+            data: d,
+          });
+        }
+      }
+    }
+    return {
+      role: "user",
+      text: i.text,
+      ...(typeof i.about === "string" ? { about: i.about } : {}),
+      ...(images.length > 0 ? { images } : {}),
+    };
+  }
   if (i.role === "assistant" && typeof i.text === "string") return { role: "assistant", text: i.text };
   if (i.role === "error" && typeof i.text === "string") return i.fix === "signin" || i.fix === "install" ? { role: "error", text: i.text, fix: i.fix } : { role: "error", text: i.text };
   // A step still "running" in a saved file was cut off when the app closed.

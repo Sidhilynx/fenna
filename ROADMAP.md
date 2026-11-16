@@ -11,7 +11,7 @@ built side by side, not one after another.
 
 ## Now: 0.9, the first public release
 
-Fenna Slides, Docs, Sheets, Whiteboard and Design for Windows, macOS and Linux, each
+Fenna Slides, Docs, Sheets, Whiteboard, Design, and the unified Fenna Workspace for Windows, macOS and Linux, each
 with an MCP server and a chat for the AI you already use. No account.
 
 - Fix what the first users find. Bugs come before anything new.
@@ -33,7 +33,7 @@ own, any AI can work in it through MCP, and nothing needs an account.
 
 ## Then: one family
 
-- **Fenna in one window.** One app with every Fenna app in its tabs, for
+- **Fenna in one window.** *(Done: Fenna Workspace)* One app with every Fenna app in its tabs, for
   people who use more than one. The separate apps stay.
 - **Work moves between apps.** A sheet's chart in a deck or a doc, a board
   turned into slides, meeting notes into a doc and their actions into a

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { flattenTabs, tabLabel } from "@opendeck/doc";
-import { Dialog, Icon, MenuButton, Toast, shortcut, tabs } from "@opendeck/shell";
+import { Dialog, Icon, McpGuideDialog, MenuButton, Toast, shortcut, tabs } from "@opendeck/shell";
 import { Page } from "./Page.tsx";
 import { loadComments } from "./editor/comments.ts";
 import { AssistantPanel } from "./panels/AssistantPanel.tsx";
@@ -23,6 +23,7 @@ export function App() {
   const canUndo = useDocs((s) => s.undo.length > 0);
   const canRedo = useDocs((s) => s.redo.length > 0);
   const [renaming, setRenaming] = useState(false);
+  const [showMcp, setShowMcp] = useState(false);
 
   useEffect(() => void boot(), []);
   useEffect(() => void loadComments(ref?.root ?? null), [ref?.root]);
@@ -64,6 +65,8 @@ export function App() {
             "separator",
             { label: "Undo", shortcut: shortcut("Mod+Z"), disabled: !canUndo, onSelect: () => void undo() },
             { label: "Redo", shortcut: shortcut("Mod+Shift+Z"), disabled: !canRedo, onSelect: () => void redo() },
+            "separator",
+            { label: "MCP setup guide…", icon: <Icon name="code" size={16} />, onSelect: () => setShowMcp(true) },
           ]}
         >
           <span className="dt-title-text">{title}</span> <Icon name="chevronDown" size={14} />
@@ -93,6 +96,7 @@ export function App() {
         </main>
       )}
       {renaming && <RenameDoc title={title} onClose={() => setRenaming(false)} />}
+      {showMcp && <McpGuideDialog open={showMcp} onClose={() => setShowMcp(false)} noun="doc" docPath={ref?.root ?? null} />}
       <LinkDialog />
       <Toast />
     </div>

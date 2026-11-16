@@ -13,6 +13,10 @@ const { _test } = require("../main/agent.cjs") as {
     describeTool(profile: Profile, name: string, params: unknown): string;
     friendly(kind: string, raw: string): { message: string; fix: string | null };
     urlsIn(text: string): string[];
+    argsFor(profile: Profile, kind: string, opts: { sessionId?: string | null; model?: string; effort?: string; root: string; images?: { path: string; name?: string }[] }): string[];
+    promptFor(profile: Profile, text: string, context: unknown, first: boolean, images?: { path: string; name?: string }[]): string;
+    inputFor(kind: string, prompt: string, images?: { path: string; name?: string; mimeType?: string; base64?: string }[]): string;
+    saveImages(images: { name?: string; mimeType?: string; data: string }[]): { path: string; name: string; mimeType: string; base64: string }[];
   };
 };
 
@@ -84,5 +88,68 @@ describe("assistant host: event parsing", () => {
   it("finds the sign-in link in what a CLI prints", () => {
     expect(_test.urlsIn("Open https://claude.ai/oauth/authorize?code=1). Then paste the code")).toEqual(["https://claude.ai/oauth/authorize?code=1"]);
     expect(_test.urlsIn("no links here")).toEqual([]);
+  });
+
+  it("formats image prompts and inputs across all 3 CLIs", () => {
+    const testImages = [
+      { path: "/tmp/images/ref1.png", name: "ref1.png", mimeType: "image/png", base64: "iVBORw0KGgoAAAANSUhEUg==" },
+      { path: "/tmp/images/mockup.jpg", name: "mockup.jpg", mimeType: "image/jpeg", base64: "/9j/4AAQSkZJRg==" },
+    ];
+
+    // promptFor includes image paths and notes
+    const prompt = _test.promptFor(app, "Make it look like this", null, false, testImages);
+    expect(prompt).toContain("Attached reference image(s):");
+    expect(prompt).toContain("- ref1.png: /tmp/images/ref1.png");
+    expect(prompt).toContain("- mockup.jpg: /tmp/images/mockup.jpg");
+    expect(prompt).toContain("User: Make it look like this");
+
+    // Antigravity input: stream-json with multimodal image blocks and user text
+    const agyInput = JSON.parse(_test.inputFor("antigravity", prompt, testImages).trim());
+    expect(agyInput.event).toBe("user");
+    expect(agyInput.message.role).toBe("user");
+    expect(agyInput.message.content).toHaveLength(3);
+    expect(agyInput.message.content[0]).toEqual({
+      type: "image",
+      source: { type: "base64", media_type: "image/png", data: "iVBORw0KGgoAAAANSUhEUg==" },
+    });
+    expect(agyInput.message.content[1]).toEqual({
+      type: "image",
+      source: { type: "base64", media_type: "image/jpeg", data: "/9j/4AAQSkZJRg==" },
+    });
+    expect(agyInput.message.content[2]).toEqual({ type: "text", text: prompt });
+
+    // Claude Code input: stream-json with Anthropic multimodal image content blocks
+    const claudeInput = JSON.parse(_test.inputFor("claude", prompt, testImages).trim());
+    expect(claudeInput.type).toBe("user");
+    expect(claudeInput.message.role).toBe("user");
+    expect(claudeInput.message.content).toHaveLength(3);
+    expect(claudeInput.message.content[0]).toEqual({
+      type: "image",
+      source: { type: "base64", media_type: "image/png", data: "iVBORw0KGgoAAAANSUhEUg==" },
+    });
+    expect(claudeInput.message.content[2]).toEqual({ type: "text", text: prompt });
+
+    // Codex input: standard prompt on stdin
+    const codexInput = _test.inputFor("codex", prompt, testImages);
+    expect(codexInput).toBe(prompt);
+
+    // Codex argsFor: adds -i <path> for each image and leaves view_image enabled
+    const codexArgs = _test.argsFor(app, "codex", { root: "/tmp/doc", images: testImages });
+    expect(codexArgs).toContain("-i");
+    expect(codexArgs).toContain("/tmp/images/ref1.png");
+    expect(codexArgs).toContain("/tmp/images/mockup.jpg");
+    // view_image is NOT in the disabled flags
+    const disabledIdxs: string[] = [];
+    for (let i = 0; i < codexArgs.length; i++) {
+      if (codexArgs[i] === "--disable") disabledIdxs.push(codexArgs[i + 1]!);
+    }
+    expect(disabledIdxs).not.toContain("view_image");
+
+    // Antigravity argsFor: allows read_file for image directory in permissions
+    const agyArgs = _test.argsFor(app, "antigravity", { root: "/tmp/doc", images: testImages });
+    const settingsIdx = agyArgs.indexOf("--settings");
+    expect(settingsIdx).toBeGreaterThanOrEqual(0);
+    const settings = JSON.parse(agyArgs[settingsIdx + 1]!);
+    expect(settings.permissions.allow.some((p: string) => p.startsWith("read_file(") && p.includes("images"))).toBe(true);
   });
 });

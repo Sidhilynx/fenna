@@ -69,6 +69,7 @@ function sheetView(): ChatView | null {
 
 function AssistantPanel() {
   const draft = useSheets((s) => s.chatDraft);
+  const root = useSheets((s) => s.ref?.root ?? null);
   useSheets((s) => `${s.activeSheetId}|${selectionRangeStr(s.selection)}`);
   const taken = useCallback(() => setState({ chatDraft: "" }), []);
   return (
@@ -80,6 +81,7 @@ function AssistantPanel() {
         intro="Ask for a new sheet, or for changes to the cells you’ve selected."
         placeholder="Ask for a change, or describe a sheet to build"
         draft={draft}
+        docPath={root}
         onDraftTaken={taken}
         onWorking={setAgent}
       />

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { SHAPE_KINDS } from "@opendeck/format";
-import { Dialog, Icon, type IconName, type MenuEntry, MenuButton, Toast, shortcut, tabs } from "@opendeck/shell";
+import { Dialog, Icon, McpGuideDialog, type IconName, type MenuEntry, MenuButton, Toast, shortcut, tabs } from "@opendeck/shell";
 import { Canvas } from "./editor/Canvas.tsx";
 import * as cmd from "./editor/commands.ts";
 import { loadComments, newComment } from "./editor/comments.ts";
@@ -56,6 +56,7 @@ export function App() {
   const redoLabel = useEditor((s) => s.redo[s.redo.length - 1]?.label);
   const [newSlide, setNewSlide] = useState(false);
   const [renaming, setRenaming] = useState(false);
+  const [showMcp, setShowMcp] = useState(false);
   // The grid shows every slide itself, so the strip steps aside there.
   const strip = useEditor((s) => s.thumbnails && s.view === "edit");
   useSlideStyles(deck?.index.theme ?? null);
@@ -91,6 +92,8 @@ export function App() {
               "separator",
               { label: "Undo", shortcut: shortcut("Mod+Z"), disabled: !canUndo, onSelect: () => void undo() },
               { label: "Redo", shortcut: shortcut("Mod+Shift+Z"), disabled: !canRedo, onSelect: () => void redo() },
+              "separator",
+              { label: "MCP setup guide…", icon: <Icon name="code" size={16} />, onSelect: () => setShowMcp(true) },
             ]}
           >
             <span className="title" title={ref?.root}>
@@ -176,6 +179,7 @@ export function App() {
       )}
       {newSlide && <NewSlideDialog onClose={() => setNewSlide(false)} />}
       {renaming && <RenameDeck title={title} onClose={() => setRenaming(false)} />}
+      {showMcp && <McpGuideDialog open={showMcp} onClose={() => setShowMcp(false)} noun="deck" docPath={ref?.root ?? null} />}
       <Toast />
     </div>
   );

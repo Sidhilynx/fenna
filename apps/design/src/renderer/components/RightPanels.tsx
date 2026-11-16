@@ -35,12 +35,13 @@ function view(): ChatView | null {
 
 function AssistantPanel() {
   const draft = useDesign((s) => s.chatDraft);
+  const root = useDesign((s) => s.ref?.root ?? null);
   useDesign((s) => s.selection);
   useDesign((s) => s.page);
   const taken = useCallback(() => setState({ chatDraft: "" }), []);
   return (
     <aside className="rp rp-chat" aria-label="Chat">
-      <ChatPanel noun="design" view={view()} suggestions={SUGGESTIONS} intro="Ask for new artboards, or for changes to what you’ve selected." placeholder="Ask for a change, or describe a design to make" draft={draft} onDraftTaken={taken} onWorking={setAgent} />
+      <ChatPanel noun="design" view={view()} suggestions={SUGGESTIONS} intro="Ask for new artboards, or for changes to what you’ve selected." placeholder="Ask for a change, or describe a design to make" draft={draft} docPath={root} onDraftTaken={taken} onWorking={setAgent} />
     </aside>
   );
 }

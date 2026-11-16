@@ -1,0 +1,343 @@
+/* MCP Setup Guide dialog styles */
+
+.mcp-guide {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  color: var(--text);
+  font-size: var(--fs-md);
+  user-select: text;
+}
+
+.mcp-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mcp-hero-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  margin: 0;
+  color: var(--text);
+}
+
+.mcp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: var(--r-sm);
+  background: var(--wash-2);
+  border: 1px solid var(--line-strong);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  font-weight: 400;
+}
+
+.mcp-hero-sub {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+/* ── Active folder display ───────────────────────────────────────────── */
+
+.mcp-folder-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+
+.mcp-folder-icon {
+  flex-shrink: 0;
+  color: var(--text-3);
+  display: grid;
+  place-items: center;
+}
+
+.mcp-folder-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.mcp-folder-label {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.mcp-folder-path {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── App switcher pills (if multi-app on Home) ───────────────────────── */
+
+.mcp-apps {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--line);
+}
+
+.mcp-app-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-ui);
+  cursor: pointer;
+  transition: background 120ms var(--ease), color 120ms var(--ease);
+  white-space: nowrap;
+}
+
+.mcp-app-pill:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.mcp-app-pill.active {
+  background: var(--raised);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
+/* ── Client tabs ─────────────────────────────────────────────────────── */
+
+.mcp-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 4px;
+}
+
+.mcp-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-ui);
+  cursor: pointer;
+  transition: background 120ms var(--ease), color 120ms var(--ease);
+}
+
+.mcp-tab:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.mcp-tab.active {
+  background: var(--wash-2);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.mcp-tab:focus-visible {
+  outline: 2px solid var(--sel);
+  outline-offset: 1px;
+}
+
+/* ── Step & Code block ───────────────────────────────────────────────── */
+
+.mcp-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mcp-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.mcp-steps li {
+  padding-left: 2px;
+}
+
+.mcp-steps strong {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.mcp-path-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: var(--r-sm);
+  background: var(--wash);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.mcp-path-hint code {
+  font-family: var(--font-mono);
+  color: var(--text-2);
+}
+
+.mcp-code-block {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--field);
+  overflow: hidden;
+}
+
+.mcp-code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: var(--wash);
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.mcp-code-head code {
+  font-family: var(--font-mono);
+  color: var(--text-2);
+}
+
+.mcp-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: var(--raised);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition: background 120ms var(--ease), color 120ms var(--ease);
+}
+
+.mcp-copy-btn:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.mcp-copy-btn.copied {
+  border-color: var(--sel);
+  color: var(--sel);
+}
+
+.mcp-code-block pre {
+  margin: 0;
+  padding: 10px 12px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  color: var(--text);
+  tab-size: 2;
+}
+
+/* ── Tools reference table ───────────────────────────────────────────── */
+
+.mcp-tools-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+
+.mcp-tools-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: var(--fs-sm);
+}
+
+.mcp-tools-table th {
+  padding: 8px 12px;
+  font-weight: 500;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: var(--wash);
+  border-bottom: 1px solid var(--line);
+}
+
+.mcp-tools-table td {
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+  color: var(--text-2);
+  line-height: 1.45;
+}
+
+.mcp-tools-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.mcp-tool-name {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ── Footer note ─────────────────────────────────────────────────────── */
+
+.mcp-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+.mcp-foot-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}

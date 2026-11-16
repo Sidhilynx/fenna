@@ -1,11 +1,14 @@
+<img src="docs/media/icons/fenna.png" width="64" alt="Fenna">
+
 # Fenna
 
 **Slides, docs, sheets, a whiteboard and design canvas that live on your computer and work with any AI.**
 
-Fenna is five free desktop apps for Windows, macOS and Linux:
+Fenna is five free desktop apps — and one unified workspace app — for Windows, macOS and Linux:
 
 | | App | For |
 |---|---|---|
+| <img src="docs/media/icons/fenna.png" width="40" alt=""> | **Fenna Workspace** | All five apps in one unified window with multi-product tabs and shared navigation |
 | <img src="docs/media/icons/slides.png" width="40" alt=""> | **Fenna Slides** | Decks and presentations, with present mode and PowerPoint, PDF and web export |
 | <img src="docs/media/icons/docs.png" width="40" alt=""> | **Fenna Docs** | Memos, plans and notes, with tabs, comments and suggested edits, and Word and Markdown export |
 | <img src="docs/media/icons/sheets.png" width="40" alt=""> | **Fenna Sheets** | Spreadsheets with formulas, charts and conditional formatting, and Excel and CSV import and export |
@@ -30,7 +33,7 @@ have; you watch every change land and can take over at any moment.
 |---|---|
 | ![Fenna Slides](docs/media/slides.png) **Slides** | ![Fenna Docs](docs/media/docs.png) **Docs** |
 | ![Fenna Sheets](docs/media/sheets.png) **Sheets** | ![Fenna Whiteboard](docs/media/whiteboard.png) **Whiteboard** |
-| ![Fenna Design](docs/media/design.png) **Design** | |
+| ![Fenna Design](docs/media/design.png) **Design** | ![Fenna Workspace](shots/workspace-home.png) **Workspace** |
 
 > Fenna is new (version 0.9). Expect rough edges, and please
 > [tell us about them](https://github.com/Sidhilynx/fenna/issues).
@@ -43,6 +46,7 @@ Get the installers from the [latest release](https://github.com/Sidhilynx/fenna/
 
 | | Windows | macOS (Apple silicon / Intel) | Linux |
 |---|---|---|---|
+| Workspace | `Fenna-Workspace-…-setup.exe` | `Fenna-Workspace-…-arm64.dmg` / `-x64.dmg` | `.AppImage` or `.deb` |
 | Slides | `Fenna-Slides-…-setup.exe` | `Fenna-Slides-…-arm64.dmg` / `-x64.dmg` | `.AppImage` or `.deb` |
 | Docs | `Fenna-Docs-…-setup.exe` | `Fenna-Docs-…-arm64.dmg` / `-x64.dmg` | `.AppImage` or `.deb` |
 | Sheets | `Fenna-Sheets-…-setup.exe` | `Fenna-Sheets-…-arm64.dmg` / `-x64.dmg` | `.AppImage` or `.deb` |
@@ -67,6 +71,7 @@ repository (Node 22.18 or later, which runs TypeScript directly):
 
 ```sh
 npm install
+node packages/workspace-mcp/src/cli.ts --workspace examples     # fenna-workspace (all 5 apps)
 node packages/mcp/src/cli.ts          --deck   examples/sample-deck     # fenna-slides
 node packages/doc-mcp/src/cli.ts      --doc    examples/sample-doc      # fenna-docs
 node packages/sheet-mcp/src/cli.ts    --sheet  examples/sample-sheet    # fenna-sheets
@@ -82,6 +87,7 @@ claude mcp add fenna-docs -- node /path/to/fenna/packages/doc-mcp/src/cli.ts --d
 
 | Server | Tools |
 |---|---|
+| `fenna-workspace` | `workspace_overview`, `workspace_guide`, `deck_overview`, `read_slides`, `write_slide`, `edit_slide`, `doc_overview`, `read_tab`, `write_tab`, `edit_blocks`, `sheet_overview`, `read_range`, `write_cells`, `board_overview`, `read_board`, `add_board_items`, `design_overview`, `read_artboard`, `write_artboard` |
 | `fenna-slides` | `deck_overview`, `format_guide`, `read_slides`, `edit_slide`, `write_slide`, `write_slides`, `check_slide`, `delete_slides`, `arrange_slides`, `update_deck`, `read_comments`, `comment` |
 | `fenna-docs` | `doc_overview`, `format_guide`, `read_tab`, `edit_blocks`, `write_tab`, `check_tab`, `delete_tab`, `update_doc`, `read_comments`, `comment` |
 | `fenna-sheets` | `workbook_overview`, `format_guide`, `read_range`, `find`, `write_cells`, `format_cells`, `clear_cells`, `edit_structure`, `manage_rules`, `manage_charts`, `add_sheet`, `delete_sheet`, `update_workbook`, `read_comments`, `comment` |
@@ -129,6 +135,8 @@ packages/doc          docs: format            packages/doc-mcp    docs: MCP serv
 packages/sheet        sheets: format          packages/sheet-mcp  sheets: MCP server
 packages/board        whiteboard: format      packages/board-mcp  whiteboard: MCP server
 packages/artboard     design: format          packages/artboard-mcp  design: MCP server
+packages/workspace-mcp  workspace: unified MCP server
+apps/workspace        Fenna Workspace (unified window)
 apps/desktop          Fenna Slides            apps/docs           Fenna Docs
 apps/sheets           Fenna Sheets            apps/whiteboard     Fenna Whiteboard
 apps/design           Fenna Design

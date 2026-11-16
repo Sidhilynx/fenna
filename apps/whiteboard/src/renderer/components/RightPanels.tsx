@@ -35,6 +35,7 @@ function boardView(): ChatView | null {
 
 function AssistantPanel() {
   const draft = useBoard((s) => s.chatDraft);
+  const root = useBoard((s) => s.ref?.root ?? null);
   useBoard((s) => s.selection.join(","));
   const taken = useCallback(() => setState({ chatDraft: "" }), []);
   return (
@@ -46,6 +47,7 @@ function AssistantPanel() {
         intro="Ask for a new board, or for changes to the items you’ve selected."
         placeholder="Ask for a change, or describe a board to build"
         draft={draft}
+        docPath={root}
         onDraftTaken={taken}
         onWorking={setAgent}
       />

@@ -13,6 +13,13 @@ import { bridge } from "./bridge.ts";
 export type AgentKind = "claude" | "codex" | "antigravity";
 export const AGENT_KINDS: readonly AgentKind[] = ["claude", "codex", "antigravity"];
 
+/** An image attached to a chat prompt as visual reference. */
+export interface AttachedImage {
+  name: string;
+  mimeType: string;
+  data: string;
+}
+
 /** Each CLI as the user knows it. `invert`: a white mark, inverted on the light theme. */
 export const AGENTS: Record<AgentKind, { name: string; logo: string; invert: boolean; plan: string; signInWith: string; maker: string }> = {
   claude: { name: "Claude Code", logo: claudeLogo, invert: true, plan: "Claude Pro or Max plan", signInWith: "your Claude account", maker: "Anthropic" },
@@ -85,7 +92,7 @@ export const agent = {
   signOut: (kind: AgentKind) => call<AgentCatalog>("agent:signOut", kind),
   setAccountMode: (kind: AgentKind, mode: "computer" | "own") => call<AgentCatalog>("agent:setAccountMode", kind, mode),
   openUrl: (url: string) => call<void>("agent:openUrl", url),
-  send: (msg: { kind: AgentKind; model: string; effort: string; text: string; context: unknown; sessionId: string | null }) => call<string>("agent:send", msg),
+  send: (msg: { kind: AgentKind; model: string; effort: string; text: string; context: unknown; sessionId: string | null; images?: AttachedImage[] }) => call<string>("agent:send", msg),
   stop: (runId: string) => call<void>("agent:stop", runId),
   loadChat: () => call<unknown>("agent:loadChat"),
   saveChat: (book: unknown) => call<boolean>("agent:saveChat", book),

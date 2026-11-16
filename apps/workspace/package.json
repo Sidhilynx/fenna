@@ -1,0 +1,75 @@
+{
+  "name": "@opendeck/workspace",
+  "productName": "Fenna Workspace",
+  "version": "0.9.0",
+  "private": true,
+  "description": "Unified local-first office workspace uniting Fenna Slides, Docs, Sheets, Whiteboard, and Design.",
+  "license": "AGPL-3.0-only",
+  "author": {
+    "name": "Sidhilynx",
+    "url": "https://github.com/Sidhilynx"
+  },
+  "main": "src/main/main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "start": "electron .",
+    "dist": "npm run build && electron-builder",
+    "pack": "npm run build && electron-builder --dir"
+  },
+  "dependencies": {
+    "@opendeck/shell": "0.0.1"
+  },
+  "devDependencies": {
+    "@opendeck/artboard": "0.0.1",
+    "@opendeck/board": "0.0.1",
+    "@opendeck/doc": "0.0.1",
+    "@opendeck/format": "0.0.1",
+    "@opendeck/sheet": "0.0.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "electron": "^45.3.0",
+    "electron-builder": "^26.18.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "vite": "^8.3.8"
+  },
+  "build": {
+    "appId": "com.sidhilynx.fenna.workspace",
+    "electronVersion": "45.3.0",
+    "productName": "Fenna Workspace",
+    "copyright": "Copyright © 2026 Sidhilynx. AGPL-3.0.",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/main/**",
+      "dist/**",
+      "package.json",
+      "!**/*.map"
+    ],
+    "win": {
+      "target": ["nsis", "zip"],
+      "artifactName": "Fenna-Workspace-${version}-setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "Fenna Workspace",
+      "uninstallDisplayName": "Fenna Workspace"
+    },
+    "mac": {
+      "target": ["dmg", "zip"],
+      "category": "public.app-category.productivity",
+      "artifactName": "Fenna-Workspace-${version}-${arch}.${ext}"
+    },
+    "linux": {
+      "target": ["AppImage", "tar.gz"],
+      "category": "Office",
+      "artifactName": "Fenna-Workspace-${version}-${arch}.${ext}",
+      "executableName": "fenna-workspace"
+    }
+  }
+}

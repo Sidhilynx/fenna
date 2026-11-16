@@ -1,7 +1,7 @@
 // The header: the design's name and its menu, Export, and the chat.
 
 import { useEffect, useState } from "react";
-import { ago, ExportButton, Icon, MenuButton, shortcut, type ExportFormat } from "@opendeck/shell";
+import { ago, ExportButton, Icon, McpGuideDialog, MenuButton, shortcut, type ExportFormat } from "@opendeck/shell";
 import { exportDesign, exportTarget, type ExportKind } from "../export.ts";
 import { duplicateDesign, pageBoards, redo, reload, renameDesign, setPanel, togglePanel, undo, useDesign } from "../store.ts";
 import { NameDialog } from "./ViewControls.tsx";
@@ -18,6 +18,7 @@ function edited(at: number): string {
 }
 
 export function HeaderBar() {
+  const ref = useDesign((s) => s.ref);
   const title = useDesign((s) => (s.ready ? s.index.title : (s.ref?.name ?? "Untitled design")));
   const panel = useDesign((s) => s.panel);
   const canUndo = useDesign((s) => s.undo.length > 0);
@@ -30,6 +31,7 @@ export function HeaderBar() {
   });
   const empty = useDesign((s) => pageBoards(s).length === 0);
   const [renaming, setRenaming] = useState(false);
+  const [showMcp, setShowMcp] = useState(false);
   const [, tick] = useState(0);
   useEffect(() => {
     const t = window.setInterval(() => tick((n) => n + 1), 60_000);
@@ -45,6 +47,7 @@ export function HeaderBar() {
           { heading: lastAt ? `Saved on this computer · ${edited(lastAt)}` : "Saved on this computer" },
           { label: "Open chat", icon: <Icon name="chat" size={16} />, onSelect: () => setPanel("chat") },
           { label: "Comments", icon: <Icon name="chat" size={16} />, onSelect: () => setPanel("comments") },
+          { label: "MCP setup guide…", icon: <Icon name="code" size={16} />, onSelect: () => setShowMcp(true) },
           { label: "Version history", icon: <Icon name="history" size={16} />, onSelect: () => setPanel("history") },
           "separator",
           { label: "Rename…", icon: <Icon name="pencil" size={16} />, onSelect: () => setRenaming(true) },
@@ -69,6 +72,7 @@ export function HeaderBar() {
         <Icon name="panelRight" size={16} /> {panel === "chat" ? "Hide chat" : "Show chat"}
       </button>
       {renaming && <NameDialog heading="Rename design" name={title} onClose={() => setRenaming(false)} onSave={renameDesign} />}
+      {showMcp && <McpGuideDialog open={showMcp} onClose={() => setShowMcp(false)} noun="design" docPath={ref?.root ?? null} />}
     </header>
   );
 }

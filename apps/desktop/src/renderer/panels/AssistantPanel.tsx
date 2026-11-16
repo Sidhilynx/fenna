@@ -35,6 +35,7 @@ function deckView(): ChatView | null {
 
 export function AssistantPanel() {
   const draft = useEditor((s) => s.chatDraft);
+  const root = useEditor((s) => s.ref?.root ?? null);
   // Re-render when what the user is looking at changes.
   useEditor((s) => `${s.current}|${s.selection.join(",")}|${currentSlide(s)?.source.length ?? 0}`);
   const taken = useCallback(() => setState({ chatDraft: "" }), []);
@@ -46,6 +47,7 @@ export function AssistantPanel() {
       intro="Ask for a new deck, or for changes to what you’ve selected."
       placeholder="Ask for an edit, or describe what to make"
       draft={draft}
+      docPath={root}
       onDraftTaken={taken}
       onWorking={setAgent}
     />

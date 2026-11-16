@@ -112,5 +112,33 @@ describe("chat tabs", () => {
   it("names a chat by its first message, on one line", () => {
     expect(chatTitle(newChat(undefined, NOW))).toBe("New chat");
     expect(chatTitle({ ...newChat(undefined, NOW), items: [{ role: "assistant", text: "x" }, said("  Make\n a deck  ")] })).toBe("Make a deck");
+    expect(chatTitle({ ...newChat(undefined, NOW), items: [{ role: "user", text: "", images: [{ name: "slide.png", mimeType: "image/png", data: "data:..." }] }] })).toBe("Image prompt");
+  });
+
+  it("preserves attached images when parsing saved chats", () => {
+    const raw = {
+      chats: [
+        {
+          id: "c1",
+          items: [
+            {
+              role: "user",
+              text: "Check this layout",
+              images: [{ name: "mockup.png", mimeType: "image/png", data: "data:image/png;base64,abc" }],
+            },
+          ],
+        },
+      ],
+      open: ["c1"],
+      active: "c1",
+    };
+    const b = parseChats(raw, NOW);
+    const item = activeChat(b).items[0];
+    expect(item?.role).toBe("user");
+    if (item?.role === "user") {
+      expect(item.images).toHaveLength(1);
+      expect(item.images?.[0]?.name).toBe("mockup.png");
+      expect(item.images?.[0]?.data).toBe("data:image/png;base64,abc");
+    }
   });
 });

@@ -26,7 +26,7 @@ export function statusWord(agents: Agents, kind: AgentKind): string {
 }
 
 /** The first time the chat opens: who should answer? One tap picks; it can change any time in the composer. */
-export function AgentChoice({ agents, noun, onPick }: { agents: Agents; noun: string; onPick(kind: AgentKind): void }) {
+export function AgentChoice({ agents, noun, onPick, onMcpGuide }: { agents: Agents; noun: string; onPick(kind: AgentKind): void; onMcpGuide?(): void }) {
   return (
     <div className="as-choice">
       <p className="as-choice-q">Who should edit with you?</p>
@@ -44,6 +44,23 @@ export function AgentChoice({ agents, noun, onPick }: { agents: Agents; noun: st
             </span>
           </button>
         ))}
+        {onMcpGuide && (
+          <button
+            type="button"
+            className="as-tile"
+            style={{ animationDelay: `${AGENT_KINDS.length * 50}ms` }}
+            onClick={onMcpGuide}
+          >
+            <span className="as-tile-top">
+              <span className="as-tile-icon"><Icon name="code" size={18} /></span>
+              <span className="as-tile-name">Connect via MCP</span>
+              <span className="as-tile-state">Guide</span>
+            </span>
+            <span className="as-tile-line">
+              Use Claude Desktop, Cursor, Antigravity, or other MCP tools.
+            </span>
+          </button>
+        )}
       </div>
     </div>
   );

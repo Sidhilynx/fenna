@@ -20,6 +20,7 @@ function docView(): ChatView | null {
 
 export function AssistantPanel() {
   const draft = useDocs((s) => s.chatDraft);
+  const root = useDocs((s) => s.ref?.root ?? null);
   useDocs((s) => `${s.tab}|${s.selection.text}|${s.selection.blocks.join()}`);
   const taken = useCallback(() => setState({ chatDraft: "" }), []);
   return (
@@ -30,6 +31,7 @@ export function AssistantPanel() {
       intro="Ask for a new doc, or for changes to what you’ve selected."
       placeholder="Ask for an edit, or describe what to write"
       draft={draft}
+      docPath={root}
       onDraftTaken={taken}
       onWorking={setAgent}
     />

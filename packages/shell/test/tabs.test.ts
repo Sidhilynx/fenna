@@ -66,4 +66,19 @@ describe("window tabs: pure logic", () => {
     expect(t.shortcutAction(k("t", { control: true, alt: true }), "win32")).toBeNull();
     expect(t.shortcutAction({ type: "keyUp", key: "t", control: true }, "win32")).toBeNull();
   });
+
+  it("productOf resolves single product or matches from products list", () => {
+    const singleHost = { o: { product: { name: "Fenna Slides", kind: "deck", kindName: "Deck" } } };
+    expect(t.TabHost.prototype.productOf.call(singleHost, { root: "/some/deck" })).toEqual({ name: "Fenna Slides", kind: "deck", kindName: "Deck" });
+
+    const multiHost = {
+      o: {
+        products: [
+          { name: "Fenna Slides", kind: "deck", kindName: "Deck", marker: "deck.json" },
+          { name: "Fenna Docs", kind: "doc", kindName: "Doc", marker: "doc.json" },
+        ],
+      },
+    };
+    expect(t.TabHost.prototype.productOf.call(multiHost, { root: null })).toEqual({ name: "Fenna Slides", kind: "deck", kindName: "Deck", marker: "deck.json" });
+  });
 });

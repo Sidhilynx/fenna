@@ -27,7 +27,7 @@ describe("glyphs", () => {
   });
 
   it("the window strip draws the same glyphs as the renderer", () => {
-    const names: Record<string, keyof typeof GLYPHS> = { home: "home", deck: "deck", doc: "doc", sheet: "sheet", plus: "plus", chevron: "chevronDown", x: "close" };
+    const names: Record<string, keyof typeof GLYPHS> = { home: "home", deck: "deck", doc: "doc", sheet: "sheet", board: "board", design: "design", plus: "plus", chevron: "chevronDown", x: "close" };
     const s = strip();
     expect(Object.keys(s).sort()).toEqual(Object.keys(names).sort());
     for (const [k, n] of Object.entries(names)) expect(s[k], k).toEqual(GLYPHS[n]);

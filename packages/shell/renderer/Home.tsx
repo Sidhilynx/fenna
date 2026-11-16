@@ -9,6 +9,7 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { updates, userName } from "./bridge.ts";
 import { greeting, greetingName, relativeTime, shortAgo, titleFromDraft } from "./homeText.ts";
+import { McpGuideDialog } from "./McpGuideDialog.tsx";
 import { Icon } from "./ui/icons.tsx";
 import "./home.css";
 
@@ -59,6 +60,7 @@ export function Home({ noun, nouns, items, onChoose, onStart, onOpen, placeholde
   const [showAll, setShowAll] = useState(false);
   const [recentOpen, setRecentOpen] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [showMcp, setShowMcp] = useState(false);
   const search = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const hello = greeting(new Date().getHours());
@@ -125,6 +127,9 @@ export function Home({ noun, nouns, items, onChoose, onStart, onOpen, placeholde
         </button>
         <button type="button" className="hm-nav" onClick={() => search.current?.focus()} title="Search (/)">
           <Icon name="search" /> <span>Search</span>
+        </button>
+        <button type="button" className="hm-nav" onClick={() => setShowMcp(true)} title="MCP setup guide">
+          <Icon name="code" /> <span>MCP setup</span>
         </button>
         <div className="hm-gap" />
         <div className="hm-nav-row">
@@ -262,6 +267,7 @@ export function Home({ noun, nouns, items, onChoose, onStart, onOpen, placeholde
           {items && items.length === 0 && <p className="hm-line">{cap(nouns)} you open appear here.</p>}
         </div>
       </main>
+      {showMcp && <McpGuideDialog open={showMcp} onClose={() => setShowMcp(false)} noun={noun} />}
     </div>
   );
 }

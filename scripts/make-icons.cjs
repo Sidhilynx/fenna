@@ -6,7 +6,8 @@
 //
 // The Fenna family: a solid paper shape on an ink tile, and a round bite out
 // of the shape's bottom-right corner with a dot inside: the AI's cursor on
-// your file. Only the shape changes per app.
+// your file. Only the shape changes per app. Fenna itself (the workspace and
+// the brand) is the letter F with the AI dot as its full stop.
 const { app, BrowserWindow } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -21,6 +22,11 @@ const dot = (cx, cy) =>
   `<circle cx="${cx}" cy="${cy}" r="9.5" fill="${INK}"/><circle cx="${cx}" cy="${cy}" r="5" fill="${PAPER}"/>`;
 
 const MARKS = {
+  workspace:
+    `<rect x="17" y="12" width="11" height="40" rx="3" fill="${PAPER}"/>` +
+    `<rect x="17" y="12" width="30" height="10.5" rx="3" fill="${PAPER}"/>` +
+    `<rect x="17" y="28.5" width="22" height="10" rx="3" fill="${PAPER}"/>` +
+    `<circle cx="42.5" cy="46.5" r="5.5" fill="${PAPER}"/>`,
   desktop:
     `<rect x="10" y="16" width="42" height="28" rx="3" fill="${PAPER}"/>` +
     `<rect x="16" y="22" width="18" height="3.5" rx="1.75" fill="${INK}"/>` +
@@ -78,6 +84,7 @@ const MARKS = {
 // The product name each mark is published under; the mark's key is its app
 // folder.
 const PRODUCTS = {
+  workspace: "fenna",
   desktop: "slides",
   docs: "docs",
   sheets: "sheets",

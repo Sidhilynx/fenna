@@ -11,10 +11,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AgentChoice, AgentLogo, AgentSetup, Logo, accountEntries, statusWord } from "./AgentSetup.tsx";
-import { type AgentEvent, type AgentKind, AGENTS, AGENT_KINDS, agent, effortLabel, modelLogo } from "./agents.ts";
+import { type AgentEvent, type AgentKind, type AttachedImage, AGENTS, AGENT_KINDS, agent, effortLabel, modelLogo } from "./agents.ts";
 import { type Chat, type ChatBook, type ChatItem, activeChat, addChat, chatTitle, closeChat, parseChats, reorderChats, showChat, updateChat } from "./chats.ts";
 import { ChatTabs } from "./ChatTabs.tsx";
 import { relativeTime } from "./homeText.ts";
+import { McpGuideDialog } from "./McpGuideDialog.tsx";
 import { Icon } from "./ui/icons.tsx";
 import { type MenuEntry, MenuButton } from "./ui/Menu.tsx";
 import { useAgents } from "./useAgents.ts";
@@ -60,6 +61,8 @@ export interface ChatPanelProps {
   /** Words to put in the composer (unsent), e.g. a draft written on Home; taken once. */
   draft?: string;
   onDraftTaken?(): void;
+  /** Path to the open document folder, for the MCP guide and external agents. */
+  docPath?: string | null;
   /** The assistant started (its name) or stopped (null) working on the document. */
   onWorking?(who: { name: string } | null): void;
   className?: string;
@@ -77,16 +80,153 @@ function WorkingClock() {
   return <span className="as-clock">{`${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`}</span>;
 }
 
-export function ChatPanel({ noun, view, suggestions, intro, placeholder, draft: incoming, onDraftTaken, onWorking, className = "" }: ChatPanelProps) {
+export function ChatPanel({ noun, view, suggestions, intro, placeholder, draft: incoming, docPath, onDraftTaken, onWorking, className = "" }: ChatPanelProps) {
   const agents = useAgents();
   const [book, setBook] = useState<ChatBook | null>(null);
   const [draft, setDraft] = useState("");
   const [run, setRun] = useState<{ id: string; chat: string; kind: AgentKind } | null>(null);
   const [streaming, setStreaming] = useState("");
   const [focused, setFocused] = useState(false);
+  const [showMcp, setShowMcp] = useState(false);
+  const [resizing, setResizing] = useState(false);
+  const [width, setWidth] = useState(() => {
+    try {
+      const saved = localStorage.getItem("fenna.chatWidth");
+      if (saved) {
+        const n = parseInt(saved, 10);
+        if (!isNaN(n) && n >= 280 && n <= 1000) return n;
+      }
+    } catch {}
+    return 360;
+  });
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const early = useRef<AgentEvent[]>([]);
+  const [attachedImages, setAttachedImages] = useState<AttachedImage[]>([]);
+  const [dragOver, setDragOver] = useState(false);
+  const [previewModalImg, setPreviewModalImg] = useState<{ src: string; name: string } | null>(null);
+
+  const addImageFiles = useCallback((files: FileList | File[]) => {
+    const imageFiles = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    if (!imageFiles.length) return;
+    for (const file of imageFiles) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const data = typeof reader.result === "string" ? reader.result : "";
+        if (data) {
+          setAttachedImages((prev) => [
+            ...prev.slice(0, 9),
+            { name: file.name, mimeType: file.type || "image/png", data },
+          ]);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!previewModalImg) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPreviewModalImg(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [previewModalImg]);
+
+  useEffect(() => {
+    document.documentElement.style.setProperty("--chat-w", `${width}px`);
+  }, [width]);
+
+  const applyWidth = useCallback((newW: number) => {
+    const minW = 280;
+    const maxW = Math.min(840, Math.max(360, window.innerWidth - 320));
+    const clamped = Math.max(minW, Math.min(maxW, newW));
+    setWidth(clamped);
+    document.documentElement.style.setProperty("--chat-w", `${clamped}px`);
+    try {
+      localStorage.setItem("fenna.chatWidth", `${clamped}px`);
+    } catch {}
+  }, []);
+
+  const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const target = e.currentTarget;
+    try {
+      target.setPointerCapture(e.pointerId);
+    } catch {}
+    setResizing(true);
+    document.body.classList.add("chat-resizing");
+
+    const onPointerMove = (ev: PointerEvent) => {
+      const newWidth = Math.round(window.innerWidth - ev.clientX);
+      const minW = 280;
+      const maxW = Math.min(840, Math.max(360, window.innerWidth - 320));
+      const clamped = Math.max(minW, Math.min(maxW, newWidth));
+      setWidth(clamped);
+      document.documentElement.style.setProperty("--chat-w", `${clamped}px`);
+    };
+
+    const onPointerUp = (ev: PointerEvent) => {
+      try {
+        target.releasePointerCapture(ev.pointerId);
+      } catch {}
+      setResizing(false);
+      document.body.classList.remove("chat-resizing");
+      target.removeEventListener("pointermove", onPointerMove);
+      target.removeEventListener("pointerup", onPointerUp);
+      target.removeEventListener("pointercancel", onPointerUp);
+
+      const finalW = Math.round(window.innerWidth - ev.clientX);
+      const minW = 280;
+      const maxW = Math.min(840, Math.max(360, window.innerWidth - 320));
+      const clamped = Math.max(minW, Math.min(maxW, finalW));
+      setWidth(clamped);
+      document.documentElement.style.setProperty("--chat-w", `${clamped}px`);
+      try {
+        localStorage.setItem("fenna.chatWidth", `${clamped}px`);
+      } catch {}
+    };
+
+    target.addEventListener("pointermove", onPointerMove);
+    target.addEventListener("pointerup", onPointerUp);
+    target.addEventListener("pointercancel", onPointerUp);
+  }, []);
+
+  const onResetWidth = useCallback(() => {
+    setWidth(360);
+    document.documentElement.style.setProperty("--chat-w", "360px");
+    try {
+      localStorage.removeItem("fenna.chatWidth");
+    } catch {}
+  }, []);
+
+  const toggleWide = useCallback(() => {
+    if (width > 420) {
+      applyWidth(360);
+    } else {
+      applyWidth(560);
+    }
+  }, [width, applyWidth]);
+
+  const onResizerKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      const step = e.shiftKey ? 32 : 16;
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        applyWidth(width + step);
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        applyWidth(width - step);
+      } else if (e.key === "Home" || e.key === "0") {
+        e.preventDefault();
+        onResetWidth();
+      }
+    },
+    [width, applyWidth, onResetWidth],
+  );
 
   useEffect(() => {
     void agent
@@ -176,15 +316,32 @@ export function ChatPanel({ noun, view, suggestions, intro, placeholder, draft: 
 
   const send = async (text: string) => {
     const t = text.trim();
-    if (!t || busy || !kind || !ready || !chat || !book) return;
+    const hasImages = attachedImages.length > 0;
+    if ((!t && !hasImages) || busy || !kind || !ready || !chat || !book) return;
     const context = view?.context ?? null;
+    const currentImages = [...attachedImages];
     setDraft("");
+    setAttachedImages([]);
     // A conversation belongs to one assistant; switching starts its session over.
     const sessionId = chat.sessionKind === kind ? chat.sessionId : null;
-    edit(chat.id, (c) => ({ ...c, kind, items: [...c.items, { role: "user", text: t, ...(view?.label ? { about: view.label } : {}) }], at: Date.now() }));
+    const userItem: ChatItem = {
+      role: "user",
+      text: t || "Attached reference image(s).",
+      ...(view?.label ? { about: view.label } : {}),
+      ...(hasImages ? { images: currentImages } : {}),
+    };
+    edit(chat.id, (c) => ({ ...c, kind, items: [...c.items, userItem], at: Date.now() }));
     early.current = [];
     try {
-      const id = await agent.send({ kind, model: model?.value ?? "", effort: chat.effort, text: t, context, sessionId });
+      const id = await agent.send({
+        kind,
+        model: model?.value ?? "",
+        effort: chat.effort,
+        text: t,
+        context,
+        sessionId,
+        images: hasImages ? currentImages : undefined,
+      });
       setRun({ id, chat: chat.id, kind });
       onWorking?.({ name: AGENTS[kind].name });
     } catch (e) {
@@ -235,6 +392,20 @@ export function ChatPanel({ noun, view, suggestions, intro, placeholder, draft: 
 
   return (
     <aside className={`chat-panel ${className}`.trim()} aria-label="Assistant">
+      <div
+        className={`as-resizer${resizing ? " dragging" : ""}`}
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize assistant column"
+        aria-valuenow={width}
+        aria-valuemin={280}
+        aria-valuemax={840}
+        tabIndex={0}
+        title="Drag to resize, double-click to reset"
+        onPointerDown={onPointerDown}
+        onDoubleClick={onResetWidth}
+        onKeyDown={onResizerKeyDown}
+      />
       <header className="as-head">
         {book && (
           <ChatTabs
@@ -246,9 +417,29 @@ export function ChatPanel({ noun, view, suggestions, intro, placeholder, draft: 
             onReorder={(ids) => setBook((b) => (b ? reorderChats(b, ids) : b))}
             onNew={() => setBook((b) => (b ? addChat(b) : b))}
             trailing={
-              <MenuButton className="ct-btn" label="Chat history" title="Chat history" align="end" entries={historyEntries}>
-                <Icon name="history" />
-              </MenuButton>
+              <div className="as-head-actions">
+                <button
+                  type="button"
+                  className="ct-btn"
+                  title={width > 420 ? "Compact chat" : "Expand chat"}
+                  aria-label={width > 420 ? "Compact chat" : "Expand chat"}
+                  onClick={toggleWide}
+                >
+                  <Icon name={width > 420 ? "resize" : "wide"} />
+                </button>
+                <button
+                  type="button"
+                  className="ct-btn"
+                  title="MCP setup guide"
+                  aria-label="MCP setup guide"
+                  onClick={() => setShowMcp(true)}
+                >
+                  <Icon name="code" />
+                </button>
+                <MenuButton className="ct-btn" label="Chat history" title="Chat history" align="end" entries={historyEntries}>
+                  <Icon name="history" />
+                </MenuButton>
+              </div>
             }
           />
         )}
@@ -256,7 +447,7 @@ export function ChatPanel({ noun, view, suggestions, intro, placeholder, draft: 
 
       <div className="as-list" ref={listRef} role="log" aria-live="polite">
         {chat && !chat.items.length && !kind ? (
-          <AgentChoice agents={agents} noun={noun} onPick={pick} />
+          <AgentChoice agents={agents} noun={noun} onPick={pick} onMcpGuide={() => setShowMcp(true)} />
         ) : chat && !chat.items.length ? (
           <div className="as-empty">
             <p>{intro}</p>
@@ -274,7 +465,21 @@ export function ChatPanel({ noun, view, suggestions, intro, placeholder, draft: 
               return (
                 <div key={i} className="as-user">
                   {it.about && <div className="as-about">{it.about}</div>}
-                  <div className="as-bubble">{it.text}</div>
+                  {it.images && it.images.length > 0 && (
+                    <div className="as-user-images">
+                      {it.images.map((img, imgIdx) => (
+                        <img
+                          key={imgIdx}
+                          src={img.data}
+                          alt={img.name}
+                          className="as-user-img"
+                          title={`Click to preview ${img.name}`}
+                          onClick={() => setPreviewModalImg({ src: img.data, name: img.name })}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {it.text && <div className="as-bubble">{it.text}</div>}
                 </div>
               );
             if (it.role === "assistant") {
@@ -329,10 +534,56 @@ export function ChatPanel({ noun, view, suggestions, intro, placeholder, draft: 
         }}
       >
         {kind && <AgentSetup agents={agents} kind={kind} />}
-        <div className={`as-composer${focused ? " focus" : ""}`}>
+        <div
+          className={`as-composer${focused ? " focus" : ""}${dragOver ? " drag-over" : ""}`}
+          onDragOver={(e) => {
+            if (e.dataTransfer?.types?.includes("Files")) {
+              e.preventDefault();
+              setDragOver(true);
+            }
+          }}
+          onDragLeave={(e) => {
+            if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+            setDragOver(false);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            if (e.dataTransfer?.files?.length) {
+              addImageFiles(e.dataTransfer.files);
+            }
+          }}
+        >
           {view?.label && (
             <div className="as-context" title="Sent with your message so the assistant knows what you mean">
               {view.label}
+            </div>
+          )}
+          {attachedImages.length > 0 && (
+            <div className="as-attachments" aria-label="Attached images">
+              {attachedImages.map((img, idx) => (
+                <div key={idx} className="as-attach-item">
+                  <img
+                    src={img.data}
+                    alt={img.name}
+                    className="as-attach-thumb"
+                    onClick={() => setPreviewModalImg({ src: img.data, name: img.name })}
+                    title={`Click to preview: ${img.name}`}
+                  />
+                  <button
+                    type="button"
+                    className="as-attach-remove"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setAttachedImages((prev) => prev.filter((_, i) => i !== idx));
+                    }}
+                    title={`Remove ${img.name}`}
+                    aria-label={`Remove ${img.name}`}
+                  >
+                    <Icon name="close" size={10} />
+                  </button>
+                </div>
+              ))}
             </div>
           )}
           <textarea
@@ -343,6 +594,21 @@ export function ChatPanel({ noun, view, suggestions, intro, placeholder, draft: 
             aria-label="Message"
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
+            onPaste={(e) => {
+              const items = e.clipboardData?.items;
+              if (!items) return;
+              const imageFiles: File[] = [];
+              for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                if (item && item.type.startsWith("image/")) {
+                  const file = item.getAsFile();
+                  if (file) imageFiles.push(file);
+                }
+              }
+              if (imageFiles.length > 0) {
+                addImageFiles(imageFiles);
+              }
+            }}
             onChange={(e) => {
               setDraft(e.target.value);
               e.currentTarget.style.height = "auto";
@@ -356,8 +622,28 @@ export function ChatPanel({ noun, view, suggestions, intro, placeholder, draft: 
               if (e.key === "Escape") inputRef.current?.blur();
             }}
           />
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept="image/*"
+            multiple
+            style={{ display: "none" }}
+            onChange={(e) => {
+              if (e.target.files) addImageFiles(e.target.files);
+              e.target.value = "";
+            }}
+          />
           <div className="as-tools">
             <div className="as-pickers">
+              <button
+                type="button"
+                className="as-attach-btn"
+                onClick={() => fileInputRef.current?.click()}
+                title="Attach reference image"
+                aria-label="Attach reference image"
+              >
+                <Icon name="image" size={15} />
+              </button>
               <MenuButton className="as-pick" label="Who answers" title={`Who answers in this chat: ${name}`} entries={engineEntries}>
                 {kind && <AgentLogo kind={kind} />}
                 <span>{name}</span>
@@ -387,13 +673,34 @@ export function ChatPanel({ noun, view, suggestions, intro, placeholder, draft: 
                 <Icon name="stop" size={12} />
               </button>
             ) : (
-              <button type="submit" className={`as-send${draft.trim() && ready ? " ready" : ""}`} disabled={!draft.trim() || !ready} aria-label="Send">
+              <button
+                type="submit"
+                className={`as-send${(draft.trim() || attachedImages.length > 0) && ready ? " ready" : ""}`}
+                disabled={(!draft.trim() && attachedImages.length === 0) || !ready}
+                aria-label="Send"
+              >
                 <Icon name="arrowUp" size={15} />
               </button>
             )}
           </div>
         </div>
       </form>
+      {previewModalImg && (
+        <div className="as-img-modal" role="dialog" aria-modal="true" aria-label={previewModalImg.name} onClick={() => setPreviewModalImg(null)}>
+          <div className="as-img-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="as-img-modal-header">
+              <span className="as-img-modal-title">{previewModalImg.name}</span>
+              <button type="button" className="as-img-modal-close" onClick={() => setPreviewModalImg(null)} aria-label="Close image preview">
+                <Icon name="close" size={14} />
+              </button>
+            </div>
+            <div className="as-img-modal-body">
+              <img src={previewModalImg.src} alt={previewModalImg.name} />
+            </div>
+          </div>
+        </div>
+      )}
+      {showMcp && <McpGuideDialog open={showMcp} onClose={() => setShowMcp(false)} noun={noun} docPath={docPath} />}
     </aside>
   );
 }
