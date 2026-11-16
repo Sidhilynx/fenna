@@ -35,7 +35,7 @@ Tools take an optional 'path' parameter (relative or absolute). If omitted, the 
 export function createServer(workspaceRoot: string): McpServer {
   const store = new WorkspaceStore(workspaceRoot);
   const server = new McpServer(
-    { name: "fenna-workspace-mcp", version: "0.9.3" },
+    { name: "fenna-workspace-mcp", version: "0.9.4" },
     { instructions: INSTRUCTIONS },
   );
 
@@ -72,7 +72,7 @@ export function createServer(workspaceRoot: string): McpServer {
 2. Docs (doc): tabs/<id>.html, doc.json. Use read_tab, write_tab, edit_blocks.
 3. Sheets (sheet): sheet.json, sheets/<id>.json. Use read_range, write_cells.
 4. Whiteboard (board): board.json, canvas.json. Use read_board, add_board_items.
-5. Design (design): design.json, artboards/<id>.html. Use read_artboard, write_artboard.`),
+5. Design (design): design.json, artboards/<id>.html. Use read_artboard, edit_artboard, write_artboard.`),
   );
 
   // ── Slides Tools ──────────────────────────────────────────────
@@ -397,6 +397,32 @@ export function createServer(workspaceRoot: string): McpServer {
       guard(async () => {
         const s = await store.getDesignStore(args.path);
         const res = await s.writeArtboard(args.name, args.html);
+        return json(res);
+      }),
+  );
+
+  server.registerTool(
+    "edit_artboard",
+    {
+      title: "Edit artboard",
+      description: "Replace exact text (find and with) within an artboard file without rewriting the whole artboard. Use for small targeted edits.",
+      inputSchema: {
+        name: z.string().describe("Artboard filename (e.g. settings-light.html)"),
+        edits: z.array(
+          z.object({
+            find: z.string().describe("Exact snippet to replace"),
+            with: z.string().describe("Replacement snippet"),
+            nth: z.number().optional().describe("1-based match index if find appears multiple times"),
+          })
+        ).min(1).describe("List of replacements"),
+        expected_version: z.string().optional().describe("Expected artboard version hash"),
+        path: z.string().optional().describe("Path to design folder"),
+      },
+    },
+    (args) =>
+      guard(async () => {
+        const s = await store.getDesignStore(args.path);
+        const res = await s.editArtboard(args.name, args.edits, args.expected_version);
         return json(res);
       }),
   );

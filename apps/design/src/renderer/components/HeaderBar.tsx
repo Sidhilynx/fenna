@@ -1,7 +1,7 @@
 // The header: the design's name and its menu, Export, and the chat.
 
 import { useEffect, useState } from "react";
-import { ago, ExportButton, Icon, McpGuideDialog, MenuButton, shortcut, type ExportFormat } from "@opendeck/shell";
+import { ago, ExportButton, Icon, McpGuideDialog, MenuButton, ThemeToggle, shortcut, type ExportFormat } from "@opendeck/shell";
 import { exportDesign, exportTarget, type ExportKind } from "../export.ts";
 import { duplicateDesign, pageBoards, redo, reload, renameDesign, setPanel, togglePanel, undo, useDesign } from "../store.ts";
 import { NameDialog } from "./ViewControls.tsx";
@@ -68,6 +68,7 @@ export function HeaderBar() {
         formats={FORMATS}
         onExport={(k) => void exportDesign(k)}
       />
+      <ThemeToggle className="icon-btn" />
       <button className={`btn ghost${panel === "chat" ? " on" : ""}`} aria-pressed={panel === "chat"} onClick={() => togglePanel("chat")} title="Chat">
         <Icon name="panelRight" size={16} /> {panel === "chat" ? "Hide chat" : "Show chat"}
       </button>

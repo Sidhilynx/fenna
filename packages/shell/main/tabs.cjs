@@ -253,6 +253,10 @@ class TabHost {
     } catch {
       /* a window without an overlay */
     }
+    for (const t of this.tabs) {
+      if (t.view) t.view.setBackgroundColor(bar);
+      if (t.wc && !t.wc.isDestroyed()) t.wc.send("shell:themeChanged", { mode });
+    }
     this.emit();
   }
 
@@ -287,7 +291,7 @@ class TabHost {
 
   attach(tab, visible) {
     const { WebContentsView } = require("electron");
-    const view = new WebContentsView({ webPreferences: { preload: this.o.preload, contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: true } });
+    const view = new WebContentsView({ webPreferences: { preload: this.o.preload, contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: true, backgroundThrottling: false } });
     view.setBackgroundColor(BAR[this.o.themeMode()]);
     tab.view = view;
     tab.wc = view.webContents;

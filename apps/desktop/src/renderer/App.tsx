@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { SHAPE_KINDS } from "@opendeck/format";
-import { Dialog, Icon, McpGuideDialog, type IconName, type MenuEntry, MenuButton, Toast, shortcut, tabs } from "@opendeck/shell";
+import { Dialog, Icon, McpGuideDialog, type IconName, type MenuEntry, MenuButton, ThemeToggle, Toast, shortcut, tabs } from "@opendeck/shell";
 import { Canvas } from "./editor/Canvas.tsx";
 import * as cmd from "./editor/commands.ts";
 import { loadComments, newComment } from "./editor/comments.ts";
@@ -116,6 +116,7 @@ export function App() {
         )}
         {deck && (
           <div className="topbar-actions">
+            <ThemeToggle className="icon-btn" />
             <button className={`btn ghost${rightPanel === "chat" ? " on" : ""}`} aria-pressed={rightPanel === "chat"} onClick={() => togglePanel("chat")}>
               <Icon name="panelRight" size={16} /> {rightPanel === "chat" ? "Hide chat" : "Show chat"}
             </button>

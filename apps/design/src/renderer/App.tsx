@@ -3,7 +3,8 @@
 // everything live here.
 
 import { useEffect } from "react";
-import { setStyles, styleOf } from "@opendeck/artboard";
+import { getAt } from "@opendeck/format";
+import { setStyles, styleOf, type ElementNode } from "@opendeck/artboard";
 import { tabs } from "@opendeck/shell";
 import { commentOnSelection } from "./commentOn.ts";
 import { comments } from "./comments.ts";
@@ -127,6 +128,12 @@ function onKey(e: KeyboardEvent) {
     }
     case "Enter": {
       if (placeWithKeyboard()) return go(() => {});
+      if (sel?.kind === "layers" && sel.addresses.length === 1) {
+        const root = s.boards.get(sel.file)?.doc?.root;
+        const addr = sel.addresses[0]!;
+        const el = root ? (getAt(root, addr) as ElementNode | null) : null;
+        if (el) return go(() => setState({ editing: { kind: "layer", file: sel.file, address: addr } }));
+      }
       if (sel?.kind === "boards" && sel.files.length === 1) return go(() => setState({ editing: { kind: "name", file: sel.files[0]! } }));
       if (sel?.kind === "notes" && sel.ids.length === 1 && s.notes.find((n) => n.id === sel.ids[0])?.kind === "sticky") return go(() => setState({ editing: { kind: "note", id: sel.ids[0]! } }));
       return;

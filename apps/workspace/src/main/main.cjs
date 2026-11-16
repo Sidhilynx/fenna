@@ -109,7 +109,7 @@ function createWindow(initialRoot) {
     titleBarOverlay: process.platform === "darwin" ? undefined : { color: "#0a0a0a", symbolColor: "#a3a3a3", height: STRIP_H },
     trafficLightPosition: { x: 14, y: 11 },
     show: false,
-    webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false },
+    webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false, backgroundThrottling: false },
   });
 
   win.once("ready-to-show", () => win?.show());
@@ -172,19 +172,43 @@ function registerWorkspaceIpc() {
     return list.sort((a, b) => b.edited - a.edited);
   });
 
+  async function openDoc(targetPath, senderWc, inNewTab = false) {
+    if (!tabs || !targetPath) return false;
+    const full = path.resolve(targetPath);
+    const norm = full.toLowerCase();
+    const other = tabs.tabs.find((t) => t.root && path.resolve(t.root).toLowerCase() === norm);
+    if (other) {
+      if (!inNewTab) tabs.activate(other.id);
+      return other.id;
+    }
+    const current = (senderWc ? tabs.byContents(senderWc) : null) || tabs.active();
+    if (!inNewTab && current && !current.root) {
+      current.root = full;
+      if (hosts) {
+        for (const h of Object.values(hosts)) h.setRoot(current.wc, full);
+      }
+      const kind = detectProductKind(full) || "deck";
+      const h = getHost(kind);
+      const desc = await h?.describe(full).catch(() => null);
+      tabs.setRoot(current.wc, full, desc?.title ?? path.basename(full));
+      void loadPageForTab(current.wc, current);
+      tabs.activate(current.id);
+      return current.id;
+    }
+    return tabs.open(full, { background: false });
+  }
+
   ipcMain.handle("workspace:open", async (e, rootPath) => {
-    if (!tabs || !rootPath) return false;
-    const tabId = tabs.open(rootPath);
-    return !!tabId;
+    const res = await openDoc(rootPath, e.sender, false);
+    return !!res;
   });
 
   ipcMain.handle("workspace:openInTab", async (_e, rootPath) => {
-    if (!tabs || !rootPath) return false;
-    const tabId = tabs.open(rootPath, { background: false });
-    return !!tabId;
+    const res = await openDoc(rootPath, null, true);
+    return !!res;
   });
 
-  ipcMain.handle("workspace:choose", async (_e, productKind) => {
+  ipcMain.handle("workspace:choose", async (e, productKind) => {
     if (!win || !tabs) return null;
     const res = await dialog.showOpenDialog(win, {
       title: productKind ? `Open ${productKind} folder` : "Open document folder",
@@ -203,7 +227,7 @@ function registerWorkspaceIpc() {
     }
     const h = getHost(kind);
     await h.rememberRecent(chosen).catch(() => {});
-    tabs.open(chosen);
+    await openDoc(chosen, e.sender, false);
     return chosen;
   });
 
@@ -228,8 +252,24 @@ function registerWorkspaceIpc() {
 
     const h = getHost(kind);
     await h.rememberRecent(targetDir).catch(() => {});
-    tabs.open(targetDir);
+    await openDoc(targetDir, e.sender, false);
     return targetDir;
+  });
+
+  ipcMain.handle("workspace:theme:get", () => ({
+    mode: nativeTheme.themeSource,
+    dark: nativeTheme.shouldUseDarkColors,
+  }));
+
+  ipcMain.handle("workspace:theme:set", (_e, mode) => {
+    if (["dark", "light", "system"].includes(mode)) {
+      nativeTheme.themeSource = mode;
+      tabs?.applyTheme();
+    }
+    return {
+      mode: nativeTheme.themeSource,
+      dark: nativeTheme.shouldUseDarkColors,
+    };
   });
 }
 

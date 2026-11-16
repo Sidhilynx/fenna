@@ -111,6 +111,15 @@
   margin: 10px 4px;
 }
 
+.ws-side-spacer {
+  flex: 1;
+  min-height: 16px;
+}
+
+.ws-theme-nav {
+  margin-top: 4px;
+}
+
 .ws-side-label {
   font-size: 10px;
   font-weight: 600;

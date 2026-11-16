@@ -1,7 +1,7 @@
 {
   "name": "@opendeck/docs",
   "productName": "Fenna Docs",
-  "version": "0.9.3",
+  "version": "0.9.4",
   "private": true,
   "description": "Documents that live on your computer and work with any AI.",
   "license": "AGPL-3.0-only",

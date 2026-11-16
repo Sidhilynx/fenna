@@ -112,26 +112,49 @@ body.chat-resizing * {
 
 /* The person's message: right, on a raised surface. */
 .as-user { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; align-self: flex-end; max-width: 88%; }
-.as-about { font-size: var(--fs-xs); color: var(--text-3); }
+.as-about {
+  display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px;
+  border-radius: 9999px; background: var(--hover); border: 1px solid var(--line);
+  font-size: var(--fs-xs); color: var(--text-2); margin-bottom: 2px;
+}
+.as-about svg { color: var(--text-3); flex-shrink: 0; }
 .as-bubble {
   padding: 8px 12px; border-radius: var(--r-lg); background: var(--raised); box-shadow: inset 0 0 0 1px var(--line);
   color: var(--text); font-size: var(--fs-md); line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere;
+  animation: as-rise 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 /* A reply: who wrote it, then the text. */
-.as-reply { display: flex; flex-direction: column; gap: 8px; }
+.as-reply { display: flex; flex-direction: column; gap: 8px; animation: as-rise 180ms cubic-bezier(0.16, 1, 0.3, 1) both; }
 .as-who { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: var(--fs-md); font-weight: 500; }
 .as-text { color: var(--text); font-size: var(--fs-md); line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
 .as-reply.live .as-text { color: var(--text-2); }
 .as-clock { color: var(--text-3); font-size: var(--fs-sm); font-weight: 400; font-variant-numeric: tabular-nums; }
+.as-cursor {
+  display: inline-block; width: 2px; height: 1.1em; vertical-align: -0.15em; margin-left: 3px;
+  background: var(--sel); border-radius: 1px; animation: as-blink 0.8s ease-in-out infinite;
+}
+@keyframes as-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
 /* Steps the assistant took: a quiet rail. */
-.as-step { display: flex; align-items: center; gap: 10px; margin: -12px 0 0 6px; padding: 3px 0 3px 10px; border-left: 1px solid var(--line-strong); color: var(--text-3); font-size: var(--fs-sm); }
-.as-step-mark { width: 5px; height: 5px; flex: none; border-radius: 50%; background: var(--text-3); }
-.as-step.running { color: var(--text-2); }
-.as-step.running .as-step-mark { background: var(--text); animation: as-pulse 900ms var(--ease) infinite alternate; }
+.as-step {
+  display: flex; align-items: center; gap: 8px; margin: -8px 0 0 8px; padding: 3px 0 3px 12px;
+  border-left: 1.5px solid var(--line-strong); color: var(--text-3); font-size: var(--fs-sm);
+  transition: color 150ms var(--ease), border-color 150ms var(--ease);
+  animation: as-rise 160ms var(--ease) both;
+}
+.as-step-mark {
+  width: 6px; height: 6px; flex: none; border-radius: 50%; background: var(--text-3);
+  transition: background 150ms var(--ease), transform 150ms var(--ease), box-shadow 150ms var(--ease);
+}
+.as-step.running { color: var(--text); font-weight: 500; }
+.as-step.running .as-step-mark {
+  background: var(--accent); box-shadow: 0 0 6px var(--accent); transform: scale(1.2);
+  animation: as-pulse 800ms var(--ease) infinite alternate;
+}
+.as-step.done .as-step-mark { background: var(--text-3); opacity: 0.85; }
 .as-step.failed { color: var(--warn); }
-.as-step.failed .as-step-mark { background: var(--warn); }
+.as-step.failed .as-step-mark { background: var(--warn); box-shadow: 0 0 4px var(--warn); }
 .as-reply + .as-step, .as-user + .as-step, .as-step:first-child { margin-top: 0; }
 
 .as-working { display: inline-flex; align-items: center; gap: 4px; margin-left: 2px; }
@@ -209,7 +232,13 @@ body.chat-resizing * {
 }
 .as-composer.focus { border-color: var(--text-3); }
 .as-composer.drag-over { border-color: var(--sel); background: var(--hover); }
-.as-context { margin: 10px 12px 0; overflow: hidden; color: var(--text-3); font-size: var(--fs-xs); white-space: nowrap; text-overflow: ellipsis; }
+.as-context {
+  display: inline-flex; align-items: center; gap: 6px; margin: 8px 10px 2px; padding: 3px 10px;
+  border-radius: 9999px; background: var(--hover); border: 1px solid var(--line);
+  color: var(--text-2); font-size: var(--fs-xs); max-width: calc(100% - 20px);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.as-context svg { color: var(--accent); flex-shrink: 0; }
 
 /* ── Attached images in composer ───────────────────────────────────────── */
 .as-attachments {

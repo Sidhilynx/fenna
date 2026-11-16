@@ -464,7 +464,11 @@ export function ChatPanel({ noun, view, suggestions, intro, placeholder, draft: 
             if (it.role === "user")
               return (
                 <div key={i} className="as-user">
-                  {it.about && <div className="as-about">{it.about}</div>}
+                  {it.about && (
+                    <div className="as-about" title="Document context">
+                      <Icon name="pin" size={10} /> <span>{it.about}</span>
+                    </div>
+                  )}
                   {it.images && it.images.length > 0 && (
                     <div className="as-user-images">
                       {it.images.map((img, imgIdx) => (
@@ -501,7 +505,7 @@ export function ChatPanel({ noun, view, suggestions, intro, placeholder, draft: 
               return (
                 <div key={i} className={`as-step ${it.status}`}>
                   <span className="as-step-mark" aria-hidden />
-                  {it.label}
+                  <span className="as-step-label">{it.label}</span>
                 </div>
               );
             return (
@@ -521,7 +525,12 @@ export function ChatPanel({ noun, view, suggestions, intro, placeholder, draft: 
               </span>
               <WorkingClock />
             </div>
-            {streaming && <div className="as-text">{streaming}</div>}
+            {streaming && (
+              <div className="as-text">
+                {streaming}
+                <span className="as-cursor" aria-hidden />
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -556,7 +565,8 @@ export function ChatPanel({ noun, view, suggestions, intro, placeholder, draft: 
         >
           {view?.label && (
             <div className="as-context" title="Sent with your message so the assistant knows what you mean">
-              {view.label}
+              <Icon name="viewport" size={11} />
+              <span>{view.label}</span>
             </div>
           )}
           {attachedImages.length > 0 && (

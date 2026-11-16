@@ -17,6 +17,8 @@ import {
   noteBounds,
   onStroke,
   setContent,
+  setStyles,
+  styleOf,
   themeOf,
   type ElementNode,
   type NoteItem,
@@ -62,12 +64,14 @@ import { ArtboardView, layerElement } from "./ArtboardView.tsx";
 import { CommentLayer } from "./CommentLayer.tsx";
 import { selectionMenu } from "./menus.tsx";
 
-type Handle = "nw" | "ne" | "se" | "sw";
+type Handle = "nw" | "ne" | "se" | "sw" | "n" | "s" | "e" | "w";
 type Pt = { x: number; y: number };
 
 type Gesture =
   | { kind: "pan"; sx: number; sy: number; view: { x: number; y: number; zoom: number } }
   | { kind: "move"; what: "boards" | "notes"; ids: string[]; start: Pt; before: Snap; moved: boolean; sx: number; sy: number; click: (() => void) | null }
+  | { kind: "moveLayer"; file: string; address: string; isAbsolute: boolean; initialLeft: number; initialTop: number; start: Pt; sx: number; sy: number; moved: boolean; el: HTMLElement }
+  | { kind: "resizeLayer"; file: string; address: string; handle: Handle; box: Rect; isAbsolute: boolean; initialLeft: number; initialTop: number; sx: number; sy: number }
   | { kind: "marquee"; start: Pt; cur: Pt; base: string[] }
   | { kind: "resize"; file: string; handle: Handle; box: Rect; before: Snap; start: Pt }
   | { kind: "pen"; points: Pt[] };
@@ -332,13 +336,43 @@ export function Canvas() {
     }
     const active = hadBoards.includes(hit.file) || (sel?.kind === "layers" && sel.file === hit.file);
     const layer = layerOf(hit.file, hit.address);
-    // The first click takes the artboard; a click inside the one already taken goes to the layer under it. Dragging moves the artboard either way.
-    let click: (() => void) | null = null;
-    if (!active) selectBoards([hit.file]);
-    else if (e.shiftKey && sel?.kind === "layers" && layer) click = () => selectLayers(hit.file, sel.addresses.includes(layer) ? sel.addresses.filter((a) => a !== layer) : [...sel.addresses, layer]);
-    else click = () => selectLayers(hit.file, [layer]);
+    if ((e.ctrlKey || e.metaKey) && layer) {
+      selectLayers(hit.file, [layer]);
+      return;
+    }
+    if (layer) {
+      if (e.shiftKey && sel?.kind === "layers" && sel.file === hit.file) {
+        selectLayers(hit.file, sel.addresses.includes(layer) ? sel.addresses.filter((a) => a !== layer) : [...sel.addresses, layer]);
+        return;
+      }
+      selectLayers(hit.file, [layer]);
+      const dom = layerElement(hit.file, layer);
+      if (dom && s.tool === "select") {
+        const root = s.boards.get(hit.file)?.doc?.root;
+        const elNode = root ? (getAt(root, layer) as ElementNode | null) : null;
+        const isAbsolute = elNode ? styleOf(elNode, "position") === "absolute" : false;
+        const initialLeft = elNode ? parseFloat(styleOf(elNode, "left") || "0") || 0 : 0;
+        const initialTop = elNode ? parseFloat(styleOf(elNode, "top") || "0") || 0 : 0;
+        begin(e, {
+          kind: "moveLayer",
+          file: hit.file,
+          address: layer,
+          isAbsolute,
+          initialLeft,
+          initialTop,
+          start: p,
+          sx: e.clientX,
+          sy: e.clientY,
+          moved: false,
+          el: dom,
+        });
+      }
+      return;
+    }
+    // Clicking on artboard canvas background: select artboard and allow moving it.
+    selectBoards([hit.file]);
     const moving = active && hadBoards.length > 1 ? hadBoards : [hit.file];
-    begin(e, { kind: "move", what: "boards", ids: moving, start: p, before: snap(), moved: false, sx: e.clientX, sy: e.clientY, click });
+    begin(e, { kind: "move", what: "boards", ids: moving, start: p, before: snap(), moved: false, sx: e.clientX, sy: e.clientY, click: null });
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
@@ -398,6 +432,55 @@ export function Canvas() {
         setState({ dragging: true });
         return;
       }
+      case "moveLayer": {
+        if (!g.moved && Math.hypot(e.clientX - g.sx, e.clientY - g.sy) < 3) return;
+        if (!g.moved) {
+          g.moved = true;
+          setState({ dragging: true });
+        }
+        const dx = p.x - g.start.x;
+        const dy = p.y - g.start.y;
+        if (g.isAbsolute) {
+          g.el.style.left = `${Math.round(g.initialLeft + dx)}px`;
+          g.el.style.top = `${Math.round(g.initialTop + dy)}px`;
+        } else {
+          g.el.style.translate = `${Math.round(dx * s.view.zoom)}px ${Math.round(dy * s.view.zoom)}px`;
+        }
+        redraw((n) => n + 1);
+        return;
+      }
+      case "resizeLayer": {
+        const dx = (e.clientX - g.sx) / s.view.zoom;
+        const dy = (e.clientY - g.sy) / s.view.zoom;
+        const dom = layerElement(g.file, g.address);
+        if (!dom) return;
+        let w = g.box.w;
+        let h = g.box.h;
+        let left = g.initialLeft;
+        let top = g.initialTop;
+
+        if (g.handle.includes("e")) w = g.box.w + dx;
+        if (g.handle.includes("s")) h = g.box.h + dy;
+        if (g.handle.includes("w")) {
+          w = g.box.w - dx;
+          if (g.isAbsolute) left = g.initialLeft + dx;
+        }
+        if (g.handle.includes("n")) {
+          h = g.box.h - dy;
+          if (g.isAbsolute) top = g.initialTop + dy;
+        }
+        w = Math.max(16, Math.round(w));
+        h = Math.max(16, Math.round(h));
+        dom.style.width = `${w}px`;
+        dom.style.height = `${h}px`;
+        if (g.isAbsolute) {
+          dom.style.left = `${Math.round(left)}px`;
+          dom.style.top = `${Math.round(top)}px`;
+        }
+        setState({ dragging: true });
+        redraw((n) => n + 1);
+        return;
+      }
       case "pen": {
         const last = g.points[g.points.length - 1]!;
         if (Math.hypot(p.x - last.x, p.y - last.y) * s.view.zoom >= 2 && g.points.length < LIMITS.strokePoints) {
@@ -415,6 +498,8 @@ export function Canvas() {
     if (host.current?.hasPointerCapture(e.pointerId)) host.current.releasePointerCapture(e.pointerId);
     if (!g) return;
     setState({ dragging: false });
+    const s = getState();
+    const p = toCanvas(e.clientX, e.clientY);
     switch (g.kind) {
       case "move":
         if (g.moved) apply(g.ids.length === 1 ? "Move" : `Move ${g.ids.length} ${g.what === "boards" ? "artboards" : "notes"}`, snap(), {}, g.before);
@@ -423,6 +508,63 @@ export function Canvas() {
       case "resize":
         apply("Resize artboard", snap(), {}, g.before);
         return;
+      case "moveLayer": {
+        g.el.style.translate = "";
+        if (!g.moved) return;
+        const dx = Math.round(p.x - g.start.x);
+        const dy = Math.round(p.y - g.start.y);
+        if (g.isAbsolute) {
+          editBoard("Move layer", g.file, (r, ctx) =>
+            setStyles(r, g.address, {
+              left: `${Math.round(g.initialLeft + dx)}px`,
+              top: `${Math.round(g.initialTop + dy)}px`,
+              right: null,
+              bottom: null,
+            }, ctx)
+          );
+        } else {
+          const artboardEl = host.current?.querySelector<HTMLElement>(`[data-file="${g.file}"]`);
+          if (artboardEl) {
+            const ar = artboardEl.getBoundingClientRect();
+            const er = g.el.getBoundingClientRect();
+            const newLeft = (er.left - ar.left) / s.view.zoom;
+            const newTop = (er.top - ar.top) / s.view.zoom;
+            const newWidth = er.width / s.view.zoom;
+            editBoard("Move layer", g.file, (r, ctx) =>
+              setStyles(r, g.address, {
+                position: "absolute",
+                left: `${Math.round(newLeft)}px`,
+                top: `${Math.round(newTop)}px`,
+                width: `${Math.round(newWidth)}px`,
+                right: null,
+                bottom: null,
+              }, ctx)
+            );
+          }
+        }
+        return;
+      }
+      case "resizeLayer": {
+        const dom = layerElement(g.file, g.address);
+        if (dom) {
+          const w = Math.round(parseFloat(dom.style.width));
+          const h = Math.round(parseFloat(dom.style.height));
+          editBoard("Resize layer", g.file, (r, ctx) => {
+            const props: Record<string, string | null> = {
+              width: `${w}px`,
+              height: `${h}px`,
+            };
+            if (g.isAbsolute && dom.style.left) {
+              props.left = `${Math.round(parseFloat(dom.style.left))}px`;
+              props.top = `${Math.round(parseFloat(dom.style.top))}px`;
+              props.right = null;
+              props.bottom = null;
+            }
+            return setStyles(r, g.address, props, ctx);
+          });
+        }
+        return;
+      }
       case "marquee":
         redraw((n) => n + 1);
         return;
@@ -597,7 +739,42 @@ export function Canvas() {
         {hoverBox && guides && <div className="dg-hover" style={rectStyle(hoverBox)} />}
         {selLayers?.addresses.map((a) => {
           const r = layerBox(selLayers.file, a);
-          return r ? <div key={a} className={`dg-sel layer${editing?.kind === "layer" ? " typing" : ""}`} style={rectStyle(r)} /> : null;
+          if (!r) return null;
+          const isSingle = selLayers.addresses.length === 1;
+          const showHandles = isSingle && !dragging && tool === "select" && editing?.kind !== "layer";
+          return (
+            <div key={a} className={`dg-sel layer${editing?.kind === "layer" ? " typing" : ""}`} style={rectStyle(r)}>
+              {showHandles && (["nw", "ne", "se", "sw", "n", "s", "e", "w"] as Handle[]).map((h) => (
+                <span
+                  key={h}
+                  className={`dg-handle ${h}`}
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    if (e.button !== 0) return;
+                    const dom = layerElement(selLayers.file, a);
+                    if (!dom) return;
+                    const root = getState().boards.get(selLayers.file)?.doc?.root;
+                    const elNode = root ? (getAt(root, a) as ElementNode | null) : null;
+                    const isAbsolute = elNode ? styleOf(elNode, "position") === "absolute" : false;
+                    const initialLeft = elNode ? parseFloat(styleOf(elNode, "left") || "0") || 0 : 0;
+                    const initialTop = elNode ? parseFloat(styleOf(elNode, "top") || "0") || 0 : 0;
+                    begin(e, {
+                      kind: "resizeLayer",
+                      file: selLayers.file,
+                      address: a,
+                      handle: h,
+                      box: { x: dom.offsetLeft, y: dom.offsetTop, w: dom.offsetWidth, h: dom.offsetHeight },
+                      isAbsolute,
+                      initialLeft,
+                      initialTop,
+                      sx: e.clientX,
+                      sy: e.clientY,
+                    });
+                  }}
+                />
+              ))}
+            </div>
+          );
         })}
         {selNotes.map((id) => {
           const n = onPage.find((x) => x.id === id);

@@ -18,6 +18,12 @@
     --stage: #e9e9e8;
   }
 }
+:root[data-theme="light"] {
+  --stage: #e9e9e8;
+}
+:root[data-theme="dark"] {
+  --stage: #0c0c0c;
+}
 .app { display: grid; grid-template-rows: var(--topbar) 1fr; height: 100%; }
 
 /* ── Top bar: the deck's own header, under the window's tab strip ──────── */

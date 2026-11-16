@@ -49,7 +49,7 @@ const withChildren = (t: TabTree): TabRef => ({ id: t.id, title: t.title, childr
 
 export function createServer(root: string): McpServer {
   const store = new DocStore(root);
-  const server = new McpServer({ name: "fenna-docs", version: "0.9.3" }, { instructions: INSTRUCTIONS });
+  const server = new McpServer({ name: "fenna-docs", version: "0.9.4" }, { instructions: INSTRUCTIONS });
 
   server.registerTool(
     "doc_overview",

@@ -1,7 +1,7 @@
 // The header: the workbook's name and its menu, Export, and the chat.
 
 import { useEffect, useState } from "react";
-import { ago, Dialog, ExportButton, type ExportFormat, Icon, McpGuideDialog, MenuButton, shortcut } from "@opendeck/shell";
+import { ago, Dialog, ExportButton, type ExportFormat, Icon, McpGuideDialog, MenuButton, ThemeToggle, shortcut } from "@opendeck/shell";
 import { duplicateWorkbook, exportCsvFile, exportXlsxFile, redo, reload, renameWorkbook, setRightPanel, togglePanel, undo, useSheets } from "../store.ts";
 
 type Kind = "xlsx" | "csv";
@@ -55,6 +55,7 @@ export function HeaderBar() {
       </MenuButton>
       <span className="sh-fill" />
       <ExportButton title={title} note="Save a copy to send or open elsewhere. The workbook itself stays a folder on this computer." formats={FORMATS} onExport={(k) => void (k === "xlsx" ? exportXlsxFile() : exportCsvFile())} />
+      <ThemeToggle className="icon-btn" />
       <button className={`btn ghost${panel === "chat" ? " on" : ""}`} aria-pressed={panel === "chat"} onClick={() => togglePanel("chat")} title={`Chat (${shortcut("Mod+Shift+L")})`}>
         <Icon name="panelRight" size={16} /> {panel === "chat" ? "Hide chat" : "Show chat"}
       </button>

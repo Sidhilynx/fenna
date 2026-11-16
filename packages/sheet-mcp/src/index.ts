@@ -61,7 +61,7 @@ function strictTools(server: McpServer): McpServer["registerTool"] {
 
 export function createServer(root: string): McpServer {
   const store = new SheetStore(root);
-  const server = new McpServer({ name: "fenna-sheets", version: "0.9.3" }, { instructions: INSTRUCTIONS });
+  const server = new McpServer({ name: "fenna-sheets", version: "0.9.4" }, { instructions: INSTRUCTIONS });
   const tool = strictTools(server);
 
   tool(

@@ -196,7 +196,24 @@ function starterFilesFor(kind, title) {
       };
     case "design":
       return {
-        "design.json": JSON.stringify({ format: "fenna-design/v1", title: t, boards: [], theme: "auto" }, null, 2) + "\n",
+        "design.json": JSON.stringify(
+          {
+            format: "fenna-design/0",
+            title: t,
+            pages: [{ id: "page-1", name: "Page 1" }],
+            boards: {},
+            order: [],
+            tweaks: { "--accent": "#d97757" },
+            textStyles: {
+              "Heading 1": "font-size: 72px; font-weight: 700; line-height: 1.1;",
+              Body: "font-size: 24px; font-weight: 400; line-height: 1.4;",
+              Caption: "font-size: 16px; font-weight: 400; line-height: 1.4;",
+            },
+            fonts: ["Inter"],
+          },
+          null,
+          2
+        ) + "\n",
         "notes.json": '{\n  "items": []\n}\n',
       };
     default:

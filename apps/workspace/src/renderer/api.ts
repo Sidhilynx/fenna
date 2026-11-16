@@ -30,4 +30,8 @@ export const api = {
   openInTab: (root: string): Promise<boolean> => bridge().invoke<boolean>("workspace:openInTab", root),
   choose: (kind?: ProductKind): Promise<string | null> => bridge().invoke<string | null>("workspace:choose", kind),
   create: (kind: ProductKind, title: string, draft?: string): Promise<string | null> => bridge().invoke<string | null>("workspace:create", kind, title, draft),
+  getTheme: (): Promise<{ mode: "dark" | "light" | "system"; dark: boolean }> =>
+    bridge().invoke<{ mode: "dark" | "light" | "system"; dark: boolean }>("shell:theme"),
+  setTheme: (mode: "dark" | "light" | "system"): Promise<{ mode: "dark" | "light" | "system"; dark: boolean }> =>
+    bridge().invoke<{ mode: "dark" | "light" | "system"; dark: boolean }>("shell:theme", mode),
 };
