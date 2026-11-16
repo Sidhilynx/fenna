@@ -4,11 +4,6 @@ const fs = require("node:fs");
 const fsp = require("node:fs/promises");
 const path = require("node:path");
 const { createFolderHost } = require("@opendeck/shell/main");
-const { newDeckFiles } = require("@opendeck/format");
-const { newDocFiles } = require("@opendeck/doc");
-const { newWorkbookFiles } = require("@opendeck/sheet");
-const { newBoardFiles } = require("@opendeck/board");
-const { newDesignFiles } = require("@opendeck/artboard");
 
 const SLIDE_ID = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
 const TAB_ID = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
@@ -177,19 +172,35 @@ function detectProductKind(root) {
 
 function starterFilesFor(kind, title) {
   const t = title || `Untitled ${kind}`;
+  const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   switch (kind) {
     case "deck":
-      return newDeckFiles(t);
+      return {
+        "deck.json": JSON.stringify({ format: "opendeck/v1", title: t, slides: ["cover"], sections: [], theme: "editorial" }, null, 2) + "\n",
+        "slides/cover.html": `<section id="cover" data-transition="fade" style="background:var(--ink);color:var(--paper);padding:128px;justify-content:center;gap:40px">\n  <p data-style="eyebrow" style="color:var(--accent)">[Eyebrow]</p>\n  <h1 data-style="display" style="width:1500px">${esc(t)}</h1>\n  <p data-style="body" style="color:var(--muted);width:960px">[A one-line subtitle]</p>\n</section>\n`,
+      };
     case "doc":
-      return newDocFiles(t);
+      return {
+        "doc.json": JSON.stringify({ format: "fenna-doc/v1", title: t, tabs: [{ id: "tab-1", title: "", children: [] }], dropdowns: [] }, null, 2) + "\n",
+        "tabs/tab-1.html": `<article id="tab-1">\n</article>\n`,
+      };
     case "sheet":
-      return newWorkbookFiles(t);
+      return {
+        "sheet.json": JSON.stringify({ format: "fenna-sheet/v1", title: t, sheets: [{ id: "sheet-1", title: "Sheet1" }] }, null, 2) + "\n",
+        "sheets/sheet-1.json": JSON.stringify({ format: "fenna-sheet/v1", id: "sheet-1", title: "Sheet1", frozenRows: 0, frozenCols: 0, cols: {}, rows: {}, cells: {}, merges: [] }, null, 2) + "\n",
+      };
     case "board":
-      return newBoardFiles(t);
+      return {
+        "board.json": JSON.stringify({ format: "fenna-board/v1", title: t, settings: { grid: true, snap: true, theme: "auto" } }, null, 2) + "\n",
+        "canvas.json": "[]\n",
+      };
     case "design":
-      return newDesignFiles(t);
+      return {
+        "design.json": JSON.stringify({ format: "fenna-design/v1", title: t, boards: [], theme: "auto" }, null, 2) + "\n",
+        "notes.json": '{\n  "items": []\n}\n',
+      };
     default:
-      return newDeckFiles(t);
+      return starterFilesFor("deck", t);
   }
 }
 
