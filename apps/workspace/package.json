@@ -1,7 +1,7 @@
 {
   "name": "@opendeck/workspace",
   "productName": "Fenna Workspace",
-  "version": "0.9.0",
+  "version": "0.9.2",
   "private": true,
   "description": "Unified local-first office workspace uniting Fenna Slides, Docs, Sheets, Whiteboard, and Design.",
   "license": "AGPL-3.0-only",
@@ -51,7 +51,10 @@
       "!**/*.map"
     ],
     "win": {
-      "target": ["nsis", "zip"],
+      "target": [
+        "nsis",
+        "zip"
+      ],
       "artifactName": "Fenna-Workspace-${version}-setup.${ext}"
     },
     "nsis": {
@@ -61,12 +64,18 @@
       "uninstallDisplayName": "Fenna Workspace"
     },
     "mac": {
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "category": "public.app-category.productivity",
       "artifactName": "Fenna-Workspace-${version}-${arch}.${ext}"
     },
     "linux": {
-      "target": ["AppImage", "tar.gz"],
+      "target": [
+        "AppImage",
+        "tar.gz"
+      ],
       "category": "Office",
       "artifactName": "Fenna-Workspace-${version}-${arch}.${ext}",
       "executableName": "fenna-workspace"
