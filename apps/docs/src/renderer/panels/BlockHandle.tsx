@@ -9,7 +9,7 @@
 
 import { useEffect, useState } from "react";
 import { BLOCKS } from "@opendeck/doc";
-import { Icon, MenuButton, type MenuEntry } from "@opendeck/shell";
+import { Icon, isEmbedded, MenuButton, type MenuEntry } from "@opendeck/shell";
 import { addColumn, addRow, cellAt, deleteBlock, deleteColumn, deleteRow, setImageWidth, toggleCaption, toggleHeaderRow } from "../editor/commands.ts";
 import { newComment } from "../editor/comments.ts";
 import { lineAtY } from "../editor/lines.ts";
@@ -120,7 +120,9 @@ export function BlockHandle() {
     };
   }, []);
 
-  if (!hover || hover.id === asking) return null;
+  // Embedded: no AI mark on a line; tables and images keep their own menu.
+  const embedded = isEmbedded();
+  if (!hover || hover.id === asking || (embedded && !MENU_BLOCKS.has(hover.tag))) return null;
   const label = BLOCKS[hover.tag]?.label ?? "block";
   const isTable = hover.tag === "table";
   // Buttons keep the caret where it was in the text.
@@ -138,7 +140,7 @@ export function BlockHandle() {
   const entries = (): MenuEntry[] => {
     const cell = isTable ? cellAt(hover.id) : null;
     const out: MenuEntry[] = [
-      { label: `Ask ${ai.name}`, icon: <AssistantMark size={16} />, onSelect: () => openInlineAsk(hover.id) },
+      ...(embedded ? [] : [{ label: `Ask ${ai.name}`, icon: <AssistantMark size={16} />, onSelect: () => openInlineAsk(hover.id) }]),
       { label: "Comment", icon: <Icon name="chat" size={16} />, onSelect: () => newComment(hover.id) },
     ];
     if (isTable) {

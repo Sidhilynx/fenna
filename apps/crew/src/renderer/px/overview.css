@@ -1,0 +1,73 @@
+/* Pixel skin: the overview, the sidebar, the header, the boot screens, the
+   error panel and group chats. Loaded after pixel.css and styles.css. Each
+   frame sets --px-c and --px-edge on the same element, as pixel.css does. */
+
+/* Header: a 2px rule under it; the theme toggle is a square button with a frame on hover. */
+.app-head { border-bottom: 2px solid var(--line-strong); }
+.app-head .icon-btn { width: 28px; height: 28px; border-radius: 0; }
+.app-head .icon-btn:hover:not(:disabled) {
+  --px-c: var(--text-3);
+  --px-edge: 0 -2px 0 0 var(--px-c), 0 2px 0 0 var(--px-c), -2px 0 0 0 var(--px-c), 2px 0 0 0 var(--px-c);
+  box-shadow: var(--px-edge);
+}
+
+/* Boot screens: one column, centred, the words under the motion. */
+.boot { gap: 16px; }
+.boot > p { font-size: var(--fs-md); }
+
+/* Overview cards: a framed card with a hard drop shadow; the thumbnail is framed by styles.css. */
+.tile {
+  --px-c: var(--line-strong);
+  --px-edge: 0 -2px 0 0 var(--px-c), 0 2px 0 0 var(--px-c), -2px 0 0 0 var(--px-c), 2px 0 0 0 var(--px-c);
+  gap: 12px; padding: 12px; margin: 2px; background: var(--panel);
+  box-shadow: var(--px-edge), 6px 6px 0 0 var(--px-drop);
+}
+.tile-meta { gap: 12px; }
+.thumb-bar i { border-radius: 0; }
+
+/* The dashed "New bot" tile: its edge is a 2px stroke dashed in 2px squares. */
+.tile-new { position: relative; border: 0; min-height: var(--thumb-h); background: transparent; }
+.tile-new:hover { background: var(--wash); }
+.tile-new-edge { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.tile-new-edge rect { width: calc(100% - 2px); height: calc(100% - 2px); fill: none; stroke: var(--line-strong); stroke-width: 2px; stroke-dasharray: 2px 2px; }
+.tile-new:hover .tile-new-edge rect { stroke: var(--text-3); }
+.tile-new:focus-visible, .ov-row:focus-visible, .ov-new:focus-visible { outline: 2px solid var(--sel); outline-offset: -2px; }
+
+/* Rows: a 2px rule between them. */
+.ov-row, .ov-new { border-top: 2px solid var(--line); }
+.ov-row:first-child, .ov-new:first-child { border-top: 0; }
+
+/* Banners: a neutral framed panel; the one that waits on the person has a steel edge, not amber. */
+.banner {
+  --px-c: var(--line-strong);
+  --px-edge: 0 -2px 0 0 var(--px-c), 0 2px 0 0 var(--px-c), -2px 0 0 0 var(--px-c), 2px 0 0 0 var(--px-c);
+  box-shadow: var(--px-edge); background: var(--panel);
+}
+.banner.waiting {
+  --px-c: var(--sel);
+  background: var(--panel);
+}
+.banner-dot { border-radius: 0; background: var(--sel); }
+
+/* The error panel: a framed panel, centred. */
+.crash-panel { display: flex; flex-direction: column; align-items: center; gap: 12px; max-width: 560px; margin: 2px; padding: 24px 32px; background: var(--panel); }
+
+/* The sidebar: square rows, small section labels, a framed search field, square rail slots. */
+.side-list { padding: 2px 4px; }
+.side-label { font-size: var(--fs-xs); color: var(--text-2); font-weight: 500; padding: 12px 10px 4px; }
+.side-search { margin: 2px 2px 8px; }
+.rail-btn { width: 40px; height: 40px; }
+.rail-btn[aria-current="page"] {
+  --px-c: var(--raised);
+  --px-edge: 0 -2px 0 0 var(--px-c), 0 2px 0 0 var(--px-c), -2px 0 0 0 var(--px-c), 2px 0 0 0 var(--px-c);
+  background: var(--raised); box-shadow: var(--px-edge);
+}
+
+/* Group chats: a 2px rule under the header and the roster; roster chips are framed squares. */
+.team-chat .chat-head { border-bottom: 2px solid var(--line-strong); }
+.team-roster-bar { border-bottom: 2px solid var(--line); }
+.roster-chip {
+  --px-c: var(--line-strong);
+  --px-edge: 0 -2px 0 0 var(--px-c), 0 2px 0 0 var(--px-c), -2px 0 0 0 var(--px-c), 2px 0 0 0 var(--px-c);
+  box-shadow: var(--px-edge); padding: 4px 8px; margin: 2px 0;
+}

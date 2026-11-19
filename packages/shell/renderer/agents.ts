@@ -73,6 +73,7 @@ export type AgentEvent = { runId: string } & (
   | { type: "text"; text: string }
   | { type: "tool"; id: string; label?: string; status: "running" | "done" | "failed" }
   | { type: "done"; sessionId: string | null }
+  | { type: "usage"; used: number; window: number | null }
   | { type: "error"; message: string; fix: "signin" | "install" | null }
   | { type: "stopped" }
 );

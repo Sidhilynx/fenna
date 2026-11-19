@@ -1,7 +1,7 @@
 // The header: the workbook's name and its menu, Export, and the chat.
 
 import { useEffect, useState } from "react";
-import { ago, Dialog, ExportButton, type ExportFormat, Icon, McpGuideDialog, MenuButton, ThemeToggle, shortcut } from "@opendeck/shell";
+import { ago, Dialog, ExportButton, type ExportFormat, Icon, isEmbedded, McpGuideDialog, MenuButton, ThemeToggle, shortcut } from "@opendeck/shell";
 import { duplicateWorkbook, exportCsvFile, exportXlsxFile, redo, reload, renameWorkbook, setRightPanel, togglePanel, undo, useSheets } from "../store.ts";
 
 type Kind = "xlsx" | "csv";
@@ -17,6 +17,7 @@ function edited(at: number): string {
 }
 
 export function HeaderBar() {
+  const embedded = isEmbedded();
   const ref = useSheets((s) => s.ref);
   const title = useSheets((s) => s.workbook?.index.title ?? s.ref?.name ?? "Untitled");
   const panel = useSheets((s) => s.rightPanel);
@@ -38,8 +39,12 @@ export function HeaderBar() {
         label="Workbook"
         entries={() => [
           { heading: lastAt ? `Saved on this computer · ${edited(lastAt)}` : "Saved on this computer" },
-          { label: "Open chat", icon: <Icon name="chat" size={16} />, onSelect: () => setRightPanel("chat") },
-          { label: "MCP setup guide…", icon: <Icon name="code" size={16} />, onSelect: () => setShowMcp(true) },
+          ...(embedded
+            ? []
+            : [
+                { label: "Open chat", icon: <Icon name="chat" size={16} />, onSelect: () => setRightPanel("chat") },
+                { label: "MCP setup guide…", icon: <Icon name="code" size={16} />, onSelect: () => setShowMcp(true) },
+              ]),
           { label: "Version history", icon: <Icon name="history" size={16} />, onSelect: () => setRightPanel("history") },
           "separator",
           { label: "Rename…", icon: <Icon name="pencil" size={16} />, onSelect: () => setRenaming(true) },
@@ -56,9 +61,11 @@ export function HeaderBar() {
       <span className="sh-fill" />
       <ExportButton title={title} note="Save a copy to send or open elsewhere. The workbook itself stays a folder on this computer." formats={FORMATS} onExport={(k) => void (k === "xlsx" ? exportXlsxFile() : exportCsvFile())} />
       <ThemeToggle className="icon-btn" />
-      <button className={`btn ghost${panel === "chat" ? " on" : ""}`} aria-pressed={panel === "chat"} onClick={() => togglePanel("chat")} title={`Chat (${shortcut("Mod+Shift+L")})`}>
-        <Icon name="panelRight" size={16} /> {panel === "chat" ? "Hide chat" : "Show chat"}
-      </button>
+      {!embedded && (
+        <button className={`btn ghost${panel === "chat" ? " on" : ""}`} aria-pressed={panel === "chat"} onClick={() => togglePanel("chat")} title={`Chat (${shortcut("Mod+Shift+L")})`}>
+          <Icon name="panelRight" size={16} /> {panel === "chat" ? "Hide chat" : "Show chat"}
+        </button>
+      )}
       {renaming && <RenameDialog title={title} onClose={() => setRenaming(false)} />}
       {showMcp && <McpGuideDialog open={showMcp} onClose={() => setShowMcp(false)} noun="sheet" docPath={ref?.root ?? null} />}
     </header>

@@ -1,0 +1,720 @@
+// The contract between Fenna Crew's main process and its page. Every call
+// the page makes and every event it receives is typed here; the README's
+// "IPC contract" section says the same in words. The page talks through
+// the shell's preload (window.shell.invoke / send / on); api.ts wraps it.
+
+import type { ApprovalSource, Avatar, AvatarColor, Bot, CliKind, Connector, ConnectorTool, ConnectorType, Diagnostic, FennaAppId, Grant, LibraryKind, LoginGrant, LoginLevel, Mood, NewBotInput, RunEvent, RunTrigger, Team, ThreadMessage, ToolLevel, VaultItemInput, Wallpaper } from "@opendeck/crew";
+
+export type { ApprovalSource, Avatar, AvatarColor, Bot, CliKind, Connector, ConnectorTool, ConnectorType, Diagnostic, Grant, LibraryKind, LoginGrant, LoginLevel, Mood, NewBotInput, RunEvent, RunTrigger, Team, ThreadMessage, ToolLevel, VaultItemInput, Wallpaper };
+
+/** The page size of a bot's browser while nobody watches it live, in CSS pixels. While the person watches, it follows their view (crew:viewport). */
+export const DEFAULT_VIEWPORT = { width: 1280, height: 800 } as const;
+
+// ── Overview: everything the sidebar, the crew grid and the banner need ──
+
+export interface BotSummary {
+  slug: string;
+  name: string;
+  job: string;
+  /** The pixel-art face and its color (from bot.md, or chosen from the name when it leaves them out). */
+  avatar: Avatar;
+  color: AvatarColor;
+  /** The face: need (waiting on the person) > work (running or queued) > sleep (next run over an hour away) > idle. */
+  mood: Mood;
+  /** One line under the name, ready to show: "Needs you: approve Send the reply", "Asleep until Fri 17:00", the bot's own status… */
+  statusLine: string;
+  /** The bot's own last status (set_status, or its last reply's first line). */
+  status: string;
+  /** The schedule line as bot.md keeps it ("weekdays 09:00, 13:00"). */
+  schedule: string;
+  /** In plain words ("Weekdays at 09:00 and 13:00"). */
+  scheduleLabel: string;
+  /** ISO time of the next scheduled run, or null (manual). */
+  nextRun: string | null;
+  lastRunAt: string | null;
+  running: boolean;
+  /** The chat the running run belongs to. */
+  runningChat: string | null;
+  queued: boolean;
+  /** How many asks and approvals wait on the person. */
+  needs: number;
+  wallpaper: Wallpaper;
+  brain: Bot["brain"];
+  /** Slugs of the teams this bot leads. */
+  leads: string[];
+  /** Slugs of the teams this bot is in (as lead or member). */
+  teams: string[];
+  /** bot.md problems; a bot with an error can't run until it is fixed. */
+  diagnostics: Diagnostic[];
+  /** The bot's browser, if it has been opened since the app started. */
+  browser: BrowserState | null;
+  /** The person's chat new messages go to. */
+  currentChat: string;
+  /** The runs chat (id "runs") first, then the person's chats, oldest first. */
+  chats: ChatSummary[];
+}
+
+export interface ChatSummary {
+  id: string;
+  /** The first words the person wrote; "" for the runs chat and a new chat. */
+  title: string;
+  startedAt: string | null;
+  /** How full its context was after its last run (Claude Code reports it). */
+  usage: { used: number; window: number | null; at: string } | null;
+  /** It was compacted: it continues from a summary. */
+  compacted: boolean;
+}
+
+export interface TeamSummary {
+  slug: string;
+  name: string;
+  lead: string;
+  members: string[];
+  purpose: string;
+  diagnostics: Diagnostic[];
+}
+
+export type Waiting =
+  | { id: string; kind: "ask"; slug: string; botName: string; runId: string; at: string; expiresAt: string; question: string; options: string[]; multi: boolean }
+  | { id: string; kind: "approval"; slug: string; botName: string; runId: string; at: string; expiresAt: string; action: string; details: string; source: ApprovalSource; tool: string | null };
+
+/**
+ * The person sent a sign-in form while in control of a bot's browser: Crew
+ * offers to save it to the vault for that bot. The password stays in the
+ * main process; the page never gets it.
+ */
+export interface SaveOffer {
+  id: string;
+  slug: string;
+  botName: string;
+  origin: string;
+  /** As the form had it ("" when the page had no username field). */
+  username: string;
+  /** A login already in the vault for this site and username (saving updates its password), or null. */
+  existing: string | null;
+  at: string;
+}
+
+export interface Settings {
+  /** Start Crew (hidden, in the tray) when the person signs in to the computer. */
+  openAtLogin: boolean;
+  /** Show a system notification when a bot waits on the person and the window is out of sight. */
+  notifications: boolean;
+  /** At most this many runs at once (1 to 4); the rest queue. Read when Crew starts. */
+  maxConcurrent: number;
+  /** The New bot form starts with this CLI, model and effort ("" is the CLI's own choice). */
+  defaultCli: CliKind;
+  defaultModel: string;
+  defaultEffort: string;
+  /** Where Crew keeps its files (read only). */
+  storagePath: string;
+  /** The vault is encrypted with the system's secure storage (read only). */
+  vaultEncrypted: boolean;
+}
+
+export interface WorkspaceFile {
+  name: string;
+  path: string;
+  isDir: boolean;
+  size: number;
+  edited: string;
+}
+
+export interface Overview {
+  bots: BotSummary[];
+  teams: TeamSummary[];
+  /** Everything waiting on the person, oldest first: the banner and the badges. */
+  waiting: Waiting[];
+  /** Logins the person sent while in control, waiting for Save or Not now (forgotten after 10 minutes). */
+  offers: SaveOffer[];
+  /** Slugs in the order they will run. */
+  queue: string[];
+  settings: Settings;
+  /** No bot has run yet: show the welcome (Fenna greets the person). */
+  firstLaunch: boolean;
+}
+
+// ── One bot ────────────────────────────────────────────────────────────
+
+export interface LibraryItem {
+  /** Folder name inside the bot's library. */
+  path: string;
+  kind: LibraryKind;
+  title: string;
+  /** ISO time it last changed. */
+  edited: string;
+}
+
+/** The windows built into a bot's computer that a desktop shortcut can open. */
+export const DESKTOP_APPS = ["browser", "files", "library", "terminal", "activity", "clock", "connectors", "trash"] as const;
+export type DesktopApp = (typeof DESKTOP_APPS)[number];
+export const DESKTOP_MAX = 48;
+export const SHORTCUT_LABEL_MAX = 40;
+
+/**
+ * One icon on a bot's desktop, in grid order. The person and the bot both
+ * add, rename, move and remove them; they are kept in the bot's folder
+ * (desktop.json). app opens a built-in window, fenna opens the Library on
+ * that kind, web opens the URL in the bot's browser, doc opens a library
+ * document in its editor.
+ */
+export type DesktopShortcut = (
+  | { id: string; kind: "app"; app: DesktopApp; label: string }
+  | { id: string; kind: "fenna"; app: FennaAppId; label: string }
+  | { id: string; kind: "web"; url: string; label: string }
+  | { id: string; kind: "doc"; path: string; label: string }
+) & {
+  /** Where the person put it on the desktop grid (0-based column and row); unset icons fill the first free cells. */
+  pos?: { col: number; row: number };
+};
+
+// ── The bot's disk ─────────────────────────────────────────────────────
+// A bot's computer has one disk: its own folder, shown as top folders
+// Files (its workspace), Documents (its library of Fenna documents),
+// Downloads (Files/downloads) and Trash. Paths in these calls are disk paths
+// with "/" ("Files/notes/a.txt", "Documents/q3-report"); Crew resolves them
+// inside the bot's folder and refuses anything else.
+
+export const DISK_ROOTS = ["Files", "Documents", "Downloads", "Trash"] as const;
+export type DiskRoot = (typeof DISK_ROOTS)[number];
+export const FILE_KINDS = ["folder", "doc", "sheet", "deck", "board", "design", "image", "video", "audio", "pdf", "text", "code", "archive", "other"] as const;
+export type FileKind = (typeof FILE_KINDS)[number];
+/** Disk sizes the person can give a bot, in GB. */
+export const DISK_QUOTAS_GB = [1, 2, 5, 10, 20] as const;
+
+export interface DiskEntry {
+  /** Disk path, e.g. "Files/notes/a.txt". A Fenna document is one entry (not a folder) under Documents. */
+  path: string;
+  name: string;
+  kind: FileKind;
+  size: number;
+  /** ISO time it last changed. */
+  edited: string;
+  /** For a Fenna document: its title. */
+  title?: string;
+  /** For an entry in Trash: where it came from. */
+  from?: string;
+}
+
+export interface DiskListing {
+  entries: DiskEntry[];
+  /** Bytes the bot's disk uses, and its size. */
+  used: number;
+  quota: number;
+}
+
+export type DiskOp =
+  | { op: "mkdir"; path: string }
+  | { op: "rename"; path: string; name: string }
+  | { op: "move"; paths: string[]; to: string }
+  | { op: "copy"; paths: string[]; to: string }
+  | { op: "trash"; paths: string[] }
+  | { op: "restore"; paths: string[] }
+  | { op: "emptyTrash" }
+  /** Files the person dropped in from their computer (bytes, at most 200 MB each). */
+  | { op: "import"; to: string; files: { name: string; bytes: ArrayBuffer }[] };
+
+// ── Watches, timers and todos ─────────────────────────────────────────
+// A bot waits for things without looking: Crew watches and wakes it (a run
+// with trigger "watch") when one fires. Kept in the bot's folder
+// (watches.json, todos.json); the bot manages them with its watch and todo
+// tools, the person sees and removes them in the bot's Details.
+
+export const WATCH_KINDS = ["notification", "element", "page", "timer"] as const;
+export type WatchKind = (typeof WATCH_KINDS)[number];
+/** The most watches a bot can have, and the shortest page check interval in minutes. */
+export const WATCH_MAX = 20;
+export const PAGE_EVERY_MIN = 5;
+
+/**
+ * notification: a site in the bot's browser shows a notification (origin, optional text it must contain).
+ * element: the text of one element on an open tab changes (selector found from a snapshot ref when added).
+ * page: a web address, loaded every `every` minutes; fires when its text changes.
+ * timer: fires once at `at` (ISO), or every `every` minutes when repeat.
+ */
+export type WatchSpec =
+  | { kind: "notification"; origin: string; match?: string }
+  | { kind: "element"; origin: string; url: string; selector: string }
+  | { kind: "page"; url: string; every: number }
+  | { kind: "timer"; at: string; every?: number };
+
+export type Watch = WatchSpec & {
+  id: string;
+  /** What the bot should do when it fires, in its own words (shown to it on wake). */
+  note: string;
+  created: string;
+  /** ISO time it last fired, and how many times. */
+  fired: string | null;
+  count: number;
+  /** For element and page: the text seen last (capped at 4 KB). */
+  last?: string;
+};
+
+/** A site notification seen in a bot's browser. */
+export interface SiteNotification {
+  origin: string;
+  title: string;
+  body: string;
+  at: string;
+}
+
+export interface Todo {
+  id: string;
+  text: string;
+  done: boolean;
+  /** Optional ISO date it is due. */
+  due?: string;
+  created: string;
+}
+
+// ── The bot's terminal, search and replay ──────────────────────────────
+
+/** One command in a bot's terminal, typed by the person or run by the bot (its terminal tool). */
+export interface TermEntry {
+  id: string;
+  at: string;
+  who: "person" | "bot";
+  /** The folder it ran in, as a disk path. */
+  cwd: string;
+  line: string;
+  out: string;
+  ok: boolean;
+}
+
+export interface SearchHit {
+  entry: DiskEntry;
+  /** A line of text around the match, for text files and documents. */
+  snippet?: string;
+}
+
+/** One step of a run, for the replay: what the bot did and how its browser looked just after. */
+export interface ReplayStep {
+  at: string;
+  label: string;
+  /** A small picture of the bot's browser after the step (a crewfile: URL), when it was browsing. */
+  frame?: string;
+  url?: string;
+}
+
+/** A library document opened in its editor inside the bot's computer. */
+export interface EditorOpen {
+  /** The editor page to load into the webview (a file: URL). */
+  src: string;
+  kind: LibraryKind;
+  title: string;
+}
+
+/** A library file as read-only plain text (up to 200 KB) with a one-line summary; decks have no text. */
+export interface LibraryText {
+  text: string;
+  summary: string;
+  truncated: boolean;
+}
+
+export interface RunSummary {
+  /** The run file's name, used to page history. */
+  file: string;
+  at: string;
+  trigger: RunTrigger;
+  /** What started it: the person's words, the hand-off, or "" for a schedule. */
+  text: string;
+  outcome: "done" | "error" | "stopped" | "running";
+  /** The run's last reply, first 300 characters. */
+  reply: string;
+}
+
+export interface BotDetail {
+  summary: BotSummary;
+  /** The settings as bot.md holds them (bot.how is the body); null when bot.md has no front matter to read (see summary.diagnostics). */
+  bot: Bot | null;
+  memory: string;
+  library: LibraryItem[];
+  /** The 20 most recent runs, newest first. */
+  runs: RunSummary[];
+  /** Where the bot's folder is on disk. */
+  folder: string;
+}
+
+export interface HistoryPage {
+  /** The chat these runs belong to. */
+  chat: string;
+  /** Oldest first; each run's events in order. */
+  runs: { file: string; events: RunEvent[] }[];
+  /** There are older runs: pass the first file as `before` to get them. */
+  more: boolean;
+}
+
+// ── Live events ────────────────────────────────────────────────────────
+
+/** A run event as it happens (the same objects the run log keeps), or streamed text. */
+export interface LiveEvent {
+  slug: string;
+  runId: string;
+  event: RunEvent | { type: "delta"; at: string; text: string };
+}
+
+/** One tab of a bot's browser. */
+export interface BrowserTab {
+  /** Stable while the tab is open; never reused for another tab of this bot. */
+  id: number;
+  /** "" for an empty tab. */
+  url: string;
+  /** "" when the page has none. */
+  title: string;
+  loading: boolean;
+  /** The page's icon as a small data: URL, or null. */
+  favicon: string | null;
+  /** The page is making sound (whether or not it is heard). */
+  audible: boolean;
+  /** The person muted this tab. */
+  muted: boolean;
+  /** Its sound reaches the speakers now: audible, the bot's computer is open in a visible window, and nothing is muted. */
+  heard: boolean;
+}
+
+/** A bot's browser. url, title, loading, canGoBack and canGoForward are the active tab's. */
+export interface BrowserState {
+  url: string;
+  title: string;
+  loading: boolean;
+  /** The person has control: the bot's browser tools are paused. */
+  control: boolean;
+  canGoBack: boolean;
+  canGoForward: boolean;
+  /** Open tabs, in order (at most LIMITS.browserTabs). Empty before the browser has opened. */
+  tabs: BrowserTab[];
+  /** The tab the bot acts on and the screen shows; null with no tabs. */
+  active: number | null;
+  /** The size the pages lay out at, in CSS pixels. Cursor positions and input use it. */
+  view: { width: number; height: number };
+  /** The person muted the whole bot. Sound is heard only while its computer is open in a visible window, and never from what is muted. */
+  muted: boolean;
+}
+
+/** The person's view of a bot's screen: its size in CSS pixels and the screen's pixel ratio. */
+export interface ViewportSize {
+  width: number;
+  height: number;
+  scale: number;
+}
+
+/** Where the bot is about to act, in page pixels (BrowserState.view), so the page can move its cursor there. */
+export interface CursorEvent {
+  slug: string;
+  /** The tab it acts in. */
+  tab: number | null;
+  x: number;
+  y: number;
+  action: "click" | "type" | "scroll" | "press" | "open";
+  /** What it is acting on, short: "link “More information”". */
+  target: string;
+}
+
+export interface FrameEvent {
+  slug: string;
+  /** The tab it shows (always the active one). */
+  tab: number;
+  /** A JPEG of the page: thumbnails (320 wide), and live frames only when the GPU gives no texture. Live frames normally arrive as GPU textures drawn straight onto <canvas data-live="<slug>"> by the shell's preload, which then fires "liveframe" with data-view-width and data-view-height. */
+  jpeg: Uint8Array;
+  /** The JPEG's size in pixels. */
+  width: number;
+  height: number;
+  /** The page's size in CSS pixels when it was painted: map input and the cursor with these. */
+  viewWidth: number;
+  viewHeight: number;
+  kind: "live" | "thumb";
+}
+
+export type WatchMode = "live" | "thumb" | "off";
+
+/** The person's mouse and keys, sent while in control. x and y are page pixels (BrowserState.view). */
+export type ControlInput =
+  | { type: "mouseDown" | "mouseUp"; x: number; y: number; button: "left" | "right" | "middle"; clickCount: number; modifiers?: Modifier[] }
+  | { type: "mouseMove"; x: number; y: number; modifiers?: Modifier[] }
+  | { type: "mouseWheel"; x: number; y: number; deltaX: number; deltaY: number }
+  | { type: "keyDown" | "keyUp"; key: string; modifiers?: Modifier[] }
+  | { type: "char"; key: string; modifiers?: Modifier[] };
+export type Modifier = "shift" | "control" | "alt" | "meta";
+
+// ── Connectors and CLIs ────────────────────────────────────────────────
+// Connectors are installed once on this computer (<userData>/Crew/connectors)
+// and granted to bots in bot.md (Grant: per-tool allow / ask / off). Bots
+// reach them only through Crew's gateway.
+
+/** An environment value or header as the page sees it. A secret's value is never sent: value is "" and set says whether one is saved. */
+export interface ConnectorValueView {
+  key: string;
+  value: string;
+  secret: boolean;
+  set: boolean;
+}
+
+/** A web connector's sign-in, as the page may see it (never a token). */
+export interface ConnectorAuth {
+  /** The server signs people in with OAuth (Sign in / Sign out apply). */
+  oauth: boolean;
+  signedIn: boolean;
+  /** Who signed in, when the server says; "" otherwise. */
+  account: string;
+  /** A client ID the person pasted, or "" when Crew registered itself. */
+  clientId: string;
+  /** Waiting for the person to finish signing in in their browser. */
+  signingIn: boolean;
+}
+
+/** "starting": Crew is starting it now; "untested": saved but never started. */
+export type ConnectorState = "ready" | "error" | "untested" | "starting";
+
+export interface ConnectorView {
+  name: string;
+  type: ConnectorType;
+  command: string;
+  args: string[];
+  url: string;
+  env: ConnectorValueView[];
+  headers: ConnectorValueView[];
+  auth: ConnectorAuth;
+  /** "command", "url", "registry <server name>", or "bot <slug>" (moved out of an older bot.md). */
+  origin: string;
+  /** As last seen; readOnly and destructive are the tool's own hints. */
+  tools: ConnectorTool[];
+  status: ConnectorState;
+  /** Why it last failed, saying how to fix it ("" when it didn't). */
+  error: string;
+  checkedAt: string | null;
+  /** Its program (or web session) is up now, for the bots using it. */
+  running: boolean;
+  /** Bots it is granted to. */
+  usedBy: { slug: string; name: string }[];
+}
+
+/**
+ * A value as the person types it. A secret is sent once, in its plain text,
+ * and stored encrypted; when editing, keep: true with value "" leaves the
+ * saved one as it is.
+ */
+export interface ConnectorValueInput {
+  key: string;
+  value: string;
+  secret: boolean;
+  keep?: boolean;
+}
+
+/** What the add and edit forms send. command and args for "command", url and headers for "url". */
+export interface ConnectorInput {
+  name: string;
+  type: ConnectorType;
+  command?: string;
+  args?: string[];
+  env?: ConnectorValueInput[];
+  url?: string;
+  headers?: ConnectorValueInput[];
+  /** url only: a client ID for servers that don't let apps register themselves. */
+  oauth?: { clientId: string };
+  origin?: string;
+}
+
+/** After saving: the connector (null when it couldn't connect and wasn't saved) and why it couldn't connect ("" when it did). */
+export interface ConnectorSaveResult {
+  connector: ConnectorView | null;
+  error: string;
+  /** The server asks the person to sign in: it was saved, and crew:connectorSignIn comes next. */
+  needsSignIn: boolean;
+}
+
+/** After signing in: the connector as it is now, why it didn't work ("" when it did), and whether the server needs a pasted client ID. */
+export interface ConnectorSignInResult {
+  connector: ConnectorView;
+  error: string;
+  needsClientId: boolean;
+}
+
+// ── The vault ──────────────────────────────────────────────────────────
+// The person's site logins, once per computer (<userData>/Crew/vault.dat,
+// encrypted). Bots are granted them by name in bot.md (LoginGrant: allow or
+// ask); Crew fills them into the page, so no bot ever sees a password.
+
+/** A login as the page sees it: never a secret. */
+export interface VaultItemView {
+  name: string;
+  label: string;
+  origins: string[];
+  username: string;
+  /** Always MASK ("••••••••") when there is one, "" otherwise: the page never gets the password from here (Reveal asks for it). */
+  password: string;
+  hasPassword: boolean;
+  /** It has a 2-factor setup key, so Crew can fill sign-in codes. */
+  hasTotp: boolean;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+  lastUsedAt: string | null;
+  /** Bots granted it, and at which level. */
+  usedBy: { slug: string; name: string; level: LoginLevel }[];
+}
+
+export interface RegistryEntry {
+  name: string;
+  title: string;
+  description: string;
+  version: string;
+  repository: string | null;
+  /** A connector to fill in and install, or null when the server has nothing Crew can start. */
+  connector: ConnectorInput | null;
+  /** Why connector is null, or what still needs doing (a value to fill in, a program it needs). */
+  note: string;
+}
+
+export interface CliStatus {
+  kind: CliKind;
+  name: string;
+  installed: boolean;
+  signedIn: boolean | null;
+  version: string | null;
+  account: { email: string | null; plan: string | null } | null;
+  models: { value: string; label: string; description: string; efforts: string[]; defaultEffort: string | null }[];
+}
+
+// ── Calls ──────────────────────────────────────────────────────────────
+
+/** Every invoke channel: arguments and what it resolves to. Errors reject with a message to show. */
+export interface Calls {
+  "crew:overview": { args: []; result: Overview };
+  "crew:bot": { args: [slug: string]; result: BotDetail };
+  "crew:history": { args: [slug: string, opts?: { before?: string; limit?: number; chat?: string }]; result: HistoryPage };
+  "crew:create": { args: [input: NewBotInput]; result: { slug: string } };
+  "crew:update": { args: [slug: string, patch: Partial<Bot>]; result: BotDetail };
+  "crew:delete": { args: [slug: string]; result: true };
+  "crew:send": { args: [slug: string, text: string, chat?: string]; result: { runId: string; queued: boolean } };
+  "crew:newChat": { args: [slug: string]; result: string };
+  "crew:openChat": { args: [slug: string, chat: string]; result: true };
+  "crew:compact": { args: [slug: string, chat: string]; result: { runId: string } };
+  "crew:run": { args: [slug: string]; result: { runId: string; queued: boolean } };
+  "crew:greet": { args: []; result: { runId: string } | null };
+  "crew:stop": { args: [slug: string]; result: boolean };
+  "crew:answer": { args: [id: string, answer: string[]]; result: boolean };
+  "crew:decide": { args: [id: string, allowed: boolean, always?: boolean]; result: boolean };
+  "crew:forget": { args: [slug: string]; result: true };
+  /** A copy of the bot ("<Name> copy"): same settings and memory, a new face; no runs or library. */
+  "crew:duplicate": { args: [slug: string]; result: { slug: string } };
+  /** Asks where to save, then writes the chat as Markdown. The saved path, or null when the person cancels. */
+  "crew:exportChat": { args: [slug: string]; result: string | null };
+  "crew:teamCreate": { args: [team: Team]; result: { slug: string } };
+  "crew:teamUpdate": { args: [slug: string, patch: Partial<Team>]; result: TeamSummary };
+  "crew:teamDelete": { args: [slug: string]; result: true };
+  "crew:teamSend": { args: [slug: string, text: string]; result: { runId: string; queued: boolean } };
+  "crew:teamThread": { args: [slug: string]; result: ThreadMessage[] };
+  "crew:registrySearch": { args: [query: string]; result: RegistryEntry[] };
+  "crew:connectors": { args: []; result: ConnectorView[] };
+  "crew:connectorSave": { args: [input: ConnectorInput, opts?: { replace?: string; force?: boolean }]; result: ConnectorSaveResult };
+  "crew:connectorTest": { args: [name: string]; result: ConnectorView };
+  "crew:connectorSignIn": { args: [name: string, opts?: { clientId?: string }]; result: ConnectorSignInResult };
+  "crew:connectorSignInCancel": { args: [name: string]; result: boolean };
+  "crew:connectorSignOut": { args: [name: string]; result: ConnectorView };
+  "crew:connectorRemove": { args: [name: string]; result: { bots: string[] } };
+  "crew:vault": { args: []; result: VaultItemView[] };
+  "crew:vaultSave": { args: [input: VaultItemInput, opts?: { replace?: string }]; result: VaultItemView };
+  "crew:vaultRemove": { args: [name: string]; result: { bots: string[] } };
+  "crew:vaultReveal": { args: [name: string]; result: { password: string } };
+  "crew:vaultCopy": { args: [name: string, what: "username" | "password" | "code"]; result: { copied: true; clearsIn: number | null; secondsLeft: number | null } };
+  "crew:siteIcon": { args: [origin: string]; result: string | null };
+  "crew:saveOffer": { args: [id: string, save: boolean, opts?: { username?: string }]; result: { item: VaultItemView | null } };
+  "crew:reveal": { args: [slug: string, path?: string]; result: true };
+  "crew:watch": { args: [slug: string, mode: WatchMode]; result: BrowserState };
+  "crew:control": { args: [slug: string, on: boolean]; result: BrowserState };
+  "crew:navigate": { args: [slug: string, url: string]; result: BrowserState };
+  "crew:browserGo": { args: [slug: string, what: "back" | "forward" | "reload" | "stop"]; result: BrowserState };
+  "crew:mute": { args: [slug: string, tab: number | null, muted: boolean]; result: BrowserState };
+  "crew:closeBrowser": { args: [slug: string]; result: boolean };
+  "crew:tab": { args: [slug: string, action: "new" | "switch" | "close", id?: number]; result: BrowserState };
+  "crew:settings": { args: []; result: Settings };
+  "crew:setSettings": { args: [patch: Partial<Settings>]; result: Settings };
+  "crew:libraryText": { args: [slug: string, id: string]; result: LibraryText };
+  "crew:workspace": { args: [slug: string]; result: WorkspaceFile[] };
+  "crew:workspaceRead": { args: [slug: string, relPath: string]; result: string };
+  "crew:workspaceWrite": { args: [slug: string, relPath: string, content: string]; result: { path: string; size: number; edited: string } };
+  "crew:workspaceReveal": { args: [slug: string, relPath?: string]; result: boolean };
+  "crew:clis": { args: [fresh?: boolean]; result: CliStatus[] };
+  "crew:desktop": { args: [slug: string]; result: DesktopShortcut[] };
+  "crew:watches": { args: [slug: string]; result: { watches: Watch[]; todos: Todo[]; notifications: SiteNotification[] } };
+  "crew:disk": { args: [slug: string, dir: string]; result: DiskListing };
+  "crew:diskOp": { args: [slug: string, op: DiskOp]; result: DiskListing };
+  /** A URL the page can load a file from (images, video, audio, text): crewfile://<slug>/<disk path>. */
+  "crew:diskUrl": { args: [slug: string, path: string]; result: string };
+  "crew:setQuota": { args: [slug: string, gb: number]; result: DiskListing };
+  /** A new Fenna document in the bot's Documents; returns its library folder name. */
+  "crew:newDoc": { args: [slug: string, kind: LibraryKind, title: string]; result: { path: string } };
+  /** The person runs a command in the bot's terminal. */
+  "crew:term": { args: [slug: string, line: string, cwd: string]; result: TermEntry };
+  "crew:termHistory": { args: [slug: string]; result: TermEntry[] };
+  "crew:diskSearch": { args: [slug: string, query: string]; result: SearchHit[] };
+  "crew:replay": { args: [slug: string, runId: string]; result: ReplayStep[] };
+  "crew:removeWatch": { args: [slug: string, id: string]; result: Watch[] };
+  "crew:setTodo": { args: [slug: string, id: string, patch: { done?: boolean; remove?: boolean }]; result: Todo[] };
+  "crew:setDesktop": { args: [slug: string, items: DesktopShortcut[]]; result: DesktopShortcut[] };
+  /** Points a webview (by its webContents id) at a library document and returns the editor page to load. */
+  "crew:editor": { args: [slug: string, path: string, webContentsId: number]; result: EditorOpen };
+  /** A bot's notification center: its notices, newest first, and how many are unread. */
+  "crew:notices": { args: [slug: string]; result: NoticeState };
+  "crew:clearNotices": { args: [slug: string]; result: NoticeState };
+  /** The person opened the notification center: everything is read. */
+  "crew:readNotices": { args: [slug: string]; result: NoticeState };
+  /** A one-time reminder: a timer watch at `at` (ISO) whose note is the person's words. */
+  "crew:addReminder": { args: [slug: string, input: { at: string; note: string }]; result: Watch };
+}
+
+/** Every event channel and its payload. */
+export interface Events {
+  "crew:changed": Overview;
+  "crew:event": LiveEvent;
+  "crew:cursor": CursorEvent;
+  "crew:frame": FrameEvent;
+  "crew:browser": { slug: string; state: BrowserState };
+  "crew:connectors": ConnectorView[];
+  "crew:vault": VaultItemView[];
+  /** The person clicked a notification: show this bot's chat. */
+  "crew:open": { slug: string };
+  /** A bot's desktop changed (the person or the bot moved, added or removed a shortcut). */
+  "crew:desktop": { slug: string; items: DesktopShortcut[] };
+  /** A bot's watches or todos changed. */
+  "crew:watches": { slug: string };
+  /** Something changed on a bot's disk (the person, the bot or a download). */
+  "crew:disk": { slug: string };
+  /** A command ran in a bot's terminal (the person's or the bot's). */
+  "crew:term": { slug: string; entry: TermEntry };
+  /** A bot's notices changed (a new one, cleared, or read). */
+  "crew:notices": { slug: string };
+}
+
+/** Fire-and-forget messages from the page. */
+export interface Sends {
+  "crew:input": [slug: string, input: ControlInput];
+  "crew:viewport": [slug: string, size: ViewportSize];
+  /** The page has this bot's computer open (true) or left it (false). A bot is heard only while it is open. */
+  "crew:present": [slug: string, open: boolean];
+}
+
+// ── Notices: a bot's notification center ──────────────────────────────
+
+/** What a notice is about: a site's notification, a finished download, an ended run, a fired watch, a reminder (a timer watch). */
+export const NOTICE_KINDS = ["site", "download", "run", "watch", "reminder"] as const;
+export type NoticeKind = (typeof NOTICE_KINDS)[number];
+
+export interface Notice {
+  id: string;
+  /** ISO time it happened. */
+  at: string;
+  kind: NoticeKind;
+  title: string;
+  body: string;
+  /** For site notices: the site's origin (its icon is looked up with it). */
+  origin?: string;
+  /** For downloads: the file's path in the bot's workspace. */
+  path?: string;
+}
+
+export interface NoticeState {
+  /** Newest first, at most 100. */
+  items: Notice[];
+  unread: number;
+}

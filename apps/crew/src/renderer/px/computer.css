@@ -1,0 +1,76 @@
+/* Pixel skin: the bot's computer. Loaded after pixel.css and styles.css.
+   Title bar, browser chrome, taskbar, and the overlays on the desk. */
+
+/* Frames for the pieces this file adds (the recipe from pixel.css). */
+.desk-bar .seg, .desk-bar .seg-btn[aria-pressed="true"], .address, .task-brain, .save-card {
+  --px-edge: 0 -2px 0 0 var(--px-c), 0 2px 0 0 var(--px-c), -2px 0 0 0 var(--px-c), 2px 0 0 0 var(--px-c);
+}
+
+/* Title bar: a 2px rule under it, the back, chat and segmented controls as pixel pieces. */
+.desk-bar { border-bottom: 0; box-shadow: inset 0 -2px 0 0 var(--line); }
+.desk-back .pixel-icon { transform: scaleX(-1); }
+.desk-bar .vr { width: 2px; height: 16px; }
+.desk-title { gap: 2px; }
+.desk-name { font-size: var(--fs-md); font-weight: 600; }
+.desk-status, .desk-status.need { max-width: 320px; color: var(--text-2); }
+.desk-status.need::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 6px; vertical-align: 1px; background: var(--warn); }
+.desk-bar .seg { --px-c: var(--line-strong); gap: 4px; padding: 4px; border: 0; border-radius: 0; background: var(--panel); box-shadow: var(--px-edge); }
+.desk-bar .seg-btn { height: 26px; padding: 0 12px; border-radius: 0; background: transparent; box-shadow: none; }
+.desk-bar .seg-btn:hover { color: var(--text); }
+.desk-bar .seg-btn:focus-visible { outline: 2px solid var(--sel); outline-offset: 2px; }
+.desk-bar .seg-btn[aria-pressed="true"] { --px-c: var(--sel); background: var(--raised); color: var(--text); box-shadow: var(--px-edge), inset 0 2px 0 0 var(--px-lift); }
+.desk-bar .desk-chat[aria-pressed="true"] { --px-c: var(--sel); background: var(--raised); }
+
+/* The bot's browser: stepped pixel tabs. A tab is a box clipped to a staircase with 2px steps;
+   the active one draws its 2px frame as its own fill and an inner page-coloured layer, so its
+   sides run down into the toolbar and the bottom has no edge. */
+.tabstrip { height: 38px; gap: 0; padding: 0 8px; background: var(--screen-line); border-bottom: 0; }
+.btabs-list { align-items: flex-end; gap: 2px; }
+.btab {
+  --tab-stair: polygon(0 100%, 0 6px, 2px 6px, 2px 4px, 4px 4px, 4px 2px, 6px 2px, 6px 0, calc(100% - 6px) 0, calc(100% - 6px) 2px, calc(100% - 4px) 2px, calc(100% - 4px) 4px, calc(100% - 2px) 4px, calc(100% - 2px) 6px, 100% 6px, 100% 100%);
+  position: relative; height: 32px; padding: 0 12px 0 8px; gap: 6px; border-radius: 0;
+  clip-path: var(--tab-stair); background: var(--screen-bar); color: var(--screen-ink-2);
+  transition: background 120ms ease-out;
+}
+.btab > * { position: relative; }
+.btab:focus-visible { outline: 2px solid var(--sel); outline-offset: -2px; }
+.btab:hover:not(.on) { background: var(--screen-page); color: var(--screen-ink); }
+.btab.on { --px-c: var(--screen-line); height: 34px; background: var(--px-c); color: var(--screen-ink); font-weight: 500; }
+.btab.on::before { content: ""; position: absolute; inset: 2px 2px 0; background: var(--screen-page); clip-path: var(--tab-stair); }
+.btab-icon { box-sizing: border-box; width: 18px; height: 18px; padding: 2px; background: var(--screen-white); box-shadow: inset 0 0 0 2px var(--screen-line); }
+.btab-icon img { width: 12px; height: 12px; }
+.btab-close { width: 18px; height: 18px; margin-left: 0; }
+.btab-new { width: 26px; height: 26px; align-self: flex-end; margin-bottom: 4px; }
+
+/* The toolbar: pixel icon buttons, and an address field with a lock or site mark. */
+.toolbar { gap: 4px; padding: 0 8px; }
+.browser-window .icon-btn:hover:not(:disabled) { box-shadow: inset 0 0 0 2px var(--screen-line); }
+.btn-back .pixel-icon { transform: scaleX(-1); }
+.address { --px-c: var(--screen-line); flex: 1; margin: 0 6px; padding: 0 12px; gap: 8px; border: 0; border-radius: 0; background: var(--screen-bar); box-shadow: var(--px-edge); }
+.address > .pixel-icon { flex: none; color: var(--screen-ink-2); }
+.address:focus-within { --px-c: var(--sel); background: var(--screen-white); border: 0; }
+
+/* The loading bar: a pixel block that steps across, still under reduced motion. */
+.load-bar { height: 4px; margin-top: -2px; background: transparent; }
+.load-bar.on::after { width: 12%; height: 4px; background: var(--screen-ink-2); animation: px-load 1200ms steps(14) infinite; }
+@keyframes px-load { from { transform: translateX(-100%); } to { transform: translateX(840%); } }
+
+/* The taskbar: a pixel top rule, square buttons, the active window under a 2px steel underline. */
+.taskbar { border-top: 0; box-shadow: inset 0 2px 0 0 var(--desk-glass-line); }
+.task, .task-face-btn { border-radius: 0; }
+.task.active::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: 0; height: 2px; background: var(--sel); }
+.task-dot { bottom: 6px; }
+.task-brain { --px-c: var(--desk-glass-line); display: inline-flex; align-items: center; gap: 6px; flex: none; height: 26px; margin: 0 8px; padding: 0 6px; max-width: none; background: var(--desk-glass); box-shadow: var(--px-edge); }
+
+/* Overlays on the desk: pixel panels with the accent for "wants you". */
+.control-banner { --px-c: var(--sel); border: 0; padding: 8px 8px 8px 12px; background: var(--panel); }
+.save-card { --px-c: var(--sel); display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 12px; border: 0; background: var(--panel); color: var(--text); }
+.desk-menu { border: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .load-bar.on::after { animation: none; width: 100%; opacity: 0.5; }
+  .btab { transition: none; }
+}
+
+/* The taskbar is dark in both themes, so its logos keep their dark-theme colours. */
+:root .task-brain img.as-logo.invert { filter: none; }

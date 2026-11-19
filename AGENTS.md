@@ -93,7 +93,10 @@ Quiet, precise, monochrome. The slide is the only colorful thing on screen.
 No gradients, glows, emoji, pills, or decorative icons in the UI. One accent
 (`--sel`) and it means "selected". Text in the UI is short and exactly true.
 Every control has a keyboard path and a visible focus ring. Motion is fast
-(120–200 ms), and none plays under `prefers-reduced-motion`.
+(120–200 ms), and none plays under `prefers-reduced-motion`. The exact rules
+(color, type, spacing, copy, components) are in
+[docs/ui-rules.md](docs/ui-rules.md); `node scripts/check-ui.mjs apps/<app>`
+checks them, and a UI change adds no new errors to it.
 
 ## Commands (Windows: use PowerShell, not Git Bash, for npm and tests)
 

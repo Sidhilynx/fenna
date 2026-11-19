@@ -4,7 +4,7 @@
 // wrap), and in a narrow window the less used groups move into "…".
 
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { Icon, type IconName, Menu, type MenuEntry, type MenuPrompt, shortcut } from "@opendeck/shell";
+import { Icon, type IconName, isEmbedded, Menu, type MenuEntry, type MenuPrompt, shortcut } from "@opendeck/shell";
 import { AssistantMark, useAssistant } from "../assistant.ts";
 import {
   askFor,
@@ -74,6 +74,7 @@ export function Toolbar() {
   useSheets((s) => s.selection);
   useSheets((s) => s.workbook);
   const ai = useAssistant();
+  const embedded = isEmbedded();
   const [open, setOpen] = useState<Open | null>(null);
   const host = useRef<HTMLDivElement>(null);
   const fit = useFit(host);
@@ -86,7 +87,8 @@ export function Toolbar() {
     const anchor = e.currentTarget;
     setOpen((o) => (o?.kind === "menu" && o.anchor === anchor ? null : { kind: "menu", anchor, entries: entries(), label, prompt }));
   };
-  const ask = (lead: string): MenuPrompt => ({ placeholder: `Ask ${ai.name} to ${lead}`, onSubmit: (t) => askFor(t) });
+  // Embedded: the menus keep their items but offer no AI prompt.
+  const ask = (lead: string): MenuPrompt | undefined => (embedded ? undefined : { placeholder: `Ask ${ai.name} to ${lead}`, onSubmit: (t) => askFor(t) });
 
   const button = (p: { icon: ReactNode; title: string; on?: boolean; label?: string; onClick(e: React.MouseEvent<HTMLButtonElement>): void; caret?: boolean; menuFor?: string }) => (
     <button
@@ -146,7 +148,7 @@ export function Toolbar() {
 
   return (
     <div ref={host} className="tb-layer">
-      {empty && !asking && !editing && (
+      {empty && !embedded && !asking && !editing && (
         <div className="tb-quick" role="toolbar" aria-label="Start">
           <button className="tb-quick-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => setState({ asking: true })}>
             <AssistantMark size={16} /> Ask {ai.name}
@@ -159,7 +161,7 @@ export function Toolbar() {
           </button>
         </div>
       )}
-      {asking && <AskBar />}
+      {asking && !embedded && <AskBar />}
       <div
         className="tb-dock"
         role="toolbar"
@@ -198,7 +200,7 @@ export function Toolbar() {
           title: "Number format",
           caret: true,
           menuFor: "Number format",
-          onClick: (e) => menu(e, "Number format", numberFormatEntries, { placeholder: "Find a format, or describe one", filter: true, onSubmit: (t) => askFor(`Format ${selectionRangeStr()} as: ${t}`) }),
+          onClick: (e) => menu(e, "Number format", numberFormatEntries, { placeholder: "Find a format, or describe one", filter: true, onSubmit: embedded ? undefined : (t) => askFor(`Format ${selectionRangeStr()} as: ${t}`) }),
         })}
         {fit >= 2 &&
           (contextual ? (
@@ -241,9 +243,11 @@ export function Toolbar() {
         <span className="tb-more-wrap">{button({ icon: <Icon name="dots" size={18} />, title: "More", menuFor: "More", onClick: (e) => menu(e, "More", moreEntries) })}</span>
         <span className="tb-sep" />
         {button({ icon: <Icon name="chat" size={18} />, title: `Comment (${shortcut("Mod+Alt+M")})`, on: rightPanel === "comments", onClick: commentOnSelection })}
-        <button className={`tb-ask${asking ? " on" : ""}`} aria-pressed={asking} onMouseDown={(e) => e.preventDefault()} onClick={() => setState({ asking: !asking })} title={`Ask ${ai.name} (${shortcut("Mod+K")})`}>
-          Ask {ai.name}
-        </button>
+        {!embedded && (
+          <button className={`tb-ask${asking ? " on" : ""}`} aria-pressed={asking} onMouseDown={(e) => e.preventDefault()} onClick={() => setState({ asking: !asking })} title={`Ask ${ai.name} (${shortcut("Mod+K")})`}>
+            Ask {ai.name}
+          </button>
+        )}
       </div>
       {open?.kind === "menu" && <Menu anchor={open.anchor} entries={open.entries} label={open.label} prompt={open.prompt} onClose={close} />}
       {open?.kind === "color" && (

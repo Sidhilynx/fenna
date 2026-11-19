@@ -188,6 +188,7 @@
 .empty { grid-row: 2; display: grid; place-content: center; justify-items: center; gap: 12px; height: 100%; text-align: center; color: var(--text-2); }
 .empty h1 { margin: 0; font-size: 20px; font-weight: 500; color: var(--text); }
 .empty p { margin: 0; max-width: 360px; }
+.embed-empty { height: 100vh; display: grid; place-content: center; color: var(--text-2); }
 
 /* ── New slide dialog ────────────────────────────────────────────────── */
 .layout-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }

@@ -3,6 +3,7 @@
 // decides where the card sits (beside a pin on a slide, in a doc's margin).
 
 import { useEffect, useRef, useState } from "react";
+import { isEmbedded, useEmbedBotName } from "../embed.ts";
 import { Icon } from "../ui/icons.tsx";
 import { MenuButton } from "../ui/Menu.tsx";
 import { type ThreadBase, MAX_COMMENT, ago } from "./threads.ts";
@@ -34,6 +35,7 @@ export function ThreadCard({ thread, working, quote, askAssistant, onAskAssistan
   const input = useRef<HTMLTextAreaElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const count = thread?.comments.length ?? 0;
+  const bot = useEmbedBotName();
 
   useEffect(() => {
     if (autoFocus && !collapsed) input.current?.focus();
@@ -142,7 +144,7 @@ export function ThreadCard({ thread, working, quote, askAssistant, onAskAssistan
         <div className="cm-actions">
           <label className="cm-ask">
             <input type="checkbox" checked={askAssistant} onChange={(e) => onAskAssistant(e.target.checked)} />
-            Send to assistant
+            {isEmbedded() ? `Send to ${bot}` : "Send to assistant"}
           </label>
           <button type="submit" className="cm-send-btn" disabled={!text.trim() || working !== undefined} title="Send (Enter)" aria-label="Send">
             <Icon name="arrowUp" size={16} />

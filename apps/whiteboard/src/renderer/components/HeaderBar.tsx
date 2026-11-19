@@ -1,7 +1,7 @@
 // The header: the board's name and its menu, Export, and the chat.
 
 import { useEffect, useState } from "react";
-import { ago, Dialog, ExportButton, Icon, McpGuideDialog, MenuButton, ThemeToggle, shortcut, type ExportFormat } from "@opendeck/shell";
+import { ago, Dialog, ExportButton, type ExportFormat, Icon, isEmbedded, McpGuideDialog, MenuButton, shortcut, ThemeToggle } from "@opendeck/shell";
 import { exportBoard, type ExportKind } from "../export.ts";
 import { duplicateBoard, redo, reload, renameBoard, setPanel, togglePanel, undo, useBoard } from "../store.ts";
 
@@ -25,6 +25,7 @@ export function HeaderBar() {
   const empty = useBoard((s) => s.items.length === 0);
   const [renaming, setRenaming] = useState(false);
   const [showMcp, setShowMcp] = useState(false);
+  const embedded = isEmbedded();
   const [, tick] = useState(0);
   useEffect(() => {
     const t = window.setInterval(() => tick((n) => n + 1), 60_000);
@@ -38,9 +39,9 @@ export function HeaderBar() {
         label="Board"
         entries={() => [
           { heading: lastAt ? `Saved on this computer · ${edited(lastAt)}` : "Saved on this computer" },
-          { label: "Open chat", icon: <Icon name="chat" size={16} />, onSelect: () => setPanel("chat") },
+          ...(embedded ? [] : [{ label: "Open chat", icon: <Icon name="chat" size={16} />, onSelect: () => setPanel("chat") }]),
           { label: "Comments", icon: <Icon name="chat" size={16} />, onSelect: () => setPanel("comments") },
-          { label: "MCP setup guide…", icon: <Icon name="code" size={16} />, onSelect: () => setShowMcp(true) },
+          ...(embedded ? [] : [{ label: "MCP setup guide…", icon: <Icon name="code" size={16} />, onSelect: () => setShowMcp(true) }]),
           { label: "Version history", icon: <Icon name="history" size={16} />, onSelect: () => setPanel("history") },
           "separator",
           { label: "Rename…", icon: <Icon name="pencil" size={16} />, onSelect: () => setRenaming(true) },
@@ -62,9 +63,11 @@ export function HeaderBar() {
         onExport={(k) => void exportBoard(k)}
       />
       <ThemeToggle className="icon-btn" />
-      <button className={`btn ghost${panel === "chat" ? " on" : ""}`} aria-pressed={panel === "chat"} onClick={() => togglePanel("chat")} title="Chat">
-        <Icon name="panelRight" size={16} /> {panel === "chat" ? "Hide chat" : "Show chat"}
-      </button>
+      {!embedded && (
+        <button className={`btn ghost${panel === "chat" ? " on" : ""}`} aria-pressed={panel === "chat"} onClick={() => togglePanel("chat")} title="Chat">
+          <Icon name="panelRight" size={16} /> {panel === "chat" ? "Hide chat" : "Show chat"}
+        </button>
+      )}
       {renaming && <RenameDialog title={title} onClose={() => setRenaming(false)} />}
       {showMcp && <McpGuideDialog open={showMcp} onClose={() => setShowMcp(false)} noun="board" docPath={ref?.root ?? null} />}
     </header>

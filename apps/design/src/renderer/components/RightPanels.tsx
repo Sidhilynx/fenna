@@ -2,7 +2,7 @@
 // version history. One at a time; its close button and Esc put it away.
 
 import { useCallback, useState } from "react";
-import { ChatPanel, Icon, MenuButton, ThreadCard, shortcut, type ChatView } from "@opendeck/shell";
+import { ChatPanel, type ChatView, Icon, isEmbedded, MenuButton, shortcut, ThreadCard } from "@opendeck/shell";
 import { useAssistant } from "../assistant.ts";
 import { comments, threadQuote, threadTarget, type DesignThread } from "../comments.ts";
 import { PropertiesPanel } from "../panels/PropertiesPanel.tsx";
@@ -84,8 +84,7 @@ function CommentsPanel() {
             { label: "Open", checked: show === "open", onSelect: () => setShow("open") },
             { label: "Resolved", checked: show === "resolved", onSelect: () => setShow("resolved") },
             { label: "All", checked: show === "all", onSelect: () => setShow("all") },
-            "separator",
-            { label: `Send new comments to ${ai.name}`, checked: ask, onSelect: () => comments.setAskAssistant(!ask) },
+            ...(isEmbedded() ? [] : ["separator" as const, { label: `Send new comments to ${ai.name}`, checked: ask, onSelect: () => comments.setAskAssistant(!ask) }]),
           ]}
         >
           <Icon name="filter" size={16} />
@@ -173,6 +172,6 @@ export function RightPanels() {
   if (panel === "properties") return <PropertiesPanel />;
   if (panel === "comments") return <CommentsPanel />;
   if (panel === "history") return <HistoryPanel />;
-  if (panel === "chat") return <AssistantPanel />;
+  if (panel === "chat" && !isEmbedded()) return <AssistantPanel />;
   return null;
 }

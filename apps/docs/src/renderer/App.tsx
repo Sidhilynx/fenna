@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { flattenTabs, tabLabel } from "@opendeck/doc";
-import { Dialog, Icon, McpGuideDialog, MenuButton, ThemeToggle, Toast, shortcut, tabs } from "@opendeck/shell";
+import { Dialog, Icon, McpGuideDialog, MenuButton, ThemeToggle, Toast, isEmbedded, shortcut, tabs } from "@opendeck/shell";
 import { Page } from "./Page.tsx";
 import { loadComments } from "./editor/comments.ts";
 import { AssistantPanel } from "./panels/AssistantPanel.tsx";
@@ -14,11 +14,13 @@ import { Toolbar } from "./panels/Toolbar.tsx";
 import { boot, getState, goToTab, redo, renameDoc, togglePanel, undo, useDocs } from "./store.ts";
 
 export function App() {
+  // Inside Fenna Crew (#embed) the AI is Crew's: no assistant, no Home, no file pickers or exports.
+  const embedded = isEmbedded();
   const ref = useDocs((s) => s.ref);
   const doc = useDocs((s) => s.doc);
   const loading = useDocs((s) => s.loading);
   const sidebar = useDocs((s) => s.sidebar);
-  const chat = useDocs((s) => s.chat);
+  const chat = useDocs((s) => !embedded && s.chat);
   const comments = useDocs((s) => s.comments);
   const canUndo = useDocs((s) => s.undo.length > 0);
   const canRedo = useDocs((s) => s.redo.length > 0);
@@ -49,7 +51,7 @@ export function App() {
     if (title) tabs.meta({ title });
   }, [title]);
 
-  if (!loading && (!ref || !doc)) return <Home />;
+  if (!loading && (!ref || !doc)) return embedded ? <div className="embed-empty">No document open.</div> : <Home />;
 
   return (
     <div className="docs">
@@ -65,8 +67,7 @@ export function App() {
             "separator",
             { label: "Undo", shortcut: shortcut("Mod+Z"), disabled: !canUndo, onSelect: () => void undo() },
             { label: "Redo", shortcut: shortcut("Mod+Shift+Z"), disabled: !canRedo, onSelect: () => void redo() },
-            "separator",
-            { label: "MCP setup guide…", icon: <Icon name="code" size={16} />, onSelect: () => setShowMcp(true) },
+            ...(embedded ? [] : ["separator" as const, { label: "MCP setup guide…", icon: <Icon name="code" size={16} />, onSelect: () => setShowMcp(true) }]),
           ]}
         >
           <span className="dt-title-text">{title}</span> <Icon name="chevronDown" size={14} />
@@ -74,9 +75,11 @@ export function App() {
         <span className="dt-fill" />
         {doc && <ExportMenu />}
         <ThemeToggle className="icon-btn" />
-        <button className={`btn ghost${chat ? " on" : ""}`} aria-pressed={chat} onClick={() => togglePanel("chat")}>
-          <Icon name="panelRight" size={16} /> {chat ? "Hide chat" : "Show chat"}
-        </button>
+        {!embedded && (
+          <button className={`btn ghost${chat ? " on" : ""}`} aria-pressed={chat} onClick={() => togglePanel("chat")}>
+            <Icon name="panelRight" size={16} /> {chat ? "Hide chat" : "Show chat"}
+          </button>
+        )}
       </header>
       {loading || !doc ? (
         <main className="dt-loading" aria-busy />

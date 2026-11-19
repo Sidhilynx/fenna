@@ -2,7 +2,7 @@
 // formula bar, grid with its toolbar, the side column, and the sheet tabs.
 
 import { useEffect } from "react";
-import { tabs } from "@opendeck/shell";
+import { isEmbedded, tabs } from "@opendeck/shell";
 import { comments } from "./comments.ts";
 import { SheetDialogs } from "./components/Dialogs.tsx";
 import { FormulaBar } from "./components/FormulaBar.tsx";
@@ -16,6 +16,8 @@ import { Toolbar } from "./components/Toolbar.tsx";
 import { boot, clearSelection, getState, redo, setRightPanel, setState, togglePanel, toggleStyleProp, undo, useSheets } from "./store.ts";
 
 export function App() {
+  // Inside Fenna Crew (#embed) the AI is Crew's: no assistant, no Home, no file pickers or exports.
+  const embedded = isEmbedded();
   const ref = useSheets((s) => s.ref);
   const workbook = useSheets((s) => s.workbook);
   const loading = useSheets((s) => s.loading);
@@ -45,10 +47,10 @@ export function App() {
         return;
       }
       if (!mod) return;
-      if (k === "k" && !e.shiftKey && !e.altKey) {
+      if (k === "k" && !e.shiftKey && !e.altKey && !embedded) {
         e.preventDefault();
         setState({ asking: !getState().asking });
-      } else if (k === "l" && e.shiftKey) {
+      } else if (k === "l" && e.shiftKey && !embedded) {
         e.preventDefault();
         togglePanel("chat");
       } else if (k === "m" && e.altKey) {
@@ -71,7 +73,7 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey, true);
   }, []);
 
-  if (!loading && (!ref || !workbook)) return <Home />;
+  if (!loading && (!ref || !workbook)) return embedded ? <div className="embed-empty">No document open.</div> : <Home />;
 
   return (
     <div className="sheets">

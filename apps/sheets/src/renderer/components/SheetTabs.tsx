@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { Icon, MenuButton, type MenuEntry } from "@opendeck/shell";
 import { addSheet, deleteSheet, duplicateSheet, getState, importCsvFile, importXlsxFile, moveSheet, renameSheet, selectionStats, setActiveSheet, useSheets } from "../store.ts";
 
-const addEntries = (): MenuEntry[] => [
+const addEntries: MenuEntry[] = [
   { label: "Blank sheet", icon: <Icon name="sheet" size={16} />, onSelect: () => void addSheet() },
   { label: "Import CSV…", icon: <Icon name="csv" size={16} />, onSelect: () => void importCsvFile() },
   { label: "Import from Excel…", icon: <Icon name="excel" size={16} />, onSelect: () => void importXlsxFile() },
@@ -48,7 +48,7 @@ export function SheetTabs() {
         label="All sheets"
         title="All sheets"
         entries={() => [
-          { label: "Add sheet", icon: <Icon name="plus" size={16} />, submenu: addEntries() },
+          { label: "Add sheet", icon: <Icon name="plus" size={16} />, submenu: addEntries },
           "separator",
           ...getState().workbook!.index.sheets.map((s) => ({ label: s.title, checked: s.id === getState().activeSheetId, onSelect: () => setActiveSheet(s.id) })),
         ]}

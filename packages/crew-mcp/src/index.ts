@@ -1,0 +1,515 @@
+// Fenna Crew's MCP servers (draft). Every bot gets crew and browser, and
+// gateway when it has been granted connectors:
+//
+//   crew     talk to the person (ask_human, request_approval), hand work to
+//            another bot (message_bot), create bots, remember things, set
+//            its status line and mood, and make documents in its library.
+//   browser  its own web browser, which stays signed in between runs.
+//   gateway  the tools of the connectors installed on this computer that
+//            the bot was granted, on allow or ask; the app runs the calls.
+//
+// The work is done by the Crew app, reached over a local pipe (link.ts):
+// the person answers in the app, and the browser lives in the app.
+
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { z } from "zod";
+import { AVATARS, AVATAR_COLORS, CLI_KINDS, FENNA_APPS, LIMITS, MOODS, SCHEDULE_EXAMPLES } from "@opendeck/crew";
+import { LIBRARY_KINDS, newDocument } from "./library.ts";
+import type { Link, LinkResult } from "./link.ts";
+
+export { connectLink, LinkError, type Link, type LinkResult } from "./link.ts";
+export { newDocument } from "./library.ts";
+
+const VERSION = "0.9.4";
+
+// The watch limits and kinds, restated from apps/crew/src/shared/contract.ts
+// (WATCH_KINDS, WATCH_MAX, PAGE_EVERY_MIN). This package can't import the
+// app's contract, so keep these in step with it.
+const WATCH_KINDS = ["notification", "element", "page", "timer"] as const;
+const WATCH_MAX = 20;
+const PAGE_EVERY_MIN = 5;
+const text = (t: string) => ({ content: [{ type: "text" as const, text: t }] });
+
+function result(r: LinkResult) {
+  if (!r.image) return text(r.text);
+  return { content: [{ type: "image" as const, data: r.image.data, mimeType: r.image.mimeType }, { type: "text" as const, text: r.text }] };
+}
+
+/** Run a tool body; refusals from the app (or bad input) come back as tool errors the model can act on. */
+async function guard(fn: () => Promise<ReturnType<typeof result>>) {
+  try {
+    return await fn();
+  } catch (e) {
+    if (e instanceof Error) return { ...text(e.message), isError: true };
+    throw e;
+  }
+}
+
+/** registerTool, but each tool refuses argument names it doesn't take and says which it does. */
+function strictTools(server: McpServer): McpServer["registerTool"] {
+  const register = server.registerTool.bind(server);
+  return ((name: string, config: { inputSchema?: z.ZodRawShape }, cb: never) => {
+    const shape = config.inputSchema;
+    const takes = shape && Object.keys(shape).length ? `it takes ${Object.keys(shape).join(", ")}` : "it takes no arguments";
+    const inputSchema =
+      shape &&
+      z.strictObject(shape, {
+        error: (iss) => (iss.code === "unrecognized_keys" ? `${name} has no argument ${iss.keys.map((k) => `"${k}"`).join(", ")}; ${takes}` : undefined),
+      });
+    return register(name, { ...config, inputSchema } as never, cb);
+  }) as McpServer["registerTool"];
+}
+
+export const CREW_INSTRUCTIONS = `You are a bot in Fenna Crew, working on the person's own computer. These tools reach the person and the rest of the crew.
+- Ask the person with ask_human (a question with a few options) and wait for the answer.
+- Before any action on your ask-me-before list, call request_approval; if it is denied, don't do it.
+- Keep your status line current with set_status. Save what you need next time with remember.
+- Make documents with new_document, then change them with the fenna tools using the path it returns.
+- To wait for something, add a watch with watch and end your turn; Crew wakes you when it fires. Keep your to-do list with todo.`;
+
+export const BROWSER_INSTRUCTIONS = `Your own web browser. It stays signed in between runs. Start with open, read pages with snapshot, and act on elements by the refs snapshot gives (e12). Refs last until the page changes; after a click that loads a new page, snapshot again.
+It has tabs (at most ${LIMITS.browserTabs}). Every tool acts on the active tab. open with new_tab: true opens another; tabs lists them; switch_tab and close_tab take a tab number from tabs. A link that opens a new window opens a new tab and makes it active; the click result says so.
+Never type passwords or sign-in codes. To sign in, open the site's sign-in page and call logins: it lists the person's logins you may use on that page. sign_in fills one in (Crew does it; you never see the password) and fill_code fills a 2-factor code. With no login for the site, call ask_human so the person takes control of your browser and signs in, then snapshot again.`;
+
+export interface CrewOptions {
+  /** The bot's library folder, where new_document makes documents. */
+  library: string;
+}
+
+export function createCrewServer(link: Link, opts: CrewOptions): McpServer {
+  const server = new McpServer({ name: "crew", version: VERSION }, { instructions: CREW_INSTRUCTIONS });
+  const tool = strictTools(server);
+  const call = (method: string, params: Record<string, unknown>) => guard(async () => result(await link.call(method, params)));
+
+  tool(
+    "ask_human",
+    {
+      title: "Ask the person",
+      description:
+        "Ask the person a question and wait for the answer (it can take minutes). Give 2 to 8 short options when the answer is a choice; they appear as buttons, and the person can still type something else. multi: true lets them pick several. Use it when you need a decision or something only they know, or to have them take control of your browser to sign in. Not for permission to do something risky (request_approval). Example: {question: \"Which inbox should I sort first?\", options: [\"Work\", \"Personal\"]}",
+      inputSchema: {
+        question: z.string().min(1).max(1000),
+        options: z.array(z.string().min(1).max(120)).min(2).max(8).optional().describe("the choices, shortest words that are clear"),
+        multi: z.boolean().optional().describe("let the person pick more than one option"),
+      },
+    },
+    (args) => call("ask", { question: args.question, options: args.options ?? [], multi: !!args.multi }),
+  );
+
+  tool(
+    "request_approval",
+    {
+      title: "Ask for approval",
+      description:
+        "Ask the person to approve one action before you do it, and wait for the answer. Required before anything on your ask-me-before list (sending, buying, deleting, signing up…), and for anything you can't undo. Say exactly what you will do in action, and the specifics in details (to whom, what text, how much). If the answer is denied, don't do it and don't try another way; say in your reply that it was not approved. Example: {action: \"Send the reply to Priya\", details: \"To: priya@example.com. Subject: Intro call. Body: Thursday at 15:00 works for me.\"}",
+      inputSchema: {
+        action: z.string().min(1).max(200).describe("what you will do, as a short command"),
+        details: z.string().max(4000).optional().describe("the specifics the person needs to decide"),
+      },
+    },
+    (args) => call("approval", { action: args.action, details: args.details ?? "" }),
+  );
+
+  tool(
+    "message_bot",
+    {
+      title: "Hand work to another bot",
+      description:
+        "Give another bot in the crew a task and wait for its reply (it runs, then answers; this can take minutes). Use the bot's folder name from your instructions. Write the message as a complete task: what to do and what to send back. A message can be handed on at most 6 times, so don't pass work around in circles. Example: {bot: \"research\", message: \"Find the Team plan price on competitor-one.example.com/pricing and reply with the price and the date you checked.\"}",
+      inputSchema: {
+        bot: z.string().min(1).max(40).describe("the other bot's folder name"),
+        message: z.string().min(1).max(8000),
+      },
+    },
+    (args) => call("message", { bot: args.bot, message: args.message }),
+  );
+
+  tool(
+    "create_bot",
+    {
+      title: "Create a bot",
+      description: `Create a new bot for the person; they approve it first. name is short (at most ${LIMITS.name} characters), job is one line, how is how it works in a few sentences. schedule is one of ${SCHEDULE_EXAMPLES.map((e) => `"${e}"`).join(", ")} (24-hour, local time). cli is ${CLI_KINDS.join(", ")} (default: yours). connectors are Fenna apps (${FENNA_APPS.map((a) => a.id).join(", ")}; default all). Example: {name: "Research", job: "Checks example.com every Monday", how: "Open example.com, read it, and write what changed to a doc.", schedule: "mondays 10:00", ask_before: ["Signing up for anything"]}`,
+      inputSchema: {
+        name: z.string().min(1).max(LIMITS.name),
+        job: z.string().min(1).max(LIMITS.job),
+        how: z.string().max(LIMITS.how).optional(),
+        schedule: z.string().max(80).optional().describe("default manual"),
+        cli: z.enum(CLI_KINDS).optional(),
+        connectors: z.array(z.enum(FENNA_APPS.map((a) => a.id) as [string, ...string[]])).max(FENNA_APPS.length).optional(),
+        ask_before: z.array(z.string().min(1).max(LIMITS.askBeforeItem)).max(LIMITS.askBefore).optional().describe("actions the bot must ask approval for"),
+        avatar: z.enum(AVATARS).optional().describe("the bot's pixel face; leave out to let Crew choose one no other bot has"),
+        color: z.enum(AVATAR_COLORS).optional().describe("the face's color; leave out to let Crew choose the least used"),
+      },
+    },
+    (args) =>
+      call("create_bot", {
+        avatar: args.avatar ?? null,
+        color: args.color ?? null,
+        name: args.name,
+        job: args.job,
+        how: args.how ?? "",
+        schedule: args.schedule ?? "manual",
+        cli: args.cli ?? null,
+        connectors: args.connectors ?? null,
+        askBefore: args.ask_before ?? [],
+      }),
+  );
+
+  tool(
+    "remember",
+    {
+      title: "Remember",
+      description:
+        "Add a note to your memory (memory.md), which you are shown at the start of every run. Save facts you will need next time: what you found, what the person prefers, where things are. One or two short lines; don't repeat what is already there. Example: {note: \"example.com showed the Example Domain page with one link on 2026-11-18.\"}",
+      inputSchema: { note: z.string().min(1).max(2000) },
+    },
+    (args) => call("remember", { note: args.note }),
+  );
+
+  tool(
+    "set_status",
+    {
+      title: "Set status",
+      description: `Set the one line the person sees under your name, and your face's mood. Set it when you start something and when you finish: what you are doing or what you found, at most ${LIMITS.status} characters. mood: ${MOODS.join(", ")} (work while busy; need only while waiting on the person). Example: {status: "Found 1 price change on competitor-one", mood: "idle"}`,
+      inputSchema: {
+        status: z.string().min(1).max(LIMITS.status),
+        mood: z.enum(MOODS).optional(),
+      },
+    },
+    (args) => call("status", { status: args.status, mood: args.mood ?? null }),
+  );
+
+  tool(
+    "desktop",
+    {
+      title: "Your desktop",
+      description:
+        "Your desktop: the icons on your own computer, which the person sees too. Pin a site you use often (web), a document you made (doc), or a window or Fenna app (app, fenna). action: list, add, rename, move (to: a position, 1 is the first), remove. Use it to pin something the person will reach for, or to tidy up when asked. Not to open a site to read it (use open) and not to change a document (use the fenna tools). app is one of browser, files, library, terminal, activity, clock, connectors, trash, or fenna-docs, fenna-sheets, fenna-slides, fenna-whiteboard, fenna-design. Example: {action: \"add\", kind: \"web\", url: \"https://example.com/pricing\", label: \"Example pricing\"}",
+      inputSchema: {
+        action: z.enum(["list", "add", "rename", "move", "remove"]),
+        kind: z.enum(["web", "doc", "app", "fenna"]).optional().describe("add: what the icon opens"),
+        url: z.string().max(2000).optional().describe("add, web: the address in full"),
+        path: z.string().max(80).optional().describe("add, doc: the path new_document returned"),
+        app: z.string().max(40).optional().describe("add, app or fenna: which window or Fenna app"),
+        id: z.string().max(40).optional().describe("rename, move, remove: the shortcut's id from list"),
+        label: z.string().max(40).optional().describe("add, rename: the words under the icon"),
+        to: z.number().int().min(1).optional().describe("move: the new position, 1 is the first"),
+      },
+    },
+    (args) => call("desktop", { ...args }),
+  );
+
+  tool(
+    "watch",
+    {
+      title: "Watch for something",
+      description:
+        `To wait for something (a reply in a chat, a change on a page, a time), add a watch and end your turn; Crew wakes you when it fires. Never keep a run open or take screenshots to wait. A bot can hold at most ${WATCH_MAX} watches. kind: notification (a site in your browser shows a notification: origin is the site, match is words it must contain), element (one element on an open tab changes: ref from your latest snapshot), page (a web address is read every "every" minutes, at least ${PAGE_EVERY_MIN}, and fires when its text changes), timer (fires once at "at", an ISO time, or in "in" minutes; with "every" it repeats). note says what to do when it fires. action: add, list, remove (by id). Example: {action: "add", kind: "notification", origin: "https://web.whatsapp.com", match: "Sam", note: "Reply to Sam if he asks something"}`,
+      inputSchema: {
+        action: z.enum(["add", "list", "remove"]),
+        kind: z.enum(WATCH_KINDS).optional().describe("add: what to watch for"),
+        note: z.string().min(1).max(300).optional().describe("add: what to do when it fires, in your words"),
+        origin: z.string().max(300).optional().describe("notification: the site, like https://web.whatsapp.com"),
+        match: z.string().min(1).max(200).optional().describe("notification: words the notification must contain, any case"),
+        ref: z.string().max(12).optional().describe("element: the element's ref from your latest snapshot, like e12"),
+        url: z.string().max(2000).optional().describe("page: the full address to read"),
+        every: z.number().int().min(1).optional().describe(`page: minutes between checks (${PAGE_EVERY_MIN} or more); timer: minutes between repeats`),
+        at: z.string().max(40).optional().describe("timer: the time it fires, ISO, like 2026-11-20T09:00:00"),
+        in: z.number().positive().optional().describe("timer: minutes from now, instead of at"),
+        id: z.string().max(40).optional().describe("remove: the watch's id from list"),
+      },
+    },
+    (args) => call("watch", { ...args }),
+  );
+
+  tool(
+    "todo",
+    {
+      title: "Your to-do list",
+      description:
+        'Your to-do list: work you still have to do, kept between runs and shown to you at the start of each run. Use it for tasks you will come back to later, not for waiting (use watch for that). action: add (text), list, done or undone (id), remove (id). Example: {action: "add", text: "Compare the Team plan price again on Friday"}',
+      inputSchema: {
+        action: z.enum(["add", "list", "done", "undone", "remove"]),
+        text: z.string().min(1).max(200).optional().describe("add: the to-do in a few words"),
+        id: z.string().max(40).optional().describe("done, undone, remove: the to-do's id from list"),
+      },
+    },
+    (args) => call("todo", { ...args }),
+  );
+
+  tool(
+    "search_files",
+    {
+      title: "Search your disk",
+      description:
+        'Find files and documents on your own disk by name or by the text in them (Files, Documents and Downloads; never Trash). Returns each match\'s path, which the terminal or fenna tools can open, and a line of text around the match for text files and documents. Use it when you don\'t know where something is. Example: {query: "invoice 4417"}',
+      inputSchema: {
+        query: z.string().min(1).max(200).describe("words to find; every word must appear, in any case"),
+      },
+    },
+    (args) => call("search_files", { query: args.query }),
+  );
+
+  tool(
+    "terminal",
+    {
+      title: "Your terminal",
+      description:
+        'Your computer\'s terminal: a shell over your own disk (Files, Documents, Downloads, Trash) — list, read, search, move, zip, convert images, sheets to CSV, run your own JavaScript in a sandbox. It can\'t reach anything outside your disk or the network. The person sees every command. One line per call: commands joined with ; or &&, pipes with |, > or >> to write a file. Paths start with a root (Files/notes) or are relative to the folder you are in; ~ is Files. Type help for the commands, or a command with --help. Example: {line: "ls -l Files"}. Example: {line: "grep -rn budget Documents | head -5"}',
+      inputSchema: {
+        line: z.string().min(1).max(4000).describe("the command line, as you would type it"),
+        cwd: z.string().max(4096).optional().describe("the folder to run in, like Files/notes; leave out to stay where you were"),
+      },
+    },
+    (args) => call("terminal", { line: args.line, cwd: args.cwd ?? null }),
+  );
+
+  tool(
+    "new_document",
+    {
+      title: "New document",
+      description: `Make a new Fenna document in your library: kind ${LIBRARY_KINDS.join(", ")}. Returns its path, which the fenna tools take. For a doc you can give its content at once as html blocks (<h1>, <p>, <ul><li>, <table>…); otherwise fill it with the fenna tools. Check your library list first and change an existing document instead of making a second one with the same title. Example: {kind: "doc", title: "Example.com check", html: "<p>The page says…</p><p>Nothing changed since last week.</p><p>Checked 18 Nov 2026.</p>"}`,
+      inputSchema: {
+        kind: z.enum(LIBRARY_KINDS as [string, ...string[]]),
+        title: z.string().min(1).max(200),
+        html: z.string().max(500_000).optional().describe("docs only: the first tab's blocks"),
+      },
+    },
+    (args) =>
+      guard(async () => {
+        const r = await newDocument(opts.library, args.kind as (typeof LIBRARY_KINDS)[number], args.title, args.html);
+        await link.call("library_changed", { path: r.path }).catch(() => undefined);
+        return text(r.text);
+      }),
+  );
+
+  return server;
+}
+
+export function createBrowserServer(link: Link): McpServer {
+  const server = new McpServer({ name: "browser", version: VERSION }, { instructions: BROWSER_INSTRUCTIONS });
+  const tool = strictTools(server);
+  const call = (method: string, params: Record<string, unknown> = {}) => guard(async () => result(await link.call(`browser.${method}`, params)));
+  const Ref = z.string().regex(/^e\d{1,6}$/, "A ref looks like e12; take it from the latest snapshot.");
+
+  tool(
+    "open",
+    {
+      title: "Open a page",
+      description:
+        "Go to a web address and return the page as text with element refs (the same as snapshot). It loads in the active tab; new_tab: true opens it in a new tab and makes that tab active (to keep the current page). Example: {url: \"https://example.com\"} or {url: \"https://en.wikipedia.org\", new_tab: true}",
+      inputSchema: { url: z.string().min(1).max(4000), new_tab: z.boolean().optional().describe("open in a new tab instead of the active one") },
+    },
+    (args) => call("open", { url: args.url, new_tab: !!args.new_tab }),
+  );
+
+  const Tab = z.number().int().min(1).describe("a tab number from tabs");
+
+  tool(
+    "tabs",
+    {
+      title: "List tabs",
+      description: "List the open tabs: number, title and address, with * on the active one (the tab every other tool acts on). Use it to find a tab to switch to or close. Example: {}",
+      inputSchema: {},
+      annotations: { readOnlyHint: true },
+    },
+    () => call("tabs"),
+  );
+
+  tool(
+    "notifications",
+    {
+      title: "Site notifications",
+      description:
+        "Notifications that sites in your browser sent, newest first, with the site and time: for example, new chat messages. Use it to see what came in, instead of screenshots or reloading a page. Example: {}",
+      inputSchema: {},
+      annotations: { readOnlyHint: true },
+    },
+    () => call("notifications"),
+  );
+
+  tool(
+    "switch_tab",
+    {
+      title: "Switch tab",
+      description: "Make another tab active and return its page as text with refs, like snapshot. Refs from another tab don't work here. Example: {tab: 2}",
+      inputSchema: { tab: Tab },
+    },
+    (args) => call("switch_tab", { tab: args.tab }),
+  );
+
+  tool(
+    "close_tab",
+    {
+      title: "Close tab",
+      description: "Close a tab (the active one if no tab is given). Says which tab is active after. Closing the last tab leaves one empty tab. Example: {tab: 2}",
+      inputSchema: { tab: Tab.optional() },
+    },
+    (args) => call("close_tab", args.tab === undefined ? {} : { tab: args.tab }),
+  );
+
+  tool(
+    "snapshot",
+    {
+      title: "Read the page",
+      description:
+        "The current page as text: headings, text, and every link, button and field with a ref (e12) to click or type into. Read it before acting, and again after anything that changes the page. Long pages are cut; scroll and snapshot again for more. Example: {}",
+      inputSchema: {},
+      annotations: { readOnlyHint: true },
+    },
+    () => call("snapshot"),
+  );
+
+  tool(
+    "click",
+    {
+      title: "Click",
+      description: "Click a link, button or other element by its ref from the latest snapshot. Says if the page changed; snapshot again before the next action on a new page. Example: {ref: \"e12\"}",
+      inputSchema: { ref: Ref },
+    },
+    (args) => call("click", { ref: args.ref }),
+  );
+
+  tool(
+    "type",
+    {
+      title: "Type",
+      description:
+        "Type text into a field by its ref, replacing what is in it. submit: true presses Enter after. Never for passwords, sign-in codes or payment details: sign in with logins and sign_in, or ask the person to take control. Example: {ref: \"e7\", text: \"pricing\", submit: true}",
+      inputSchema: { ref: Ref, text: z.string().max(10_000), submit: z.boolean().optional() },
+    },
+    (args) => call("type", { ref: args.ref, text: args.text, submit: !!args.submit }),
+  );
+
+  tool(
+    "press",
+    {
+      title: "Press a key",
+      description: "Press one key in the page, optionally with modifiers: Enter, Tab, Escape, Backspace, Delete, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, PageUp, PageDown, Home, End, Space, or a letter, like \"Control+A\". Example: {key: \"Escape\"}",
+      inputSchema: { key: z.string().min(1).max(40) },
+    },
+    (args) => call("press", { key: args.key }),
+  );
+
+  tool(
+    "scroll",
+    {
+      title: "Scroll",
+      description: "Scroll the page up or down by screens (default 1), or bring an element into view by ref. Says where on the page you are. Example: {direction: \"down\"} or {ref: \"e40\"}",
+      inputSchema: { direction: z.enum(["up", "down"]).optional(), screens: z.number().min(0.25).max(20).optional(), ref: Ref.optional() },
+    },
+    (args) => call("scroll", { direction: args.direction ?? "down", screens: args.screens ?? 1, ref: args.ref ?? null }),
+  );
+
+  tool(
+    "back",
+    {
+      title: "Go back",
+      description: "Go back to the previous page in the active tab and return it as text with refs, like snapshot. Example: {}",
+      inputSchema: {},
+    },
+    () => call("back"),
+  );
+
+  const Login = z.string().min(1).max(40).describe("a login's name from logins");
+
+  tool(
+    "logins",
+    {
+      title: "Logins for this page",
+      description:
+        "List the person's logins you may use on the active tab's site: name, label, username, and whether it has 2-factor codes. Passwords are never shown; Crew fills them in. Call it on a sign-in page, then sign_in. If none fits, it says which sites your logins are for. Example: {}",
+      inputSchema: {},
+      annotations: { readOnlyHint: true },
+    },
+    () => call("logins"),
+  );
+
+  tool(
+    "sign_in",
+    {
+      title: "Sign in with a login",
+      description:
+        "Have Crew fill a login's username and password into the sign-in form on the active tab, and with submit: true press its sign-in button. Crew finds the fields; give username_ref and password_ref from snapshot only if it picks the wrong ones. Crew fills it only when the page is on one of the login's own sites, and some logins wait for the person's approval first (the call waits too). You never see the password. If the site asks for a code next, use fill_code. Example: {login: \"example-mail\", submit: true}",
+      inputSchema: {
+        login: Login,
+        submit: z.boolean().optional().describe("press the form's sign-in button after filling"),
+        username_ref: Ref.optional().describe("the username or email field, if Crew should not find it itself"),
+        password_ref: Ref.optional().describe("the password field, if Crew should not find it itself"),
+      },
+    },
+    (args) => call("sign_in", { login: args.login, submit: !!args.submit, username_ref: args.username_ref ?? null, password_ref: args.password_ref ?? null }),
+  );
+
+  tool(
+    "fill_code",
+    {
+      title: "Fill a sign-in code",
+      description:
+        "Have Crew fill the current 2-factor sign-in code of a login into the code field on the active tab (it finds the field; ref picks one), and with submit: true send it. Only for logins that logins says have 2-factor codes, and only on that login's own site. You never see the code. Example: {login: \"example-mail\", submit: true}",
+      inputSchema: {
+        login: Login,
+        ref: Ref.optional().describe("the code field, if Crew should not find it itself"),
+        submit: z.boolean().optional().describe("press the form's button after filling"),
+      },
+    },
+    (args) => call("fill_code", { login: args.login, ref: args.ref ?? null, submit: !!args.submit }),
+  );
+
+  tool(
+    "screenshot",
+    {
+      title: "Screenshot",
+      description: "A picture of what the active tab shows now. Use it only when the text from snapshot is not enough (charts, images, layout). Example: {}",
+      inputSchema: {},
+      annotations: { readOnlyHint: true },
+    },
+    () => call("screenshot"),
+  );
+
+  return server;
+}
+
+const GATEWAY_INSTRUCTIONS = `Tools from connectors the person installed on this computer, each named <connector>__<tool>. Some run only after the person approves that call; the call waits for their answer. If a call is denied, don't do it another way, and say in your reply that it was not approved.`;
+
+/** A tool the gateway offers: a granted connector tool on allow or ask, renamed <connector>__<tool>. */
+interface GatewayTool {
+  name: string;
+  title?: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+  annotations?: Record<string, unknown>;
+}
+
+/**
+ * The gateway: for the running bot, only the tools of its granted
+ * connectors that are on allow or ask. The app decides the list and runs
+ * every call (asking the person first for ask), so a tool set to off is
+ * never listed and never reaches its connector.
+ */
+export function createGatewayServer(link: Link): Server {
+  const server = new Server({ name: "gateway", version: VERSION }, { capabilities: { tools: {} }, instructions: GATEWAY_INSTRUCTIONS });
+  server.setRequestHandler(ListToolsRequestSchema, async () => {
+    try {
+      const r = await link.call("gateway.list", {});
+      const data = r.data as { tools?: GatewayTool[] } | undefined;
+      return { tools: Array.isArray(data?.tools) ? data.tools : [] };
+    } catch (e) {
+      process.stderr.write(`gateway: ${(e as Error).message}\n`);
+      return { tools: [] };
+    }
+  });
+  server.setRequestHandler(CallToolRequestSchema, async (req) => {
+    try {
+      const r = await link.call("gateway.call", { name: req.params.name, arguments: req.params.arguments ?? {} });
+      const data = r.data as { content?: unknown[]; isError?: boolean } | undefined;
+      if (!data || !Array.isArray(data.content)) return text(r.text);
+      return { content: data.content, isError: data.isError === true } as never;
+    } catch (e) {
+      return { ...text((e as Error).message), isError: true };
+    }
+  });
+  return server;
+}

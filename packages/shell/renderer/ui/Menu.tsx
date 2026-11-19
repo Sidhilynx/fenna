@@ -296,6 +296,7 @@ export function MenuButton({
   return (
     <>
       <button
+        type="button"
         className={className}
         aria-haspopup="menu"
         aria-expanded={!!open}

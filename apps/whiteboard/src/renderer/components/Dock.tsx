@@ -4,7 +4,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { COLOR_LABELS, INK_COLORS, INK_VALUES, SHAPE_LABELS, STICKERS, stickerSvg, type ShapeKind, type StickerId } from "@opendeck/board";
-import { Icon, shortcut, type IconName } from "@opendeck/shell";
+import { Icon, type IconName, isEmbedded, shortcut } from "@opendeck/shell";
 import { useAssistant } from "../assistant.ts";
 import { addItems, getState, insertImages, makeItem, setState, setTool, toggleFlyout, useBoard, viewCenter, type Tool } from "../store.ts";
 import { useTheme } from "../theme.ts";
@@ -63,9 +63,11 @@ export function Dock() {
         </ToolBtn>
         <ToolBtn tool={tool} keys={keys} t="stickers" icon="smile" name="Stickers" pressed={flyout === "stickers"} onClick={() => toggleFlyout("stickers")} />
         <ToolBtn tool={tool} keys={keys} t="comment" icon="chat" name="Comment" />
-        <button className={`wb-ask${asking ? " on" : ""}`} aria-pressed={asking} title={`Ask ${ai.name} (${shortcut("Mod+K")})`} onClick={() => setState({ asking: !getState().asking })}>
-          Ask {ai.name}
-        </button>
+        {!isEmbedded() && (
+          <button className={`wb-ask${asking ? " on" : ""}`} aria-pressed={asking} title={`Ask ${ai.name} (${shortcut("Mod+K")})`} onClick={() => setState({ asking: !getState().asking })}>
+            Ask {ai.name}
+          </button>
+        )}
       </nav>
     </div>
   );

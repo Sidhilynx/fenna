@@ -1,0 +1,158 @@
+/* Pixel skin: chat. Loaded after pixel.css.
+   Bubbles, bot faces, steps, question and approval cards, documents, composer.
+   The tail and the face baseline are drawn in 2px cells, like the frames. */
+
+/* The person's message: a framed bubble with a stepped tail at the bottom right.
+   The tail is one 2px cell per box-shadow: a frame-coloured staircase with one
+   lit cell inside it, hanging off the bottom frame. */
+.msg.you {
+  --px-c: var(--line-strong);
+  position: relative;
+}
+.msg.you::after {
+  content: "";
+  position: absolute;
+  left: calc(100% - 6px);
+  top: calc(100% + 2px);
+  width: 2px;
+  height: 2px;
+  background: var(--px-c);
+  box-shadow:
+    2px 0 0 0 var(--px-c), 4px 0 0 0 var(--px-c), 6px 0 0 0 var(--px-c),
+    0 2px 0 0 var(--px-c), 2px 2px 0 0 var(--raised), 4px 2px 0 0 var(--px-c),
+    0 4px 0 0 var(--px-c), 2px 4px 0 0 var(--px-c);
+}
+.msg.you.pending::after { opacity: 0.6; }
+
+/* The bot's message: unboxed text. Its face sits on a 2px pixel baseline. */
+.msg-face > .av { display: block; }
+.msg-face:not(:empty)::after {
+  content: "";
+  display: block;
+  height: 2px;
+  margin-top: 4px;
+  background: var(--line-strong);
+}
+.msg.live .msg-face:not(:empty)::after { background: var(--text-3); }
+
+/* Steps: pixel ticks (PixelIcon check), square running dot, a framed disclosure. */
+.step.failed, .step.end.error { color: var(--danger); }
+.step-fold {
+  --px-c: var(--line-strong);
+  --px-edge: 0 -2px 0 0 var(--px-c), 0 2px 0 0 var(--px-c), -2px 0 0 0 var(--px-c), 2px 0 0 0 var(--px-c);
+  height: 20px;
+  margin: 2px;
+  padding: 0 6px;
+  color: var(--text-2);
+  box-shadow: var(--px-edge);
+}
+.step-fold:hover { --px-c: var(--text-3); color: var(--text); }
+.step-fold:focus-visible { outline: 2px solid var(--sel); outline-offset: 2px; }
+
+/* Question and approval: neutral pixel panels with a header strip. */
+.card {
+  --px-c: var(--line-strong);
+  margin: 4px 2px 4px 32px;
+  padding: 0;
+  gap: 0;
+  background: var(--raised);
+  box-shadow: var(--px-edge);
+}
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  padding: 4px 12px;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  background: var(--field);
+  border-bottom: 2px solid var(--line-strong);
+}
+.card-body { display: flex; flex-direction: column; gap: 8px; padding: 12px; min-width: 0; }
+.card-title { color: var(--text); }
+.card-type .field { flex: 1; min-width: 0; }
+.choice { display: inline-flex; align-items: center; gap: 8px; }
+.choice[aria-pressed="true"] { --px-c: var(--sel); background: var(--sel-soft); color: var(--text); }
+.choice-box {
+  --px-c: var(--line-strong);
+  --px-edge: 0 -2px 0 0 var(--px-c), 0 2px 0 0 var(--px-c), -2px 0 0 0 var(--px-c), 2px 0 0 0 var(--px-c);
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 10px;
+  height: 10px;
+  margin: 2px;
+  color: var(--text);
+  box-shadow: var(--px-edge);
+}
+.choice[aria-pressed="true"] .choice-box { --px-c: var(--sel); }
+
+/* A code block in a reply: a framed field. */
+.md-pre {
+  --px-c: var(--line-strong);
+  --px-edge: 0 -2px 0 0 var(--px-c), 0 2px 0 0 var(--px-c), -2px 0 0 0 var(--px-c), 2px 0 0 0 var(--px-c);
+  margin: 4px 2px;
+  padding: 8px 12px;
+  background: var(--field);
+  box-shadow: var(--px-edge);
+}
+
+/* Documents: a framed tile with the kind's icon, and a small Open button. */
+.doc-card .lib-icon {
+  --px-c: var(--line-strong);
+  --px-edge: 0 -2px 0 0 var(--px-c), 0 2px 0 0 var(--px-c), -2px 0 0 0 var(--px-c), 2px 0 0 0 var(--px-c);
+  width: 28px;
+  height: 28px;
+  margin: 2px;
+  box-shadow: var(--px-edge);
+}
+.doc-card .btn.small { flex: none; }
+
+/* Composer: square framed buttons. Send is the primary colour; Stop is danger. */
+.composer .icon-btn {
+  --px-c: var(--line-strong);
+  --px-edge: 0 -2px 0 0 var(--px-c), 0 2px 0 0 var(--px-c), -2px 0 0 0 var(--px-c), 2px 0 0 0 var(--px-c);
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  margin: 2px;
+  padding: 0;
+  box-shadow: var(--px-edge);
+}
+.composer .send-btn { --px-c: var(--pri); background: var(--pri); color: var(--pri-ink); }
+.composer .send-btn:hover:not(:disabled) { --px-c: var(--pri-hover); background: var(--pri-hover); color: var(--pri-ink); }
+.composer .stop-btn:hover:not(:disabled) { --px-c: var(--danger); background: transparent; color: var(--danger); }
+.composer .icon-btn:focus-visible { outline: 2px solid var(--sel); outline-offset: 3px; }
+
+/* Mentions: the same frame as the composer, with the pixel drop. */
+.mention-list {
+  --px-c: var(--line-strong);
+  --px-edge: 0 -2px 0 0 var(--px-c), 0 2px 0 0 var(--px-c), -2px 0 0 0 var(--px-c), 2px 0 0 0 var(--px-c);
+  border: 0;
+  border-radius: 0;
+  margin: 2px;
+  background: var(--raised);
+  box-shadow: var(--px-edge), 6px 6px 0 0 var(--px-drop);
+}
+
+/* Brain notice: the amber dot is the one square that means "needs you". */
+.brain-dot { border-radius: 0; }
+
+/* Narrow dock: the same bubbles and tail, tighter. */
+.chat-dock .msg.you { margin-bottom: 4px; }
+.chat-dock .msg-face:not(:empty)::after { margin-top: 2px; }
+.chat-dock .card { margin-left: 24px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .send-btn, .stop-btn, .composer .icon-btn { transition: none; }
+}
+
+/* ── Chat header: which chat, its context, new chat (Chat.tsx) ── */
+.chat-head { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 8px 16px; border-bottom: 2px solid var(--line); }
+.chat-pick { max-width: min(420px, 60%); min-width: 0; gap: 8px; font-weight: 600; }
+.chat-pick .px-tag { font-weight: 400; }
+.ctx-meter { display: inline-flex; gap: 2px; padding: 2px; flex: none; --px-c: var(--line-strong); box-shadow: 0 -2px 0 0 var(--px-c), 0 2px 0 0 var(--px-c), -2px 0 0 0 var(--px-c), 2px 0 0 0 var(--px-c); }
+.ctx-meter i { width: 4px; height: 8px; background: var(--line-strong); }
+.ctx-meter i.on { background: var(--text-2); }
+.ctx-meter.full i.on { background: var(--danger); }

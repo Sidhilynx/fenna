@@ -5,7 +5,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { ipcMain } = require("electron");
 const { TabHost, STRIP_H } = require("./tabs.cjs");
-const { registerAgent } = require("./agent.cjs");
+const { registerAgent, registerAssistantSetup, startRun, stopRun, assistantCatalog } = require("./agent.cjs");
 const { createFolderHost, registerAssetScheme } = require("./folders.cjs");
 const { prepareReview, applyReviewTheme, startReview } = require("./review.cjs");
 const { registerUpdates } = require("./updates.cjs");
@@ -38,6 +38,10 @@ module.exports = {
   TabHost,
   STRIP_H,
   registerAgent,
+  registerAssistantSetup,
+  startRun,
+  stopRun,
+  assistantCatalog,
   registerShell,
   createFolderHost,
   registerAssetScheme,

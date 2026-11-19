@@ -14,7 +14,7 @@ import {
   type HighlightRule,
   parseRangeRef,
 } from "@opendeck/sheet";
-import { ChatPanel, type ChatView, Icon, MenuButton, ThreadCard, shortcut } from "@opendeck/shell";
+import { ChatPanel, type ChatView, Icon, isEmbedded, MenuButton, ThreadCard, shortcut } from "@opendeck/shell";
 import { refreshAssistant, useAssistant } from "../assistant.ts";
 import { comments, type SheetThread } from "../comments.ts";
 import {
@@ -365,17 +365,19 @@ function RulesPanel() {
       <aside className="rp" aria-label="Conditional formatting">
         <PanelHead title="Create rule" onBack={() => openRules({ view: "list" })} />
         <div className="rp-body">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!ask.trim()) return;
-              void refreshAssistant();
-              askFor(`Add a conditional formatting rule on ${selectionRangeStr()}: ${ask.trim()}`);
-              setAsk("");
-            }}
-          >
-            <input ref={input} className="rp-ask" value={ask} onChange={(e) => setAsk(e.target.value)} placeholder={`Ask ${ai.name} to make a rule`} aria-label={`Ask ${ai.name} to make a rule`} />
-          </form>
+          {!isEmbedded() && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!ask.trim()) return;
+                void refreshAssistant();
+                askFor(`Add a conditional formatting rule on ${selectionRangeStr()}: ${ask.trim()}`);
+                setAsk("");
+              }}
+            >
+              <input ref={input} className="rp-ask" value={ask} onChange={(e) => setAsk(e.target.value)} placeholder={`Ask ${ai.name} to make a rule`} aria-label={`Ask ${ai.name} to make a rule`} />
+            </form>
+          )}
           <button className="rp-choice" onClick={() => openRules({ view: "edit", id: null, kind: "highlight" })}>
             <Icon name="highlightRule" size={16} /> Add highlight rule
           </button>
@@ -465,6 +467,6 @@ export function RightPanels() {
   if (panel === "rules") return <RulesPanel />;
   if (panel === "comments") return <CommentsPanel />;
   if (panel === "history") return <HistoryPanel />;
-  if (panel === "chat") return <AssistantPanel />;
+  if (panel === "chat" && !isEmbedded()) return <AssistantPanel />;
   return null;
 }

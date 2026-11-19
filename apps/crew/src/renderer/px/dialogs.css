@@ -1,0 +1,106 @@
+/* Pixel skin: dialogs (New bot, New group chat, Sign in), the brain picker and
+   the face picker. Loaded after pixel.css. Frames use the recipe from pixel.css,
+   and every new framed class defines its own --px-edge. */
+
+.face-btn, .face-pop, .face-opt, .face-color, .pick-value,
+.dialog .nb-start-item, .dialog .cli-item, .dialog .chip, .dialog .toggle, .dialog .swatch, .dialog .team-members-picker {
+  --px-edge: 0 -2px 0 0 var(--px-c), 0 2px 0 0 var(--px-c), -2px 0 0 0 var(--px-c), 2px 0 0 0 var(--px-c);
+}
+
+/* Brain: the same button in the New bot dialog and the bot panel. */
+.brain-row { width: calc(100% - 4px); min-height: 36px; justify-content: flex-start; gap: 8px; padding: 0 8px 0 12px; }
+.brain-row .as-logo { flex: none; }
+.brain-row .brain-model { flex: 1; min-width: 0; text-align: left; }
+.bars[data-n] i.on { background: var(--text-2); }
+
+/* Face: the button shows the face in a frame; the popover is a pixel panel. */
+.face-btn { --px-c: var(--line); box-shadow: var(--px-edge); margin: 2px; border-radius: 0; background: transparent; }
+.face-btn:hover { --px-c: var(--text-3); background: transparent; }
+.face-btn:focus-visible { outline: 2px solid var(--sel); outline-offset: 3px; }
+.face-pop {
+  --px-c: var(--line-strong);
+  border: 0;
+  border-radius: 0;
+  padding: 12px;
+  box-shadow: var(--px-edge), 6px 6px 0 0 var(--px-drop);
+  animation: shell-pop 120ms steps(3, end);
+}
+.face-grid { grid-template-columns: repeat(8, 40px); gap: 0; }
+.face-opt {
+  --px-c: var(--line);
+  width: 36px; height: 36px;
+  margin: 2px;
+  box-shadow: var(--px-edge);
+  border-radius: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.face-opt:hover { --px-c: var(--text-3); background: transparent; }
+.face-opt[aria-checked="true"] { --px-c: var(--sel); outline: 0; }
+.face-opt:focus-visible { outline: 2px solid var(--sel); outline-offset: 3px; }
+.face-colors { gap: 0; }
+.face-color {
+  --px-c: var(--line);
+  width: 20px; height: 20px;
+  margin: 2px;
+  box-shadow: var(--px-edge);
+  border: 0;
+}
+.face-color:hover { --px-c: var(--text-3); }
+.face-color[aria-checked="true"] { --px-c: var(--sel); outline: 0; }
+.face-color:focus-visible { outline: 2px solid var(--sel); outline-offset: 3px; }
+.face-shuffle { margin: 0; }
+
+/* Pick (Settings): a disabled value is a pixel field. */
+.pick-value { --px-c: var(--line); border: 0; border-radius: 0; margin: 2px; box-shadow: var(--px-edge); }
+
+/* Dialogs */
+.dialog .nb-start { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 2px; }
+.dialog .nb-start li { min-width: 0; }
+.dialog .nb-start-item {
+  --px-c: var(--line);
+  display: flex; flex-direction: column; align-items: stretch; gap: 2px;
+  width: 100%; min-width: 0;
+  margin: 2px;
+  padding: 8px 12px;
+  background: var(--panel);
+  border: 0; border-radius: 0;
+  box-shadow: var(--px-edge);
+  color: var(--text);
+  text-align: left;
+  transition: transform 120ms steps(2, end);
+}
+.dialog .nb-start-item:hover { --px-c: var(--text-3); transform: translateY(-1px); background: var(--panel); }
+.dialog .nb-start-item:focus-visible { outline: 2px solid var(--sel); outline-offset: 3px; }
+.dialog .nb-start-name { font-size: var(--fs-md); font-weight: 500; }
+.dialog .nb-start-job { display: block; min-width: 0; color: var(--text-3); font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.dialog .nb-name-row { align-items: flex-start; }
+.dialog .nb-field .inline { display: flex; align-items: stretch; gap: 6px; }
+.dialog .nb-field .inline > .field { flex: 1; min-width: 0; }
+.dialog .nb-sched-more { flex: none; width: 36px; padding: 0; justify-content: center; }
+
+.dialog .nb-more { margin-top: 2px; }
+.dialog .nb-more:focus-visible { outline: 2px solid var(--sel); outline-offset: 2px; }
+.dialog .nb-more svg { transition: transform 120ms steps(2, end); }
+
+.dialog .chip { --px-c: var(--line); display: flex; align-items: center; gap: 6px; margin: 2px; padding: 0 4px 0 8px; height: 24px; border: 0; border-radius: 0; background: var(--raised); box-shadow: var(--px-edge); }
+
+.dialog .toggle { --px-c: var(--line-strong); margin: 2px; border: 0; border-radius: 0; box-shadow: var(--px-edge); }
+.dialog .toggle:hover { --px-c: var(--text-3); }
+.dialog .toggle[aria-pressed="true"] { --px-c: var(--sel); }
+
+.dialog .swatch { --px-c: var(--line); margin: 2px; border: 0; border-radius: 0; box-shadow: var(--px-edge); }
+.dialog .swatch[aria-checked="true"] { --px-c: var(--sel); border: 0; }
+
+.dialog .team-members-picker { margin: 2px; padding: 2px; --px-c: var(--line); box-shadow: var(--px-edge); }
+.dialog .team-member-row { border-radius: 0; }
+
+.dialog .cli-item { --px-c: var(--line); margin: 2px; overflow: visible; border: 0; border-radius: 0; background: var(--panel); box-shadow: var(--px-edge); }
+.dialog .cli-item.open { --px-c: var(--line-strong); }
+.dialog .cli-tile { border-radius: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .face-pop { animation: none; }
+  .dialog .nb-start-item, .dialog .nb-more svg { transition: none; }
+  .dialog .nb-start-item:hover { transform: none; }
+}

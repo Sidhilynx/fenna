@@ -4,7 +4,7 @@
 
 import { getAt } from "@opendeck/format";
 import { restack, setStyles, styleOf, unwrap, wrapIn, type ElementNode } from "@opendeck/artboard";
-import { shortcut, type MenuEntry } from "@opendeck/shell";
+import { isEmbedded, type MenuEntry, shortcut } from "@opendeck/shell";
 import { commentOnSelection } from "../commentOn.ts";
 import { canPaste, copySelection, cutSelection, deleteSelection, duplicateSelection, editBoard, getState, paste, setFocus, setState } from "../store.ts";
 import { layerElement } from "./ArtboardView.tsx";
@@ -99,6 +99,6 @@ export function selectionMenu(ai: string): MenuEntry[] {
     );
   }
   if (sel?.kind !== "notes") out.push("separator", { label: "Comment", shortcut: shortcut("Mod+Alt+M"), disabled: !sel, onSelect: commentOnSelection });
-  out.push("separator", { label: "Delete", shortcut: shortcut("Backspace"), danger: true, disabled: !sel, onSelect: deleteSelection }, "separator", { label: `Ask ${ai}`, shortcut: shortcut("Mod+K"), onSelect: () => setState({ asking: true }) });
+  out.push("separator", { label: "Delete", shortcut: shortcut("Backspace"), danger: true, disabled: !sel, onSelect: deleteSelection }, ...(isEmbedded() ? [] : ["separator" as const, { label: `Ask ${ai}`, shortcut: shortcut("Mod+K"), onSelect: () => setState({ asking: true }) }]));
   return out;
 }

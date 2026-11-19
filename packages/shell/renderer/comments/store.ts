@@ -10,6 +10,7 @@
 import { useSyncExternalStore } from "react";
 import { type AgentEvent, type AgentKind, agent, readyAssistant, runOnce } from "../agents.ts";
 import { assistantOf, parseChats } from "../chats.ts";
+import { askEmbedBot, isEmbedded } from "../embed.ts";
 import { readPref, writePref } from "../prefs.ts";
 import { COMMENTS_FILE, type Comment, MAX_COMMENT, type Thread, parseThreads, serializeThreads } from "./threads.ts";
 
@@ -57,6 +58,7 @@ export interface CommentsStore<A extends object> {
 
 const uid = () => crypto.randomUUID().slice(0, 12);
 const NO_ASSISTANT = "No assistant is ready. Open the chat to install Claude Code, Codex or Antigravity, or to sign in.";
+const clip = (t: string, max: number) => t.replace(/\s+/g, " ").trim().slice(0, max);
 
 /** The assistant of the chat in front in the panel if it can answer, else the first that can. */
 async function pickAssistant(): Promise<{ kind: AgentKind; model: string; effort: string } | null> {
@@ -67,7 +69,7 @@ async function pickAssistant(): Promise<{ kind: AgentKind; model: string; effort
 }
 
 export function createCommentsStore<A extends object>(cfg: CommentsConfig<A>): CommentsStore<A> {
-  let state: CommentsState<A> = { root: null, threads: [], open: null, working: {}, askAssistant: readPref("commentAsk", true) };
+  let state: CommentsState<A> = { root: null, threads: [], open: null, working: {}, askAssistant: isEmbedded() || readPref("commentAsk", true) };
   const listeners = new Set<() => void>();
   const set = (patch: Partial<CommentsState<A>>) => {
     state = { ...state, ...patch };
@@ -76,6 +78,8 @@ export function createCommentsStore<A extends object>(cfg: CommentsConfig<A>): C
 
   let unwatch: (() => void) | null = null;
   let saving = Promise.resolve();
+  /** Embedded: thread id → how many comments it had when the bot was asked; a longer thread ending in a reply means it has answered. */
+  const awaiting = new Map<string, number>();
 
   function save(threads: Thread<A>[]) {
     set({ threads });
@@ -109,7 +113,6 @@ export function createCommentsStore<A extends object>(cfg: CommentsConfig<A>): C
       return reply(id, NO_ASSISTANT, true);
     }
     const last = thread.comments[thread.comments.length - 1]!;
-    const clip = (t: string, max: number) => t.replace(/\s+/g, " ").trim().slice(0, max);
     const withThread = { ...(context as object), commentThread: thread.comments.slice(-8, -1).map((c) => ({ from: c.author === "you" ? "user" : "assistant", text: clip(c.text, 400) })) };
     const sessionId = thread.session?.kind === who.kind ? thread.session.id : null;
 
@@ -131,6 +134,35 @@ export function createCommentsStore<A extends object>(cfg: CommentsConfig<A>): C
     await runOnce({ kind: who.kind, model: who.model, effort: who.effort, text: `${cfg.note}\n\n${last.text}`, context: withThread, sessionId }, handle);
   }
 
+  /** Embedded: the bot that owns the document answers. Its reply is written into comments.json, and the watcher brings it back here. */
+  async function askBot(id: string) {
+    const thread = state.threads.find((t) => t.id === id);
+    if (!thread || state.working[id] !== undefined) return;
+    const last = thread.comments[thread.comments.length - 1]!;
+    const quoted = (thread as { quote?: unknown }).quote;
+    const quote = typeof quoted === "string" ? clip(quoted, 500) : "";
+    awaiting.set(id, thread.comments.length);
+    setWorking(id, "Thinking");
+    try {
+      await askEmbedBot({ thread: id, text: last.text, ...(quote ? { quote } : {}) });
+    } catch (e) {
+      awaiting.delete(id);
+      setWorking(id, null);
+      reply(id, `Couldn’t answer: ${(e as Error).message}`, true);
+    }
+  }
+
+  /** Clear the working state of threads whose bot has answered since it was asked. */
+  function settle(threads: Thread<A>[]) {
+    for (const [id, count] of awaiting) {
+      const t = threads.find((x) => x.id === id);
+      if (!t || (t.comments.length > count && t.comments[t.comments.length - 1]!.author === "ai")) {
+        awaiting.delete(id);
+        setWorking(id, null);
+      }
+    }
+  }
+
   return {
     get: () => state,
     use: <T>(select: (s: CommentsState<A>) => T) =>
@@ -140,13 +172,17 @@ export function createCommentsStore<A extends object>(cfg: CommentsConfig<A>): C
       ),
     async load(root) {
       if (root === state.root) return;
+      awaiting.clear();
       set({ root, threads: [], open: null, working: {} });
       unwatch?.();
       unwatch = null;
       if (!root) return;
       const read = async () => {
         const text = await cfg.read(COMMENTS_FILE);
-        if (state.root === root) set({ threads: parseThreads(text, cfg.anchor) });
+        if (state.root !== root) return;
+        const threads = parseThreads(text, cfg.anchor);
+        set({ threads });
+        settle(threads);
       };
       await read();
       unwatch = cfg.onChanged((paths) => {
@@ -156,7 +192,7 @@ export function createCommentsStore<A extends object>(cfg: CommentsConfig<A>): C
     draft: (anchor) => set({ open: { draft: anchor } }),
     openThread: (id) => set({ open: id ? { thread: id } : null }),
     setAskAssistant(v) {
-      writePref("commentAsk", v);
+      if (!isEmbedded()) writePref("commentAsk", v);
       set({ askAssistant: v });
     },
     add(to, text) {
@@ -172,7 +208,7 @@ export function createCommentsStore<A extends object>(cfg: CommentsConfig<A>): C
         id = to.thread;
         updateOne(id, (th) => ({ ...th, resolved: false, comments: [...th.comments, comment] }));
       }
-      if (state.askAssistant) void ask(id);
+      if (state.askAssistant) void (isEmbedded() ? askBot(id) : ask(id));
       return id;
     },
     resolve(id) {

@@ -1,29 +1,40 @@
-<img src="docs/media/icons/fenna.png" width="64" alt="Fenna">
+<img src="docs/media/icons/crew.png" width="64" alt="Fenna Crew">
 
-# Fenna
+# Fenna Crew
 
-**Slides, docs, sheets, a whiteboard and design canvas that live on your computer and work with any AI.**
+**A crew of always-on bots that do real work on your own computer, with the AI plan you already pay for.**
 
-Fenna is five free desktop apps — and one unified workspace app — for Windows, macOS and Linux:
+![Fenna Crew: the overview with two bots and a group chat](docs/media/crew.png)
+
+Give a bot a job and a schedule. It wakes on time, or when you message it,
+and works on its own computer: a real browser, its own files, and Fenna's
+slides, docs, sheets, whiteboard and design editors. You watch it work and
+can take control at any moment.
+
+- **Its own computer.** Each bot has a desktop with a browser (up to 8 tabs,
+  sign-ins kept), a file library and the Fenna editors as windows.
+- **Many chats per bot.** Start a new chat, compact a long one, see how full
+  the context is; scheduled runs keep their own Runs chat.
+- **Group chats.** Put bots in a team and @mention who should answer.
+- **Connectors and a vault.** Give a bot MCP connectors and saved logins;
+  it never sees a password, the app fills it.
+- **Use the AI you already pay for.** Bots run Claude Code, Codex or
+  Antigravity on your own plan, on this computer.
+- **No account. Your files stay yours.** A crew is a plain folder on your
+  computer; nothing is uploaded.
+
+## The editors your bots work in
+
+Crew opens these as windows in each bot's computer. Each one is also its own
+free app, and any AI can work in it through MCP as easily as you can:
 
 | | App | For |
 |---|---|---|
-| <img src="docs/media/icons/fenna.png" width="40" alt=""> | **Fenna Workspace** | All five apps in one unified window with multi-product tabs and shared navigation |
 | <img src="docs/media/icons/slides.png" width="40" alt=""> | **Fenna Slides** | Decks and presentations, with present mode and PowerPoint, PDF and web export |
 | <img src="docs/media/icons/docs.png" width="40" alt=""> | **Fenna Docs** | Memos, plans and notes, with tabs, comments and suggested edits, and Word and Markdown export |
 | <img src="docs/media/icons/sheets.png" width="40" alt=""> | **Fenna Sheets** | Spreadsheets with formulas, charts and conditional formatting, and Excel and CSV import and export |
 | <img src="docs/media/icons/whiteboard.png" width="40" alt=""> | **Fenna Whiteboard** | Brainstorms, flowcharts and retros on an infinite canvas |
 | <img src="docs/media/icons/design.png" width="40" alt=""> | **Fenna Design** | A canvas of artboards for screens, landing pages, posters and social posts, exported to PNG, SVG and PDF |
-
-Each one is built so an AI can work in it as easily as you can. Claude, GPT,
-Gemini or an open model connects through MCP and gets the same tools you
-have; you watch every change land and can take over at any moment.
-
-- **No account.** Install it and start. Nothing to sign up for.
-- **Your files stay yours.** A deck, doc, sheet, board or design is a plain folder on
-  your computer. No upload, no lock-in; it outlives the app.
-- **Use the AI you already pay for.** The chat beside your work runs
-  Claude Code, Codex or Antigravity on your own plan, on this computer.
 
 ![Edits arriving through the Fenna Docs MCP server: a word turns bold, a list gains an item, a new section appears](docs/media/docs-demo.gif)
 
@@ -33,7 +44,7 @@ have; you watch every change land and can take over at any moment.
 |---|---|
 | ![Fenna Slides](docs/media/slides.png) **Slides** | ![Fenna Docs](docs/media/docs.png) **Docs** |
 | ![Fenna Sheets](docs/media/sheets.png) **Sheets** | ![Fenna Whiteboard](docs/media/whiteboard.png) **Whiteboard** |
-| ![Fenna Design](docs/media/design.png) **Design** | ![Fenna Workspace](shots/workspace-home.png) **Workspace** |
+| ![Fenna Design](docs/media/design.png) **Design** | |
 
 > Fenna is new (version 0.9). Expect rough edges, and please
 > [tell us about them](https://github.com/Sidhilynx/fenna/issues).
@@ -42,11 +53,11 @@ have; you watch every change land and can take over at any moment.
 
 ## Download
 
-Get the installers from the [latest release](https://github.com/Sidhilynx/fenna/releases/latest):
+Get **Fenna Crew**, and the editors as their own apps if you want them, from the [latest release](https://github.com/Sidhilynx/fenna/releases/latest):
 
 | | Windows | macOS (Apple silicon / Intel) | Linux |
 |---|---|---|---|
-| Workspace | `Fenna-Workspace-…-setup.exe` | `Fenna-Workspace-…-arm64.dmg` / `-x64.dmg` | `.AppImage` or `.deb` |
+| Crew | `Fenna-Crew-…-setup.exe` | `Fenna-Crew-…-arm64.dmg` / `-x64.dmg` | `.AppImage` or `.deb` |
 | Slides | `Fenna-Slides-…-setup.exe` | `Fenna-Slides-…-arm64.dmg` / `-x64.dmg` | `.AppImage` or `.deb` |
 | Docs | `Fenna-Docs-…-setup.exe` | `Fenna-Docs-…-arm64.dmg` / `-x64.dmg` | `.AppImage` or `.deb` |
 | Sheets | `Fenna-Sheets-…-setup.exe` | `Fenna-Sheets-…-arm64.dmg` / `-x64.dmg` | `.AppImage` or `.deb` |
@@ -71,7 +82,7 @@ repository (Node 22.18 or later, which runs TypeScript directly):
 
 ```sh
 npm install
-node packages/workspace-mcp/src/cli.ts --workspace examples     # fenna-workspace (all 5 apps)
+node packages/workspace-mcp/src/cli.ts --workspace examples     # fenna-workspace-mcp (all five kinds of file)
 node packages/mcp/src/cli.ts          --deck   examples/sample-deck     # fenna-slides
 node packages/doc-mcp/src/cli.ts      --doc    examples/sample-doc      # fenna-docs
 node packages/sheet-mcp/src/cli.ts    --sheet  examples/sample-sheet    # fenna-sheets
@@ -87,7 +98,7 @@ claude mcp add fenna-docs -- node /path/to/fenna/packages/doc-mcp/src/cli.ts --d
 
 | Server | Tools |
 |---|---|
-| `fenna-workspace` | `workspace_overview`, `workspace_guide`, `deck_overview`, `read_slides`, `write_slide`, `edit_slide`, `doc_overview`, `read_tab`, `write_tab`, `edit_blocks`, `sheet_overview`, `read_range`, `write_cells`, `board_overview`, `read_board`, `add_board_items`, `design_overview`, `read_artboard`, `write_artboard` |
+| `fenna-workspace-mcp` | `workspace_overview`, `workspace_guide`, `deck_overview`, `read_slides`, `write_slide`, `edit_slide`, `doc_overview`, `read_tab`, `write_tab`, `edit_blocks`, `sheet_overview`, `read_range`, `write_cells`, `board_overview`, `read_board`, `add_board_items`, `design_overview`, `read_artboard`, `write_artboard` |
 | `fenna-slides` | `deck_overview`, `format_guide`, `read_slides`, `edit_slide`, `write_slide`, `write_slides`, `check_slide`, `delete_slides`, `arrange_slides`, `update_deck`, `read_comments`, `comment` |
 | `fenna-docs` | `doc_overview`, `format_guide`, `read_tab`, `edit_blocks`, `write_tab`, `check_tab`, `delete_tab`, `update_doc`, `read_comments`, `comment` |
 | `fenna-sheets` | `workbook_overview`, `format_guide`, `read_range`, `find`, `write_cells`, `format_cells`, `clear_cells`, `edit_structure`, `manage_rules`, `manage_charts`, `add_sheet`, `delete_sheet`, `update_workbook`, `read_comments`, `comment` |
@@ -107,6 +118,7 @@ last read.
 | Sheets | `sheet.json` (title, locale, sheet list) and one JSON file per sheet |
 | Whiteboard | `board.json` and `canvas.json` (every item and connector) |
 | Design | `design.json` (pages, artboard positions, tweaks, text styles) and one standalone HTML file per artboard in `artboards/` |
+| Crew | `bots/<name>/bot.md` (job, schedule, AI), `state.json` (chats), one JSON-lines log per run in `runs/`, and the bot's documents in `library/` |
 
 Images and fonts sit in `assets/`. The formats are strict, documented
 subsets that people and models can both read and write by hand.
@@ -117,10 +129,10 @@ subsets that people and models can both read and write by hand.
 npm install
 npm test
 npm run typecheck
-npm run build --workspaces --if-present  # build all six apps; Workspace loads the other five
-npm start -w @opendeck/workspace           # Fenna Workspace: every app in one window
-npm run dev -w @opendeck/desktop           # one app with hot reload (also docs, sheets, whiteboard, design)
-npm run dist -w @opendeck/workspace        # installers in apps/workspace/release/
+npm run build -w @opendeck/crew-app       # Fenna Crew (builds the five editors it opens, too)
+npm start -w @opendeck/crew-app            # run Fenna Crew
+npm run dev -w @opendeck/desktop           # one editor with hot reload (also docs, sheets, whiteboard, design)
+npm run dist -w @opendeck/crew-app         # installers in apps/crew/release/
 ```
 
 On Windows, use PowerShell and a path with a capital drive letter
@@ -137,8 +149,10 @@ packages/doc          docs: format            packages/doc-mcp    docs: MCP serv
 packages/sheet        sheets: format          packages/sheet-mcp  sheets: MCP server
 packages/board        whiteboard: format      packages/board-mcp  whiteboard: MCP server
 packages/artboard     design: format          packages/artboard-mcp  design: MCP server
-packages/workspace-mcp  workspace: unified MCP server
-apps/workspace        Fenna Workspace (unified window)
+packages/crew         crew: bot folder format  packages/crew-mcp   crew: MCP servers for bots
+packages/workspace-mcp  one MCP server for all five kinds of file
+apps/crew             Fenna Crew
+apps/workspace        Fenna Workspace, retired; Crew reuses its folder hosts
 apps/desktop          Fenna Slides            apps/docs           Fenna Docs
 apps/sheets           Fenna Sheets            apps/whiteboard     Fenna Whiteboard
 apps/design           Fenna Design

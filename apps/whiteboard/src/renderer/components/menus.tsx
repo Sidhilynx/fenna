@@ -1,7 +1,7 @@
 // The "…" menu of the selection (also the right-click menu): the same items,
 // order and shortcuts as the reference.
 
-import { shortcut, type MenuEntry } from "@opendeck/shell";
+import { isEmbedded, type MenuEntry, shortcut } from "@opendeck/shell";
 import {
   canGroup,
   canPaste,
@@ -48,8 +48,7 @@ export function itemMenu(ai: string): MenuEntry[] {
     { label: "Tidy up", disabled: !canTidy(), onSelect: tidyUp },
     "separator",
     { label: "Delete", shortcut: shortcut("Backspace"), danger: true, disabled: !sel.length || locked, onSelect: deleteSelection },
-    "separator",
-    { label: `Ask ${ai}`, shortcut: shortcut("Mod+K"), onSelect: () => setState({ asking: true }) },
+    ...(isEmbedded() ? [] : ["separator" as const, { label: `Ask ${ai}`, shortcut: shortcut("Mod+K"), onSelect: () => setState({ asking: true }) }]),
   );
   return out;
 }

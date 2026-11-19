@@ -4,7 +4,7 @@
 
 import { useState } from "react";
 import { DROPDOWN_TEMPLATES, OPTION_COLORS } from "@opendeck/doc";
-import { Dialog, Icon, type IconName, MenuButton, type MenuEntry, shortcut } from "@opendeck/shell";
+import { Dialog, Icon, type IconName, isEmbedded, MenuButton, type MenuEntry, shortcut } from "@opendeck/shell";
 import { insertDate, insertDivider, insertDropdown, insertTable, pickImages, setStyle, styleAt, toggleList } from "../editor/commands.ts";
 import { restoreSelection } from "../editor/page.ts";
 import { addDropdown, getState, setFont, setState, setWide, togglePanel, useDocs } from "../store.ts";
@@ -19,6 +19,7 @@ const STYLES: [string, "p" | "h1" | "h2" | "h3", IconName][] = [
 ];
 
 export function Toolbar() {
+  const embedded = isEmbedded();
   const fonts = useDocs((s) => s.doc?.index.fonts);
   const wide = useDocs((s) => s.doc?.index.wide ?? false);
   const dropdowns = useDocs((s) => s.doc?.index.dropdowns ?? []);
@@ -82,7 +83,7 @@ export function Toolbar() {
 
   return (
     <div className="tb-wrap">
-      {asking && <AskBar onClose={() => setAsking(false)} />}
+      {asking && !embedded && <AskBar onClose={() => setAsking(false)} />}
       <div className="tb" role="toolbar" aria-label="Insert and format">
         <MenuButton className="icon-btn" label="Text style and fonts" title="Text style and fonts" entries={textEntries}>
           <Icon name="textSize" />
@@ -106,18 +107,20 @@ export function Toolbar() {
         <button className="icon-btn" aria-pressed={comments} onMouseDown={keep} onClick={() => togglePanel("comments")} title="Comments" aria-label="Comments">
           <Icon name="chat" />
         </button>
-        <button
-          className={`tb-ask${asking ? " on" : ""}`}
-          aria-pressed={asking}
-          onMouseDown={keep}
-          onClick={() => {
-            restoreSelection();
-            setAsking(!asking);
-          }}
-          aria-label={`Ask ${ai.name}`}
-        >
-          Ask<span className="tb-ask-name"> {ai.name}</span>
-        </button>
+        {!embedded && (
+          <button
+            className={`tb-ask${asking ? " on" : ""}`}
+            aria-pressed={asking}
+            onMouseDown={keep}
+            onClick={() => {
+              restoreSelection();
+              setAsking(!asking);
+            }}
+            aria-label={`Ask ${ai.name}`}
+          >
+            Ask<span className="tb-ask-name"> {ai.name}</span>
+          </button>
+        )}
       </div>
       {newDropdown && <NewDropdownDialog onClose={() => setNewDropdown(false)} />}
     </div>
