@@ -12,3 +12,5 @@ apps/*/release/
 # Review captures and notes on the reference products stay local.
 shots/
 docs/apps/*-reference.md
+# Copied from Fenna Workspace by apps/crew/scripts/build-editors.mjs.
+apps/crew/src/main/editors/

@@ -87,6 +87,7 @@
 .dt-title-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
 .dt-fill { flex: 1; }
 .dt-loading { flex: 1; }
+.embed-empty { height: 100vh; display: grid; place-content: center; color: var(--text-2); }
 .dt-main { flex: 1; min-height: 0; display: flex; }
 .dt-main > .as-panel, .dt-main > aside:last-child { width: var(--chat-w); flex: none; border-left: 1px solid var(--line); }
 .dt-stage { position: relative; flex: 1; min-width: 0; overflow: auto; scrollbar-gutter: stable; display: flex; flex-direction: column; }

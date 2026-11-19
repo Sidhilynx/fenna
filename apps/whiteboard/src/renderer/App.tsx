@@ -4,7 +4,7 @@
 
 import { useEffect } from "react";
 import { boundsOf, describeProblems } from "@opendeck/board";
-import { tabs } from "@opendeck/shell";
+import { isEmbedded, tabs } from "@opendeck/shell";
 import { comments } from "./comments.ts";
 import { AskBar } from "./components/AskBar.tsx";
 import { Canvas } from "./components/Canvas.tsx";
@@ -56,7 +56,7 @@ function onKey(e: KeyboardEvent) {
   const mod = e.ctrlKey || e.metaKey;
   const k = e.key.toLowerCase();
   const typing = typingIn(e.target);
-  if (mod && k === "k" && !e.shiftKey && !e.altKey) {
+  if (mod && k === "k" && !e.shiftKey && !e.altKey && !isEmbedded()) {
     e.preventDefault();
     setState({ asking: !s.asking });
     return;
@@ -142,6 +142,8 @@ function onPaste(e: ClipboardEvent) {
 }
 
 export function App() {
+  // Inside Fenna Crew (#embed) the AI is Crew's: no assistant, no Home.
+  const embedded = isEmbedded();
   const ref = useBoard((s) => s.ref);
   const meta = useBoard((s) => s.meta);
   const loading = useBoard((s) => s.loading);
@@ -167,7 +169,7 @@ export function App() {
     };
   }, []);
 
-  if (!loading && (!ref || !meta)) return <Home />;
+  if (!loading && (!ref || !meta)) return embedded ? <div className="embed-empty">No document open.</div> : <Home />;
 
   const problem = broken
     ? `This board can’t be read: ${broken}. The file is left as it is and nothing is saved; fix it, or restore a version.`
@@ -192,7 +194,7 @@ export function App() {
             <ViewControls />
             <FloatingBar />
             <div className="wb-bottom">
-              {asking && <AskBar />}
+              {asking && !embedded && <AskBar />}
               <Dock />
             </div>
           </section>

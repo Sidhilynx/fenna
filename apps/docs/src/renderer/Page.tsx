@@ -5,6 +5,7 @@
 
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { findTab } from "@opendeck/doc";
+import { isEmbedded } from "@opendeck/shell";
 import { AtMenu } from "./panels/AtMenu.tsx";
 import { useAssistant } from "./panels/assistant.tsx";
 import { BlockHandle } from "./panels/BlockHandle.tsx";
@@ -20,6 +21,7 @@ import { openLinkDialog } from "./panels/LinkDialog.tsx";
 import { currentTab, getState, renameTab, useDocs } from "./store.ts";
 
 export function Page() {
+  const embedded = isEmbedded();
   const ai = useAssistant();
   const article = useRef<HTMLElement>(null);
   const title = useRef<HTMLDivElement>(null);
@@ -138,19 +140,25 @@ export function Page() {
       <div className="dp-body-wrap">
         <article ref={article} className="dp-body" contentEditable suppressContentEditableWarning spellCheck aria-label="Doc text" aria-describedby="dp-hint" />
         <div id="dp-hint" className="dp-hint">
-          Start typing, or ask{" "}
-          <button className="dp-hint-ai" onMouseDown={(e) => e.preventDefault()} onClick={() => void askOnFirstLine()}>
-            @{ai.name}
-          </button>{" "}
-          to write
+          {embedded ? (
+            "Start typing."
+          ) : (
+            <>
+              Start typing, or ask{" "}
+              <button className="dp-hint-ai" onMouseDown={(e) => e.preventDefault()} onClick={() => void askOnFirstLine()}>
+                @{ai.name}
+              </button>{" "}
+              to write
+            </>
+          )}
         </div>
-        <InlineAsk />
+        {!embedded && <InlineAsk />}
         <BlockHandle />
         <Margin />
       </div>
       <ChipMenus />
-      <AtMenu />
-      <SelectionBar />
+      {!embedded && <AtMenu />}
+      {!embedded && <SelectionBar />}
     </div>
   );
 }

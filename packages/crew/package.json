@@ -1,0 +1,11 @@
+{
+  "name": "@opendeck/crew",
+  "version": "0.0.1",
+  "description": "The Fenna Crew bot folder format: bot.md, team.md, state.json and run logs, the schedule grammar, and slugs.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

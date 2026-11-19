@@ -367,18 +367,17 @@ function codexHome() {
 function agyHome() {
   return workDir("agy-home");
 }
-function agyEnv() {
-  const h = agyHome();
+function agyEnv(h = agyHome()) {
   if (!IS_WIN) return { HOME: h };
   // Every way Windows names the home folder, or Antigravity writes into the real one.
   const parsed = path.parse(h);
   return { USERPROFILE: h, HOME: h, HOMEDRIVE: parsed.root.replace(/\\$/, ""), HOMEPATH: h.slice(parsed.root.length - 1) };
 }
 
-function envFor(kind) {
+function envFor(kind, { home } = {}) {
   if (kind === "claude") return childEnv(claudeEnv());
   if (kind === "codex") return childEnv({ CODEX_HOME: codexHome() });
-  return childEnv(agyEnv());
+  return childEnv(agyEnv(home || agyHome()));
 }
 
 function runQuiet(file, args, { timeoutMs = 20_000, env, input = null } = {}) {
@@ -735,13 +734,31 @@ function promptFor(profile, text, context, first, images) {
   return `${first ? profile.note + "\n" : ""}${view}${imgNote}\n\nUser: ${userText}`;
 }
 
-function argsFor(profile, kind, { sessionId, model, effort, root, images }) {
+/**
+ * The command line for one turn. By default the CLI gets the app's one MCP
+ * server (profile.mcpServer(root)). A run with no window (startRun) passes
+ * its own:
+ *   servers         { name: { command, args, env } | { url } }, each with optional
+ *                   timeoutSec (Codex: longest tool call) and optional (Codex: may fail to start)
+ *   trusted         names of the servers whose tools run without asking (default: all)
+ *   permissionTool  Claude Code only: the MCP tool asked about any other tool call
+ *                   ("mcp__crew__approve_tool"); without it those calls are refused
+ *   home            Antigravity only: its home folder for this run, so runs at the
+ *                   same time don't share one mcp_config.json
+ */
+function argsFor(profile, kind, { sessionId, model, effort, root, images, servers, trusted, permissionTool, home }) {
   const id = profile.id;
-  const server = profile.mcpServer(root);
+  const all = servers || { [id]: profile.mcpServer(root) };
+  const names = Object.keys(all);
+  const stdio = (s) => ({ command: s.command, args: s.args || [], env: s.env || {} });
   if (kind === "antigravity") {
-    const toolDocs = path.join(agyHome(), ".gemini", "antigravity-cli", "mcp", id).split(path.sep).join("/");
+    const agy = home || agyHome();
     const imgDir = workDir("images").split(path.sep).join("/");
-    const allow = [`mcp(${id}/*)`, `read_file(${toolDocs}/**)`];
+    const allow = [];
+    for (const name of names) {
+      const toolDocs = path.join(agy, ".gemini", "antigravity-cli", "mcp", name).split(path.sep).join("/");
+      allow.push(`mcp(${name}/*)`, `read_file(${toolDocs}/**)`);
+    }
     if (imgDir) allow.push(`read_file(${imgDir}/**)`);
     const settings = {
       permissions: {
@@ -749,9 +766,10 @@ function argsFor(profile, kind, { sessionId, model, effort, root, images }) {
         deny: ["command(*)", "unsandboxed(*)", "write_file(*)", "read_url(*)", "execute_url(*)", "escalate_admin(*)"],
       },
     };
-    const cfgDir = path.join(agyHome(), ".gemini", "config");
+    const cfgDir = path.join(agy, ".gemini", "config");
     fs.mkdirSync(cfgDir, { recursive: true });
-    fs.writeFileSync(path.join(cfgDir, "mcp_config.json"), JSON.stringify({ mcpServers: { [id]: server } }));
+    const mcpServers = Object.fromEntries(names.map((n) => [n, all[n].url ? { serverUrl: all[n].url } : stdio(all[n])]));
+    fs.writeFileSync(path.join(cfgDir, "mcp_config.json"), JSON.stringify({ mcpServers: servers ? mcpServers : { [id]: all[id] } }));
     const a = ["--output-format", "stream-json", "--input-format", "stream-json", "--disable-slash-commands", "--settings", JSON.stringify(settings)];
     if (model) a.push("--model", model);
     if (effort) a.push("--effort", effort);
@@ -760,28 +778,34 @@ function argsFor(profile, kind, { sessionId, model, effort, root, images }) {
     return a;
   }
   if (kind === "claude") {
-    const cfg = path.join(workDir("claude"), `${id}-mcp.json`);
-    fs.writeFileSync(cfg, JSON.stringify({ mcpServers: { [id]: { type: "stdio", ...server } } }));
-    const a = ["-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--setting-sources", "", "--disable-slash-commands", "--tools", "", "--mcp-config", cfg, "--strict-mcp-config", "--allowedTools", `mcp__${id}`, "--permission-mode", "default"];
+    const cfg = path.join(workDir("claude"), servers ? `run-${crypto.randomUUID()}-mcp.json` : `${id}-mcp.json`);
+    const mcpServers = Object.fromEntries(names.map((n) => [n, all[n].url ? { type: "http", url: all[n].url } : { type: "stdio", ...(servers ? stdio(all[n]) : all[n]) }]));
+    fs.writeFileSync(cfg, JSON.stringify({ mcpServers }));
+    const allowed = (trusted || names).map((n) => `mcp__${n}`).join(",");
+    const a = ["-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--setting-sources", "", "--disable-slash-commands", "--tools", "", "--mcp-config", cfg, "--strict-mcp-config", "--allowedTools", allowed, "--permission-mode", "default"];
+    if (permissionTool) a.push("--permission-prompt-tool", permissionTool);
     if (model) a.push("--model", model);
     if (effort) a.push("--effort", effort);
     if (sessionId) a.push("--resume", sessionId);
     return a;
   }
-  // codex
+  // codex: no way to answer an approval in `codex exec`, so every server it is given is approved.
   const toml = (v) => JSON.stringify(v);
   const off = ["shell_tool", "unified_exec", "apps", "plugins", "multi_agent", "image_generation", "computer_use", "browser_use", "hooks"];
-  const env = Object.entries(server.env || {}).flatMap(([k, v]) => ["-c", `mcp_servers.${id}.env.${k}=${toml(v)}`]);
+  const serverOpts = names.flatMap((n) => {
+    const s = all[n];
+    const env = Object.entries(s.env || {}).flatMap(([k, v]) => ["-c", `mcp_servers.${n}.env.${k}=${toml(v)}`]);
+    const where = s.url ? ["-c", `mcp_servers.${n}.url=${toml(s.url)}`] : ["-c", `mcp_servers.${n}.command=${toml(s.command)}`, "-c", `mcp_servers.${n}.args=${toml(s.args || [])}`];
+    const timeout = s.timeoutSec ? ["-c", `mcp_servers.${n}.tool_timeout_sec=${Number(s.timeoutSec)}`] : [];
+    const required = s.optional ? [] : ["-c", `mcp_servers.${n}.required=true`];
+    return [...where, ...env, ...timeout, "-c", `mcp_servers.${n}.default_tools_approval_mode=approve`, ...required];
+  });
   const opts = [
     "--json", "--skip-git-repo-check",
     ...CODEX_FILE_AUTH,
     "-c", "sandbox_mode=read-only", "-c", "approval_policy=never", "-c", "web_search=disabled",
     ...off.flatMap((f) => ["--disable", f]),
-    "-c", `mcp_servers.${id}.command=${toml(server.command)}`,
-    "-c", `mcp_servers.${id}.args=${toml(server.args)}`,
-    ...env,
-    "-c", `mcp_servers.${id}.default_tools_approval_mode=approve`,
-    "-c", `mcp_servers.${id}.required=true`,
+    ...serverOpts,
   ];
   if (Array.isArray(images) && images.length) {
     for (const img of images) {
@@ -835,13 +859,18 @@ function inputFor(kind, prompt, images) {
   return prompt;
 }
 
-/** A tool call as the user should see it: the app's own words, else the tool's name in plain words. */
-function describeTool(profile, name, params) {
+/**
+ * Which server and tool a call is, and its arguments, from what each CLI
+ * reports. A profile names its one server (id), or several (servers).
+ */
+function toolCall(profile, name, params, server) {
   let t = String(name || "");
   let p = params || {};
+  let s = server ? String(server) : "";
   // Antigravity wraps every MCP call in one tool; the real one is inside.
   if (t === "call_mcp_tool" || t === "mcp_tool") {
     t = String(p.ToolName || p.tool_name || p.toolName || p.name || "");
+    s = String(p.ServerName || p.server_name || p.serverName || s);
     const inner = p.Arguments ?? p.arguments ?? p.args ?? {};
     if (typeof inner === "string") {
       try {
@@ -851,18 +880,49 @@ function describeTool(profile, name, params) {
       }
     } else p = inner;
   }
-  const id = profile.id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  t = t.replace(new RegExp(`^mcp__${id}__|^${id}[/_.:]+`), "");
-  return profile.toolLabel(t, p || {}) || t.replace(/_/g, " ");
+  for (const n of profile.servers || [profile.id]) {
+    const id = n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const m = new RegExp(`^mcp__${id}__|^${id}[/_.:]+`).exec(t);
+    if (m) {
+      t = t.slice(m[0].length);
+      s = n;
+      break;
+    }
+  }
+  return { server: s || profile.id, tool: t, params: p || {} };
 }
 
-function makeParser(profile, kind, emit) {
-  const st = { text: "", finished: false, sawText: false, lastError: "" };
+/** A tool call as the user should see it: the app's own words, else the tool's name in plain words. */
+function describeTool(profile, name, params, server) {
+  const c = toolCall(profile, name, params, server);
+  return profile.toolLabel(c.tool, c.params, c.server) || c.tool.replace(/_/g, " ");
+}
+
+/** The plain text in a tool result: a string, or the text parts of content blocks (Claude's and Codex's shapes). */
+function resultText(v, depth = 0) {
+  if (typeof v === "string") return v;
+  if (!v || typeof v !== "object" || depth > 4) return "";
+  if (Array.isArray(v)) return v.map((x) => resultText(x, depth + 1)).join("\n");
+  if (v.content !== undefined) return resultText(v.content, depth + 1);
+  return typeof v.text === "string" ? v.text : "";
+}
+
+/** Reads one CLI's output stream into events. With raw, tool events also name the server and tool, and carry the call's path argument and its result text. */
+function makeParser(profile, kind, emit, { raw = false } = {}) {
+  const st = { text: "", finished: false, sawText: false, lastError: "", context: 0 };
   const say = (text) => {
     st.sawText = true;
     emit({ type: "text", text });
   };
-  const label = (name, params) => describeTool(profile, name, params);
+  const label = (name, params, server) => describeTool(profile, name, params, server);
+  const named = (name, params, server, result) => {
+    if (!raw) return {};
+    const c = toolCall(profile, name, params, server);
+    const out = { server: c.server, tool: c.tool };
+    if (typeof c.params.path === "string") out.path = c.params.path;
+    if (result !== undefined) out.result = resultText(result);
+    return out;
+  };
   return {
     state: st,
     line(msg) {
@@ -887,7 +947,7 @@ function makeParser(profile, kind, emit) {
             if (/^read_file$/.test(u.tool_name)) return; // its own copy of our tool docs
             const status = u.state === "ACTIVE" ? "running" : u.state === "DONE" ? "done" : "failed";
             if (status === "failed" && u.tool_info.error) st.lastError = String(u.tool_info.error.message || "");
-            emit({ type: "tool", id: `${u.conversation_id || ""}-${u.step_index}`, label: label(u.tool_name, u.tool_info.parameters), status });
+            emit({ type: "tool", id: `${u.conversation_id || ""}-${u.step_index}`, label: label(u.tool_name, u.tool_info.parameters), status, ...named(u.tool_name, u.tool_info.parameters) });
           }
           return;
         }
@@ -908,18 +968,23 @@ function makeParser(profile, kind, emit) {
             st.lastError = msg.message.content.filter((p) => p.type === "text").map((p) => p.text).join(" ") || String(msg.error);
             return;
           }
+          // The last call's input and output is how full the conversation's context is now.
+          const u = msg.message.usage;
+          if (u) st.context = (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.output_tokens || 0);
           for (const part of msg.message.content) {
             if (part.type === "text" && part.text) say(part.text);
-            if (part.type === "tool_use") emit({ type: "tool", id: part.id, label: label(part.name, part.input), status: "running" });
+            if (part.type === "tool_use") emit({ type: "tool", id: part.id, label: label(part.name, part.input), status: "running", ...named(part.name, part.input) });
           }
           return;
         }
         if (msg.type === "user" && msg.message && Array.isArray(msg.message.content)) {
-          for (const part of msg.message.content) if (part.type === "tool_result") emit({ type: "tool", id: part.tool_use_id, status: part.is_error ? "failed" : "done" });
+          for (const part of msg.message.content) if (part.type === "tool_result") emit({ type: "tool", id: part.tool_use_id, status: part.is_error ? "failed" : "done", ...(raw ? { result: resultText(part.content) } : {}) });
           return;
         }
         if (msg.type === "result") {
           st.finished = true;
+          const windows = Object.values(msg.modelUsage || {}).map((m) => Number(m && m.contextWindow) || 0);
+          if (st.context) emit({ type: "usage", used: st.context, window: Math.max(0, ...windows) || null });
           if (msg.is_error || st.lastError) emit({ type: "error", message: st.lastError || String(msg.result || "The assistant stopped with an error.") });
           else emit({ type: "done", sessionId: msg.session_id || null });
         }
@@ -928,9 +993,9 @@ function makeParser(profile, kind, emit) {
       // codex
       const item = msg.item || {};
       if (msg.type === "thread.started" && msg.thread_id) emit({ type: "session", sessionId: msg.thread_id });
-      else if (msg.type === "item.started" && item.type === "mcp_tool_call") emit({ type: "tool", id: item.id, label: label(item.tool, item.arguments), status: "running" });
+      else if (msg.type === "item.started" && item.type === "mcp_tool_call") emit({ type: "tool", id: item.id, label: label(item.tool, item.arguments, item.server), status: "running", ...named(item.tool, item.arguments, item.server) });
       else if (msg.type === "item.completed" && item.type === "agent_message" && item.text) say(item.text);
-      else if (msg.type === "item.completed" && item.type === "mcp_tool_call") emit({ type: "tool", id: item.id, label: label(item.tool, item.arguments), status: item.error ? "failed" : "done" });
+      else if (msg.type === "item.completed" && item.type === "mcp_tool_call") emit({ type: "tool", id: item.id, label: label(item.tool, item.arguments, item.server), status: item.error ? "failed" : "done", ...named(item.tool, item.arguments, item.server, item.result ?? null) });
       else if (msg.type === "error") st.lastError = String(msg.message || "");
       else if (msg.type === "turn.completed") {
         st.finished = true;
@@ -952,21 +1017,25 @@ function friendly(kind, raw) {
   return { message: t.length > 300 ? t.slice(0, 300) + "…" : t || "The assistant stopped with an error.", fix: null };
 }
 
-function start(profile, sender, { kind, model, effort, text, context, sessionId, root, images }) {
-  const bin = findBinary(kind);
-  const runId = crypto.randomUUID();
-  const emit = (ev) => {
-    if (!sender.isDestroyed()) sender.send("agent:event", { runId, ...ev });
-  };
-  const fail = (raw) => emit({ type: "error", ...friendly(kind, raw) });
-  if (!bin) {
+/** Where each CLI is: [file, ...args before ours]. Tests put a stand-in program here. */
+const findCli = (kind) => {
+  const file = findBinary(kind);
+  return file ? [file] : null;
+};
+let locate = findCli;
+
+/** Spawn a CLI for one turn and pass its events to emit. */
+function launch({ profile, kind, runId, emit, args, cwd, env, input, raw = false, cleanup = () => {} }) {
+  const fail = (rawError) => emit({ type: "error", ...friendly(kind, rawError) });
+  const cmd = locate(kind);
+  if (!cmd) {
     setTimeout(() => fail("ENOENT"), 0);
-    return runId;
+    return;
   }
-  const savedImages = saveImages(images);
-  const child = spawn(bin, argsFor(profile, kind, { sessionId, model, effort, root, images: savedImages }), { cwd: workDir("work"), env: envFor(kind), windowsHide: true, stdio: ["pipe", "pipe", "pipe"] });
-  runs.set(runId, { child, kind });
-  const parser = makeParser(profile, kind, (ev) => (ev.type === "error" ? fail(ev.message) : emit(ev)));
+  const child = spawn(cmd[0], [...cmd.slice(1), ...args], { cwd, env, windowsHide: true, stdio: ["pipe", "pipe", "pipe"] });
+  const entry = { child, kind, stopped: false };
+  runs.set(runId, entry);
+  const parser = makeParser(profile, kind, (ev) => (ev.type === "error" ? fail(ev.message) : emit(ev)), { raw });
   let buf = "";
   let errText = "";
   child.stdout.on("data", (d) => {
@@ -989,18 +1058,99 @@ function start(profile, sender, { kind, model, effort, text, context, sessionId,
   child.on("error", (e) => fail(e.message));
   child.on("close", (code, signal) => {
     runs.delete(runId);
+    cleanup();
     if (parser.state.finished) return;
-    if (signal || code === null) emit({ type: "stopped" });
+    // On Windows a stopped CLI exits with a code, not a signal; a run with no window knows it was stopped.
+    if (signal || code === null || (raw && entry.stopped)) emit({ type: "stopped" });
     else if (code === 0) emit({ type: "done", sessionId: null });
     else fail(parser.state.lastError || errText);
   });
-  child.stdin.end(inputFor(kind, promptFor(profile, text, context, !sessionId, savedImages), savedImages));
+  child.stdin.on("error", () => {});
+  child.stdin.end(input);
+}
+
+function start(profile, sender, { kind, model, effort, text, context, sessionId, root, images }) {
+  const runId = crypto.randomUUID();
+  const emit = (ev) => {
+    if (!sender.isDestroyed()) sender.send("agent:event", { runId, ...ev });
+  };
+  if (!locate(kind)) {
+    launch({ profile, kind, runId, emit });
+    return runId;
+  }
+  const savedImages = saveImages(images);
+  const args = argsFor(profile, kind, { sessionId, model, effort, root, images: savedImages });
+  launch({ profile, kind, runId, emit, args, cwd: workDir("work"), env: envFor(kind), input: inputFor(kind, promptFor(profile, text, context, !sessionId, savedImages), savedImages) });
   return runId;
+}
+
+const SERVER_NAME = /^[a-z][a-z0-9-]{0,31}$/;
+
+/**
+ * One turn of the user's CLI with no window attached (Fenna Crew's bots).
+ * Events go to onEvent as { runId, type, … }, the same events a chat gets:
+ * session, delta, text, tool (also naming server and tool), usage (Claude Code:
+ * tokens in the context and the model's window), done, error
+ * ({ message, fix }), stopped. Exactly one of done, error or stopped ends
+ * every run.
+ *
+ * @param {object} o
+ * @param {"claude"|"codex"|"antigravity"} o.kind
+ * @param {string} o.prompt           the whole message, as the CLI should read it
+ * @param {string} o.cwd              the working folder (must exist)
+ * @param {object} o.servers          { name: { command, args, env } | { url } } (see argsFor)
+ * @param {string[]} [o.trusted]      servers whose tools run without asking (default all)
+ * @param {string} [o.permissionTool] Claude Code: "mcp__<server>__<tool>", asked about every other call
+ * @param {string} [o.home]           Antigravity: its home folder for this run
+ * @param {string|null} [o.sessionId] resume this conversation
+ * @param {string} [o.model]
+ * @param {string} [o.effort]
+ * @param {Record<string, string>} [o.env]  added to the CLI's environment
+ * @param {(tool: string, params: object, server: string) => string|null} [o.toolLabel]
+ * @param {(event: object) => void} o.onEvent
+ * @returns {{ runId: string, stop: () => void }}
+ */
+function startRun({ kind, prompt, cwd, servers, trusted, permissionTool, home, sessionId = null, model = "", effort = "", env = {}, toolLabel, onEvent }) {
+  if (!KINDS.includes(kind)) throw new Error(`Unknown assistant "${kind}". Use one of: ${KINDS.join(", ")}.`);
+  if (typeof prompt !== "string" || !prompt.trim() || prompt.length > MAX_TEXT) throw new Error("The prompt is empty or too long.");
+  const names = Object.keys(servers || {});
+  if (!names.length || names.some((n) => !SERVER_NAME.test(n))) throw new Error("Give at least one MCP server, named with lowercase letters, digits and dashes.");
+  if (!/^[\w.:@/[\]-]{0,80}$/.test(model) || !/^[a-z]{0,12}$/.test(effort)) throw new Error("That model or effort name can't be passed to the CLI.");
+  if (sessionId !== null && !/^[\w-]{1,80}$/.test(sessionId)) throw new Error("That session id can't be resumed.");
+  if (!cwd || !fs.existsSync(cwd)) throw new Error(`The working folder ${cwd} doesn't exist.`);
+  const profile = { id: names[0], servers: names, note: "", toolLabel: toolLabel || (() => null) };
+  const runId = crypto.randomUUID();
+  const emit = (ev) => onEvent({ runId, ...ev });
+  if (!locate(kind)) {
+    launch({ profile, kind, runId, emit });
+    return { runId, stop: () => {} };
+  }
+  // Antigravity matches its permission rules against the long form of a path, never a short 8.3 name.
+  const agyHomeDir = home ? (fs.mkdirSync(home, { recursive: true }), fs.realpathSync.native(home)) : undefined;
+  const args = argsFor(profile, kind, { sessionId, model, effort, servers, trusted, permissionTool, home: agyHomeDir });
+  const cfg = kind === "claude" ? args[args.indexOf("--mcp-config") + 1] : null;
+  launch({
+    profile,
+    kind,
+    runId,
+    emit,
+    args,
+    cwd,
+    raw: true,
+    env: { ...envFor(kind, { home: agyHomeDir }), ...env },
+    input: inputFor(kind, prompt, []),
+    cleanup: () => {
+      if (cfg) fs.rmSync(cfg, { force: true });
+    },
+  });
+  return { runId, stop: () => stop(runId) };
 }
 
 function stop(runId) {
   const r = runs.get(runId);
-  if (r) killTree(r.child);
+  if (!r) return;
+  r.stopped = true;
+  killTree(r.child);
 }
 
 // ── Chats are kept per document folder, here (not in the page) ─────────
@@ -1011,21 +1161,22 @@ function chatFile(root) {
 
 // ── IPC ─────────────────────────────────────────────────────────────────
 
+const kindOk = (kind) => {
+  if (!KINDS.includes(kind)) throw new Error("Unknown assistant");
+  return kind;
+};
+
+let setupRegistered = false;
+
 /**
- * @param {object} o
- * @param {(sender: Electron.WebContents) => string|null} o.getRoot   the folder a page has open
- * @param {(event: Electron.IpcMainInvokeEvent) => void} o.assertSender  throws for pages that may not use this
- * @param {object} o.profile  the app:
- *   id         its MCP server's name ("fenna-slides")
- *   mcpServer  (root) => { command, args, env } to start that server for an open folder
- *   note       what the AI is told at the start of each conversation
- *   toolLabel  (tool, params) => plain words for one of its tools, or null
+ * The page's calls to set up the user's CLIs: what each offers, install,
+ * sign in and out, and the account in use (the chat's install and sign-in
+ * card). registerAgent includes these; an app with no chat panel (Crew)
+ * calls this alone. Runs and sign-ins stop when the app quits.
  */
-function registerAgent({ getRoot, assertSender, profile }) {
-  const kindOk = (kind) => {
-    if (!KINDS.includes(kind)) throw new Error("Unknown assistant");
-    return kind;
-  };
+function registerAssistantSetup({ assertSender }) {
+  if (setupRegistered) return;
+  setupRegistered = true;
   const setupTo = (sender) => (payload) => {
     if (!sender.isDestroyed()) sender.send("agent:setup", payload);
   };
@@ -1047,6 +1198,24 @@ function registerAgent({ getRoot, assertSender, profile }) {
     assertSender(e);
     if (typeof url === "string" && /^https:\/\//.test(url)) void shell.openExternal(url);
   });
+  app.on("will-quit", () => {
+    for (const id of runs.keys()) stop(id);
+    for (const kind of signIns.keys()) cancelSignIn(kind);
+  });
+}
+
+/**
+ * @param {object} o
+ * @param {(sender: Electron.WebContents) => string|null} o.getRoot   the folder a page has open
+ * @param {(event: Electron.IpcMainInvokeEvent) => void} o.assertSender  throws for pages that may not use this
+ * @param {object} o.profile  the app:
+ *   id         its MCP server's name ("fenna-slides")
+ *   mcpServer  (root) => { command, args, env } to start that server for an open folder
+ *   note       what the AI is told at the start of each conversation
+ *   toolLabel  (tool, params) => plain words for one of its tools, or null
+ */
+function registerAgent({ getRoot, assertSender, profile }) {
+  registerAssistantSetup({ assertSender });
   ipcMain.handle("agent:send", (e, msg) => {
     assertSender(e);
     const root = getRoot(e.sender);
@@ -1075,10 +1244,28 @@ function registerAgent({ getRoot, assertSender, profile }) {
     fs.writeFileSync(chatFile(root), text);
     return true;
   });
-  app.on("will-quit", () => {
-    for (const id of runs.keys()) stop(id);
-    for (const kind of signIns.keys()) cancelSignIn(kind);
-  });
 }
 
-module.exports = { registerAgent, _test: { makeParser, describeTool, friendly, argsFor, urlsIn, saveImages, promptFor, inputFor } };
+/** What a CLI offers (installed, signed in, account, models and efforts), as the chat's pickers show it. */
+const assistantCatalog = (kind, opts) => catalogOf(kindOk(kind), opts);
+
+module.exports = {
+  registerAgent,
+  registerAssistantSetup,
+  startRun,
+  stopRun: stop,
+  assistantCatalog,
+  _test: {
+    makeParser,
+    describeTool,
+    friendly,
+    argsFor,
+    urlsIn,
+    saveImages,
+    promptFor,
+    inputFor,
+    useBinary: (fn) => {
+      locate = fn || findCli;
+    },
+  },
+};

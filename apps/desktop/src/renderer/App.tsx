@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { SHAPE_KINDS } from "@opendeck/format";
-import { Dialog, Icon, McpGuideDialog, type IconName, type MenuEntry, MenuButton, ThemeToggle, Toast, shortcut, tabs } from "@opendeck/shell";
+import { Dialog, Icon, McpGuideDialog, type IconName, type MenuEntry, MenuButton, ThemeToggle, Toast, isEmbedded, shortcut, tabs } from "@opendeck/shell";
 import { Canvas } from "./editor/Canvas.tsx";
 import * as cmd from "./editor/commands.ts";
 import { loadComments, newComment } from "./editor/comments.ts";
@@ -43,13 +43,15 @@ function shapeEntries(): MenuEntry[] {
 }
 
 export function App() {
+  // Inside Fenna Crew (#embed) the AI is Crew's: no assistant, no Home, no file pickers or exports.
+  const embedded = isEmbedded();
   const ref = useEditor((s) => s.ref);
   const deck = useEditor((s) => s.deck);
   const loading = useEditor((s) => s.loading);
   const presenting = useEditor((s) => s.presenting);
   const current = useEditor((s) => s.current);
   const view = useEditor((s) => s.view);
-  const rightPanel = useEditor((s) => (s.chat ? "chat" : s.inspector ? "design" : null));
+  const rightPanel = useEditor((s) => (!embedded && s.chat ? "chat" : s.inspector ? "design" : null));
   const canUndo = useEditor((s) => s.undo.length > 0);
   const canRedo = useEditor((s) => s.redo.length > 0);
   const undoLabel = useEditor((s) => s.undo[s.undo.length - 1]?.label);
@@ -77,7 +79,7 @@ export function App() {
   }, [title]);
 
   if (presenting && deck) return <Present deck={deck} start={current} onExit={(at) => (setState({ presenting: false }), goTo(at))} />;
-  if (!loading && (!ref || !deck)) return <Home />;
+  if (!loading && (!ref || !deck)) return embedded ? <div className="embed-empty">No document open.</div> : <Home />;
 
   const count = deck?.slides.length ?? 0;
   return (
@@ -93,7 +95,7 @@ export function App() {
               { label: "Undo", shortcut: shortcut("Mod+Z"), disabled: !canUndo, onSelect: () => void undo() },
               { label: "Redo", shortcut: shortcut("Mod+Shift+Z"), disabled: !canRedo, onSelect: () => void redo() },
               "separator",
-              { label: "MCP setup guide…", icon: <Icon name="code" size={16} />, onSelect: () => setShowMcp(true) },
+              ...(embedded ? [] : [{ label: "MCP setup guide…", icon: <Icon name="code" size={16} />, onSelect: () => setShowMcp(true) }]),
             ]}
           >
             <span className="title" title={ref?.root}>
@@ -117,9 +119,11 @@ export function App() {
         {deck && (
           <div className="topbar-actions">
             <ThemeToggle className="icon-btn" />
-            <button className={`btn ghost${rightPanel === "chat" ? " on" : ""}`} aria-pressed={rightPanel === "chat"} onClick={() => togglePanel("chat")}>
-              <Icon name="panelRight" size={16} /> {rightPanel === "chat" ? "Hide chat" : "Show chat"}
-            </button>
+            {!embedded && (
+              <button className={`btn ghost${rightPanel === "chat" ? " on" : ""}`} aria-pressed={rightPanel === "chat"} onClick={() => togglePanel("chat")}>
+                <Icon name="panelRight" size={16} /> {rightPanel === "chat" ? "Hide chat" : "Show chat"}
+              </button>
+            )}
           </div>
         )}
       </header>
@@ -242,6 +246,7 @@ function RenameDeck({ title, onClose }: { title: string; onClose(): void }) {
 
 /** Export, Present, the Design panel toggle and zoom, floating at the stage's top right. */
 function StageTools() {
+  const embedded = isEmbedded();
   const zoom = useEditor((s) => s.zoom);
   const fit = useEditor((s) => s.fitScale);
   const design = useEditor((s) => s.inspector && !s.chat);

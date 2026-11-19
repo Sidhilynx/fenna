@@ -1,0 +1,86 @@
+/* Pixel skin: pages (Settings, Connectors, Vault, a bot's connectors and logins).
+   Loaded after pixel.css. Selected means a framed block in --sel, the one accent. */
+
+/* Frame recipe for the classes added here (pixel.css sets it for the rest). */
+.px-switch, .px-seg, .px-seg-btn, .px-ibtn, .px-empty-art, .levels, .level, .settings-nav-btn, .vault-form, .conn-card, .conn-logo, .conn-page .conn-item.cli-item {
+  --px-edge: 0 -2px 0 0 var(--px-c), 0 2px 0 0 var(--px-c), -2px 0 0 0 var(--px-c), 2px 0 0 0 var(--px-c);
+}
+
+/* Switch: a native checkbox drawn as a square track and a square knob that jumps one step. */
+.px-switch {
+  --px-c: var(--line-strong);
+  -webkit-appearance: none; appearance: none;
+  position: relative; flex: none; width: 36px; height: 20px; margin: 2px; padding: 0; border: 0; border-radius: 0;
+  background: var(--field); box-shadow: var(--px-edge); cursor: pointer; vertical-align: middle;
+}
+.px-switch::before {
+  content: ""; position: absolute; top: 4px; left: 4px; width: 12px; height: 12px;
+  background: var(--text-3); transition: transform 120ms steps(1, end), background-color 120ms steps(1, end);
+}
+.px-switch:checked { --px-c: var(--sel); background: var(--sel-soft); }
+.px-switch:checked::before { background: var(--sel); transform: translateX(16px); }
+.px-switch:focus-visible { outline: 2px solid var(--sel); outline-offset: 2px; }
+.px-switch:disabled { opacity: 0.5; cursor: default; }
+@media (prefers-reduced-motion: reduce) {
+  .px-switch::before { transition: none; }
+}
+
+/* Segments: a framed track; the selected part is a framed block. */
+.px-seg { --px-c: var(--line-strong); gap: 2px; padding: 2px; margin: 2px; border: 0; background: var(--field); box-shadow: var(--px-edge); }
+.px-seg-btn { --px-c: transparent; height: 26px; min-width: 32px; justify-content: center; padding: 0 8px; border-radius: 0; box-shadow: var(--px-edge); }
+.px-seg-btn:hover { color: var(--text); }
+.px-seg-btn[aria-pressed="true"] { --px-c: var(--sel); background: var(--sel-soft); color: var(--text); }
+.px-seg-btn:focus-visible { outline: 2px solid var(--sel); outline-offset: 2px; }
+
+/* Icon buttons: a framed square; pressed is the selected block. */
+.px-ibtn { --px-c: var(--line-strong); flex: none; width: 24px; height: 24px; min-width: 24px; margin: 2px; padding: 0; display: inline-grid; place-items: center; border: 0; border-radius: 0; background: transparent; color: var(--text-2); box-shadow: var(--px-edge); }
+.px-ibtn:hover:not(:disabled) { --px-c: var(--text-3); color: var(--text); }
+.px-ibtn[aria-pressed="true"] { --px-c: var(--sel); background: var(--sel-soft); color: var(--text); }
+.px-ibtn:focus-visible { outline: 2px solid var(--sel); outline-offset: 2px; }
+
+/* Status tags: a framed square label. Warnings are amber, nothing else. */
+.px-tag.warn { --px-c: var(--warn); color: var(--warn); }
+.cli-state.warn { --px-c: var(--warn); }
+
+/* Settings */
+.settings-shell { gap: 0; }
+.settings-nav { width: 148px; padding: 2px 16px 2px 2px; border-right: 2px solid var(--line); }
+.settings-nav-btn { --px-c: transparent; height: 30px; margin: 2px 0; padding: 0 12px; border-radius: 0; box-shadow: var(--px-edge); }
+.settings-nav-btn[aria-current="page"] { --px-c: var(--sel); background: var(--sel-soft); color: var(--text); font-weight: 500; }
+.settings-content { padding-left: 24px; }
+.settings-pane .settings-row { padding: 12px 0; }
+.settings-pane .settings-row + .settings-row { border-top: 2px solid var(--line); }
+.settings-pane .settings-row:first-child { padding-top: 2px; }
+
+/* Connectors: framed cards, a framed logo square, status tags. */
+.conn-page:not(.vault-page) .conn-list { gap: 12px; padding: 2px; }
+.conn-page:not(.vault-page) .conn-item.cli-item { --px-c: var(--line); margin: 2px; background: var(--panel); border: 0; border-radius: 0; box-shadow: var(--px-edge); }
+.conn-page:not(.vault-page) .conn-item.cli-item.open { --px-c: var(--sel); }
+.conn-page:not(.vault-page) .conn-item .cli-tile { min-height: 64px; padding: 12px 16px; }
+.conn-page:not(.vault-page) .conn-detail { padding: 0 16px 16px; }
+.conn-grid { gap: 12px 24px; padding: 2px; }
+.conn-card { --px-c: var(--line); margin: 2px; padding: 12px 16px; border-bottom: 0; background: var(--panel); box-shadow: var(--px-edge); }
+.conn-logo { --px-c: var(--line-strong); flex: none; width: 32px; height: 32px; margin: 2px; background: var(--raised); box-shadow: var(--px-edge); }
+.conn-filter .seg-row { gap: 2px; margin: 0; padding: 2px 0; }
+.conn-filter .seg-row .tab { --px-c: transparent; border-radius: 0; box-shadow: var(--px-edge); }
+.conn-filter .seg-row .tab[aria-selected="true"] { --px-c: var(--sel); background: var(--sel-soft); color: var(--text); }
+.conn-page .cli-tile:focus-visible, .grant-toggle:focus-visible { outline: 2px solid var(--sel); outline-offset: 2px; }
+
+/* Empty states: a framed square with a 48px pixel icon in it, and one line. */
+.px-empty { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 12px 0 4px; }
+.px-empty-art { --px-c: var(--line-strong); display: inline-grid; place-items: center; width: 80px; height: 80px; margin: 2px; color: var(--text-2); background: var(--panel); box-shadow: var(--px-edge); }
+.px-empty-art .pixel-icon { image-rendering: pixelated; }
+
+/* Levels: allow, ask, off as one three-step segment. */
+.levels { --px-c: var(--line-strong); gap: 2px; padding: 2px; margin: 2px; border: 0; border-radius: 0; background: var(--field); box-shadow: var(--px-edge); }
+.level { --px-c: transparent; height: 24px; min-width: 52px; padding: 0 8px; border: 0; border-radius: 0; box-shadow: var(--px-edge); }
+.level:hover { color: var(--text); }
+.level[aria-checked="true"] { --px-c: var(--sel); background: var(--sel-soft); color: var(--text); }
+.level:focus-visible { outline: 2px solid var(--sel); outline-offset: 2px; }
+
+/* Vault: login rows are rules, not cards. */
+.vault-page .conn-list { gap: 0; }
+.vault-page .conn-list > .conn-item.cli-item { background: transparent; border: 0; border-bottom: 2px solid var(--line); border-radius: 0; box-shadow: none; }
+.vault-page .conn-list > .conn-item.cli-item.open { border-bottom-color: var(--line); }
+.vault-page .cli-tile:hover { background: var(--hover); }
+.vault-form { --px-c: var(--line); margin: 2px; padding: 16px; background: var(--panel); box-shadow: var(--px-edge); }

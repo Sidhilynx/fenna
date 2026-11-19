@@ -1,0 +1,103 @@
+/* Crew's pixel skin over the shell's components. Loaded after styles.css.
+   Every corner is square; every box edge is a notched 2px pixel frame drawn
+   with box-shadow (the corners are left out, the way a sprite draws a box).
+
+   Primitives for screens to use:
+     --px-c                  the frame's colour on any framed element
+     .px-frame               any box with a pixel frame
+     .px-panel               a raised box with frame and hard drop shadow
+     .px-tag                 a square chip with a frame
+   Buttons, fields, dialogs, menus, toasts and tooltips are framed here; screens
+   don't restyle them, they only set --px-c when a state needs another edge. */
+
+:root {
+  --r-sm: 0px;
+  --r-md: 0px;
+  --r-lg: 0px;
+  --px-shade: rgba(0, 0, 0, 0.28);
+  --px-lift: rgba(255, 255, 255, 0.06);
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --px-shade: rgba(0, 0, 0, 0.12); --px-lift: rgba(255, 255, 255, 0.7); } }
+:root[data-theme="light"] { --px-shade: rgba(0, 0, 0, 0.12); --px-lift: rgba(255, 255, 255, 0.7); }
+:root[data-theme="dark"] { --px-shade: rgba(0, 0, 0, 0.28); --px-lift: rgba(255, 255, 255, 0.06); }
+
+/* One frame recipe for everything below. */
+.btn, .field, .dialog, .menu, .toast, .shell-tip, .ex-panel, .px-panel, .px-tag,
+.tab[aria-selected="true"], .icon-btn[aria-current="page"], .row[aria-current="page"] {
+  --px-edge: 0 -2px 0 0 var(--px-c), 0 2px 0 0 var(--px-c), -2px 0 0 0 var(--px-c), 2px 0 0 0 var(--px-c);
+}
+
+/* Buttons: a frame, a lit top row and a shaded bottom row; pressed sinks a pixel. */
+.btn {
+  --px-c: var(--line-strong);
+  border: 0; margin: 2px;
+  box-shadow: var(--px-edge), inset 0 2px 0 0 var(--px-lift), inset 0 -2px 0 0 var(--px-shade);
+}
+.btn:hover:not(:disabled) { --px-c: var(--text-3); }
+.btn:active:not(:disabled) { transform: translateY(1px); box-shadow: var(--px-edge), inset 0 2px 0 0 var(--px-shade); }
+.btn.primary { --px-c: var(--pri); }
+.btn.primary:hover:not(:disabled) { --px-c: var(--pri-hover); }
+.btn.ghost { box-shadow: none; }
+.btn.ghost:hover:not(:disabled) { box-shadow: var(--px-edge); --px-c: var(--hover); }
+.btn:focus-visible, .icon-btn:focus-visible { outline: 2px solid var(--sel); outline-offset: 3px; }
+.icon-btn[aria-current="page"], .row[aria-current="page"] { --px-c: var(--raised); box-shadow: var(--px-edge); }
+
+/* The shell draws some radii without tokens; square them too. */
+.dialog, .menu, .toast, .shell-tip, .ex-panel, .ex-tile, ::-webkit-scrollbar-thumb { border-radius: 0; }
+
+/* Fields */
+.field { --px-c: var(--line-strong); border: 0; margin: 2px 0; box-shadow: var(--px-edge); }
+.field:hover { --px-c: var(--text-3); }
+.field:focus, .field:focus-within { --px-c: var(--sel); border: 0; }
+
+/* Dialogs, menus, pop-overs, toasts, tips: framed panels with a hard drop shadow. */
+.dialog, .menu, .ex-panel, .px-panel { --px-c: var(--line-strong); border: 0; box-shadow: var(--px-edge), 6px 6px 0 0 var(--px-drop); }
+.toast { --px-c: var(--text); border: 0; box-shadow: var(--px-edge), 4px 4px 0 0 var(--px-drop); }
+.shell-tip { --px-c: var(--line-strong); border: 0; box-shadow: var(--px-edge); }
+.dialog-head { border-bottom: 2px solid var(--line-strong); }
+.dialog-sep, .menu-sep { height: 2px; }
+.menu-item.active { box-shadow: inset 2px 0 0 0 var(--sel); }
+
+/* Tabs: the selected tab is a framed block. */
+.tab[aria-selected="true"] { --px-c: var(--raised); box-shadow: var(--px-edge); }
+
+/* Small pieces */
+.px-tag { --px-c: var(--line-strong); display: inline-flex; align-items: center; gap: 4px; height: 20px; margin: 2px; padding: 0 6px; background: var(--raised); box-shadow: var(--px-edge); font-size: var(--fs-xs); color: var(--text-2); }
+.face-dot { border-radius: 0; }
+.step-dot { border-radius: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .btn:active:not(:disabled) { transform: none; }
+}
+
+/* ── Living pixels (PixelField.tsx) and the glitch ───────────────────── */
+/* The layer sits behind a host's content: above its background, under its words. */
+.px-host { position: relative; isolation: isolate; }
+.px-field { position: absolute; inset: 0; z-index: -1; display: block; pointer-events: none; image-rendering: pixelated; }
+/* On a wallpaper the layer sits over the picture and under the icons and windows. */
+.px-field.flat { z-index: auto; }
+
+/* A short glitch: the thing tears sideways by a pixel or two, then snaps back. */
+@keyframes px-glitch {
+  0%, 100% { transform: none; clip-path: none; }
+  20% { transform: translateX(-2px); clip-path: inset(0 0 60% 0); }
+  40% { transform: translateX(2px); clip-path: inset(40% 0 0 0); }
+  60% { transform: translate(-1px, 1px); clip-path: inset(20% 0 30% 0); }
+  80% { transform: translateX(1px); clip-path: none; }
+}
+/* Titles arrive with a tear, once. */
+@keyframes px-tear-in {
+  0% { opacity: 0; clip-path: inset(0 0 100% 0); }
+  25% { opacity: 1; clip-path: inset(0 0 50% 0); transform: translateX(-2px); }
+  50% { clip-path: inset(50% 0 0 0); transform: translateX(2px); }
+  75% { clip-path: inset(0 0 20% 0); transform: none; }
+  100% { opacity: 1; clip-path: none; transform: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .btn:hover:not(:disabled), .icon-btn:hover:not(:disabled), .row:hover, .doc-card:hover, .desk-icon:hover .file-icon, .rail-btn:hover .av, .task:hover .file-icon {
+    animation: px-glitch 200ms steps(1, end) 1;
+  }
+  .ov-title, .chat-pick, .desk-name, .dialog-head h2, .setup-card h1 { animation: px-tear-in 200ms steps(1, end) both; }
+}
+/* The living edges layer (PixelEdges.tsx): over the page, under tooltips, never in the way. */
+.px-edges { position: fixed; inset: 0; z-index: 1100; pointer-events: none; image-rendering: pixelated; }

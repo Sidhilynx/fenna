@@ -1,0 +1,3 @@
+{"type":"start","at":"2026-11-18T15:42:10.000Z","runId":"r-20261118-1","trigger":"person","text":"What changed this week?","from":null,"team":null,"cli":"claude","model":""}
+{"type":"text","at":"2026-11-18T15:42:14.000Z","text":"Nothing. Both checks, on Nov 9 and Nov 16, found the same \"Example Domain\" page with one link. The next check is Monday at 10:00."}
+{"type":"end","at":"2026-11-18T15:42:14.500Z","outcome":"done","message":null}

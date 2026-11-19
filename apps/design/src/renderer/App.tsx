@@ -5,7 +5,7 @@
 import { useEffect } from "react";
 import { getAt } from "@opendeck/format";
 import { setStyles, styleOf, type ElementNode } from "@opendeck/artboard";
-import { tabs } from "@opendeck/shell";
+import { isEmbedded, tabs } from "@opendeck/shell";
 import { commentOnSelection } from "./commentOn.ts";
 import { comments } from "./comments.ts";
 import { AskBar } from "./components/AskBar.tsx";
@@ -64,7 +64,7 @@ function onKey(e: KeyboardEvent) {
   if (e.defaultPrevented || !s.ready) return;
   const mod = e.ctrlKey || e.metaKey;
   const k = e.key.toLowerCase();
-  if (mod && k === "k" && !e.shiftKey && !e.altKey) {
+  if (mod && k === "k" && !e.shiftKey && !e.altKey && !isEmbedded()) {
     e.preventDefault();
     setState({ asking: !s.asking });
     return;
@@ -158,6 +158,8 @@ function onPaste(e: ClipboardEvent) {
 }
 
 export function App() {
+  // Inside Fenna Crew (#embed) the AI is Crew's: no assistant, no Home.
+  const embedded = isEmbedded();
   const ref = useDesign((s) => s.ref);
   const ready = useDesign((s) => s.ready);
   const loading = useDesign((s) => s.loading);
@@ -181,7 +183,7 @@ export function App() {
     };
   }, []);
 
-  if (!loading && (!ref || !ready)) return <Home />;
+  if (!loading && (!ref || !ready)) return embedded ? <div className="embed-empty">No document open.</div> : <Home />;
 
   const indexProblems = problems.filter((p) => p.where === "design.json" || p.where === "notes.json");
   const problem = broken ? `This design can’t be read: ${broken}. The file is left as it is and nothing is saved; fix it, or restore a version.` : indexProblems.length ? indexProblems.map((p) => p.message).join(" · ") : null;
@@ -204,7 +206,7 @@ export function App() {
             <ViewControls />
             <FloatingBar />
             <div className="dg-bottom">
-              {asking && <AskBar />}
+              {asking && !embedded && <AskBar />}
               <Dock />
             </div>
             {focus && <FocusView file={focus} />}

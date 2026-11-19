@@ -48,7 +48,7 @@ const Item = z.record(z.string(), z.unknown());
 
 export function createServer(root: string): McpServer {
   const store = new BoardStore(root);
-  const server = new McpServer({ name: "fenna-whiteboard", version: "0.9.4" }, { instructions: INSTRUCTIONS });
+  const server = new McpServer({ name: "fenna-whiteboard", version: "0.9.5" }, { instructions: INSTRUCTIONS });
   const tool = strictTools(server);
 
   tool(

@@ -15,6 +15,9 @@ export { Menu, MenuButton, shortcut, type MenuEntry, type MenuPrompt } from "./u
 export { readPref, writePref } from "./prefs.ts";
 export { Toast, toast } from "./Toast.tsx";
 export { installTooltips } from "./tooltip.ts";
+export { isEmbedded } from "./embed.ts";
 export { type Comment, type Thread, type ThreadBase, COMMENTS_FILE, MAX_COMMENT, ago, isText, parseThreads, serializeThreads } from "./comments/threads.ts";
 export { type CommentsConfig, type CommentsState, type CommentsStore, createCommentsStore } from "./comments/store.ts";
 export { ThreadCard, type ThreadCardProps } from "./comments/ThreadCard.tsx";
+export { useAgents, type Agents } from "./useAgents.ts";
+export { AgentLogo, AgentSetup, accountEntries, statusWord } from "./AgentSetup.tsx";

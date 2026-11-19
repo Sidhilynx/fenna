@@ -3,7 +3,7 @@
 // buttons show their choices above the bar.
 
 import { BOARD_SIZES, STROKE_WIDTHS, type ShapeKind } from "@opendeck/artboard";
-import { Icon, shortcut, type IconName } from "@opendeck/shell";
+import { Icon, type IconName, isEmbedded, shortcut } from "@opendeck/shell";
 import { useAssistant } from "../assistant.ts";
 import { addArtboard, getState, setState, setTool, useDesign, type Tool } from "../store.ts";
 
@@ -42,9 +42,11 @@ export function Dock() {
         <ToolBtn tool={tool} t="pen" icon="pencil" name="Pencil" />
         <ToolBtn tool={tool} t="shape" icon={shape.icon} name={shape.name} />
         <ToolBtn tool={tool} t="comment" icon="chat" name="Comment" />
-        <button className={`dg-ask${asking ? " on" : ""}`} aria-pressed={asking} title={`Ask ${ai.name} (${shortcut("Mod+K")})`} onClick={() => setState({ asking: !getState().asking })}>
-          Ask {ai.name}
-        </button>
+        {!isEmbedded() && (
+          <button className={`dg-ask${asking ? " on" : ""}`} aria-pressed={asking} title={`Ask ${ai.name} (${shortcut("Mod+K")})`} onClick={() => setState({ asking: !getState().asking })}>
+            Ask {ai.name}
+          </button>
+        )}
       </nav>
     </div>
   );

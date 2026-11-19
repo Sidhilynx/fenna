@@ -18,7 +18,7 @@ import {
   timeZoneOption,
   WRAP_MODES,
 } from "@opendeck/sheet";
-import { Icon, type IconName, type MenuEntry, shortcut } from "@opendeck/shell";
+import { Icon, type IconName, isEmbedded, type MenuEntry, shortcut } from "@opendeck/shell";
 import { comments } from "../comments.ts";
 import {
   activeCellRef,
@@ -214,12 +214,16 @@ export function chartEntries(aiMark: React.ReactNode): MenuEntry[] {
   return [
     ...(data ? [] : [{ note: "Select cells with data to chart first." } as const]),
     ...CHART_TYPES.map((t) => ({ label: CHART_LABEL[t], icon: icon(CHART_ICON[t]), disabled: !data, onSelect: () => void addChartFromSelection(t) })),
-    "separator" as const,
-    {
-      label: "Quick chart",
-      icon: aiMark,
-      onSelect: () => askFor(data ? `Make a chart of ${selectionRangeStr()} that shows it best.` : "Make a chart that shows this sheet's data best."),
-    },
+    ...(isEmbedded()
+      ? []
+      : [
+          "separator" as const,
+          {
+            label: "Quick chart",
+            icon: aiMark,
+            onSelect: () => askFor(data ? `Make a chart of ${selectionRangeStr()} that shows it best.` : "Make a chart that shows this sheet's data best."),
+          },
+        ]),
   ];
 }
 

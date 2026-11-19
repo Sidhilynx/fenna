@@ -1,6 +1,9 @@
 # Fenna Workspace
 
-Stage: build
+Stage: retired (2026-11-20). Fenna Crew replaced it as the app people
+download; it is no longer built for releases. Crew still copies
+`apps/workspace/src/main/hosts.cjs` and bundles `packages/workspace-mcp`, so
+both stay.
 Code: `apps/workspace`
 
 ## What it is for

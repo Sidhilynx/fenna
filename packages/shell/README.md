@@ -13,7 +13,7 @@ Everything around those comes from the shell.
 | Part | Where | What it does |
 | --- | --- | --- |
 | Window tabs | `main/tabs.cjs`, `main/strip/` | A strip of tabs (Home + one per open folder), drag, hover preview, Ctrl+T/W/Tab, restore on launch, a spinner while the AI works |
-| Preload | `main/preload.cjs` | The page's one door to the main process: `window.shell.invoke/send/on` |
+| Preload | `main/preload.cjs` | The page's one door to the main process: `window.shell.invoke/send/on`; also draws GPU frames a main process sends with `sharedTexture.sendSharedTexture(…, key, viewWidth, viewHeight)` onto `<canvas data-live="key">` (a `liveframe` event follows) |
 | Assistant host | `main/agent.cjs` | Runs Claude Code, Codex or Antigravity on the user's plan with only the app's MCP tools; installs them (official builds, checksum checked), signs in through the browser, reads models and efforts from each CLI, keeps chats per folder |
 | Chat panel | `renderer/ChatPanel.tsx` | Chat tabs, history, who-answers / model / effort / account pickers, the install and sign-in card, the live reply |
 | Home | `renderer/Home.tsx` | Greeting, a composer to start a document, recent documents with search |
@@ -52,6 +52,16 @@ import { ChatPanel, Home, bridge, tabs } from "@opendeck/shell";
 <Home noun="sheet" nouns="sheets" items={recent} onStart={…} onOpen={…} onChoose={…} placeholder="What should we make?" />
 <ChatPanel noun="sheet" view={{ context: { sheet, selection }, label: "Sheet 1 · B2:D9" }} suggestions={[…]} intro="…" placeholder="…" onWorking={…} />
 ```
+
+An app with no chat panel (Fenna Crew) runs the CLIs itself:
+`registerAssistantSetup({ assertSender })` gives its page the install and
+sign-in calls alone, and `startRun({ kind, prompt, cwd, servers, trusted,
+permissionTool, home, sessionId, model, effort, env, toolLabel, onEvent })`
+runs one turn with no window: its own working folder, several MCP servers
+(still isolated from the user's own CLI setup), a resumed session, and, for
+Claude Code, a permission-prompt tool for anything not trusted. See the
+comments in `main/agent.cjs` for what each CLI supports.
+`assistantCatalog(kind)` is what a CLI offers.
 
 Your own calls to your main process go over `bridge().invoke("sheet:read", …)`;
 name them `<app>:<verb>`.
