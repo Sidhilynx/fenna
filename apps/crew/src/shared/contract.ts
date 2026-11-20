@@ -655,6 +655,8 @@ export interface Calls {
   "crew:setQuota": { args: [slug: string, gb: number]; result: DiskListing };
   /** Copies a file on the bot's disk to a place the person picks in a save dialog; returns where it went, or null when they cancel. */
   "crew:saveCopy": { args: [slug: string, path: string]; result: string | null };
+  /** A native drag of these files (disk paths) out of the Crew window, to the desktop or Explorer; resolves when the drag ends. */
+  "crew:dragOut": { args: [slug: string, paths: string[]]; result: void };
   /** A new Fenna document in the bot's Documents; returns its library folder name. */
   "crew:newDoc": { args: [slug: string, kind: LibraryKind, title: string]; result: { path: string } };
   /** The person runs a command in the bot's terminal. */
@@ -705,8 +707,6 @@ export interface Sends {
   "crew:viewport": [slug: string, size: ViewportSize];
   /** The page has this bot's computer open (true) or left it (false). A bot is heard only while it is open. */
   "crew:present": [slug: string, open: boolean];
-  /** A drag from the Crew window out to the desktop or Explorer: the files (disk paths) being dragged. */
-  "crew:dragOut": [slug: string, paths: string[]];
 }
 
 // ── Notices: a bot's notification center ──────────────────────────────

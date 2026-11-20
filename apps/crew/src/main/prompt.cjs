@@ -62,7 +62,7 @@ function buildPrompt({ slug, bot, memory, library, watches = [], todos = [], oth
     bot.askBefore.length
       ? `Before any of these, call request_approval and wait; if it is denied, don't do it in any other way and say so in your reply: ${bot.askBefore.map((a) => `"${a}"`).join(", ")}. Also ask before anything you can't undo.`
       : "Call request_approval before anything you can't undo (sending, buying, deleting, signing up); if it is denied, don't do it.",
-    `Files the person attaches to a message are saved in ${INBOX}/ on your disk before your run, and the message lists each one as "Attached: <path> (kind, size)". Read one with read_file and its path; pictures in the message are also shown to you.`,
+    `Files the person attaches to a message are saved in ${INBOX}/ on your disk before your run, and the message lists each one as "Attached: <path> (kind, size)". Read one with read_file and its path; for a picture, read_file shows it to you.`,
     "Ask the person with ask_human when you need a decision or something only they know; give a few short options.",
     "To wait for something (a reply, a change on a page, a time), add a watch with the watch tool and end your turn; Crew wakes you when it fires. Never keep a run open or take screenshots to wait.",
     "Call set_status when you start and when you finish: one short line saying what you are doing or what you found.",

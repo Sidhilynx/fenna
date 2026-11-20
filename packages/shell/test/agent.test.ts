@@ -103,20 +103,11 @@ describe("assistant host: event parsing", () => {
     expect(prompt).toContain("- mockup.jpg: /tmp/images/mockup.jpg");
     expect(prompt).toContain("User: Make it look like this");
 
-    // Antigravity input: stream-json with multimodal image blocks and user text
+    // Antigravity input: text only (its stream refuses image blocks); the prompt names the image files
     const agyInput = JSON.parse(_test.inputFor("antigravity", prompt, testImages).trim());
     expect(agyInput.event).toBe("user");
     expect(agyInput.message.role).toBe("user");
-    expect(agyInput.message.content).toHaveLength(3);
-    expect(agyInput.message.content[0]).toEqual({
-      type: "image",
-      source: { type: "base64", media_type: "image/png", data: "iVBORw0KGgoAAAANSUhEUg==" },
-    });
-    expect(agyInput.message.content[1]).toEqual({
-      type: "image",
-      source: { type: "base64", media_type: "image/jpeg", data: "/9j/4AAQSkZJRg==" },
-    });
-    expect(agyInput.message.content[2]).toEqual({ type: "text", text: prompt });
+    expect(agyInput.message.content).toEqual([{ type: "text", text: prompt }]);
 
     // Claude Code input: stream-json with Anthropic multimodal image content blocks
     const claudeInput = JSON.parse(_test.inputFor("claude", prompt, testImages).trim());

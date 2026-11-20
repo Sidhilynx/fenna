@@ -239,7 +239,7 @@ function createRunner({ store, startRun, serversFor, link, waits, emitLive, onCh
       const path = ev.path ?? known.path;
       if (isLibraryCall(merged.server, merged.tool)) merged.doc = known.doc || libraryFolder(path) || folderFromResult(ev.result) || null;
       prev.set(ev.id, { ...merged, path });
-      record(run, { type: "tool", at: iso(), id: String(ev.id), ...merged, status: ev.status });
+      record(run, { type: "tool", at: iso(), id: String(ev.id), ...merged, status: ev.status, ...(ev.status === "failed" && ev.error ? { error: String(ev.error).slice(0, 500) } : {}) });
       if (ev.status === "running") onChange();
     } else if (ev.type === "done") {
       // A CLI that ends "successfully" having done and said nothing was stopped by something it didn't report.

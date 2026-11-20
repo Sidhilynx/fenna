@@ -315,14 +315,8 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
   // Files out to the person's computer: a native drag from the window, and a save dialog for a copy.
   const transfer = createTransfer({ disk, electron: require("electron"), iconFile: path.join(__dirname, "..", "..", "build", "icon.png") });
   handle("crew:saveCopy", (e, slug, p) => transfer.saveCopy(e.sender, slugArg(slug), str(p, "The file", 4096)));
-  ipcMain.on("crew:dragOut", (e, slug, paths) => {
-    try {
-      assertSender(e);
-      transfer.dragOut(e.sender, slugArg(slug), paths);
-    } catch {
-      // A drag can't say why it didn't start; the page only starts one for files it has already checked.
-    }
-  });
+  // Resolves when the native drag ends (on Windows startDrag returns only after the drop).
+  handle("crew:dragOut", (e, slug, paths) => transfer.dragOut(e.sender, slugArg(slug), paths));
   handle("crew:newDoc", (_e, slug, kind, title) => disk.newDoc(slugArg(slug), kind, typeof title === "string" ? title : ""));
   handle("crew:term", (_e, slug, line, cwd) => {
     if (cwd !== undefined && cwd !== null && (typeof cwd !== "string" || cwd.length > 4096)) throw new Error("That folder isn't a path on the bot's disk.");

@@ -39,7 +39,7 @@ export interface RunAttachment {
 export type RunEvent =
   | { type: "start"; at: string; runId: string; trigger: RunTrigger; text: string; from: string | null; team: string | null; cli: CliKind; model: string; chat?: string; attachments?: RunAttachment[] }
   | { type: "text"; at: string; text: string }
-  | { type: "tool"; at: string; id: string; server: string; tool: string; label: string; status: ToolStatus; doc?: string | null }
+  | { type: "tool"; at: string; id: string; server: string; tool: string; label: string; status: ToolStatus; doc?: string | null; error?: string }
   | { type: "ask"; at: string; askId: string; question: string; options: string[]; multi: boolean }
   | { type: "answer"; at: string; askId: string; answer: string[]; by: AnsweredBy }
   | { type: "approval"; at: string; approvalId: string; action: string; details: string; source: ApprovalSource; tool: string | null }
