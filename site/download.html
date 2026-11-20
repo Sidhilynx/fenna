@@ -15,7 +15,7 @@
   <link rel="apple-touch-icon" href="assets/icon/apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Silkscreen&display=swap">
   <link rel="stylesheet" href="css/style.css">
   <script>try{var t=localStorage.getItem("fenna-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 </head>
@@ -34,11 +34,11 @@
     </div>
   </header>
 
-  
   <main id="main">
-    <section class="dl-hero">
+    <section class="page-head field-host" data-field="glow">
+      <canvas class="field" aria-hidden="true"></canvas>
       <div class="wrap">
-        <p class="eyebrow mono">Fenna Crew <span data-version>0.9</span> · Free and open source</p>
+        <p class="eyebrow">Fenna Crew <span data-version>0.9</span> · Free and open source</p>
         <h1>Download Fenna Crew.</h1>
         <p class="lede">Windows, macOS and Linux. No account. When a new version is out, Home shows it with a download link. Nothing installs by itself.</p>
         <div class="actions">
@@ -57,20 +57,20 @@
 
     <section class="sec" id="unsigned">
       <div class="wrap">
-        <p class="eyebrow mono">First start</p>
+        <p class="eyebrow">First start</p>
         <h2>Opening an unsigned app.</h2>
         <p class="lede">The apps aren't code-signed yet, so your system will ask before the first start.</p>
         <ul class="os-steps">
-          <li><span class="mono">Windows</span><p>"Windows protected your PC" → <strong>More info</strong> → <strong>Run anyway</strong>.</p></li>
-          <li><span class="mono">macOS</span><p>Open the app once, then <strong>System Settings → Privacy &amp; Security → Open Anyway</strong>.</p></li>
-          <li><span class="mono">Linux AppImage</span><p>Make it executable (<code>chmod +x Fenna-*.AppImage</code>), then run it.</p></li>
+          <li><span class="px-label">Windows</span><p>"Windows protected your PC" → <strong>More info</strong> → <strong>Run anyway</strong>.</p></li>
+          <li><span class="px-label">macOS</span><p>Open the app once, then <strong>System Settings → Privacy &amp; Security → Open Anyway</strong>.</p></li>
+          <li><span class="px-label">Linux AppImage</span><p>Make it executable (<code>chmod +x Fenna-*.AppImage</code>), then run it.</p></li>
         </ul>
       </div>
     </section>
 
     <section class="sec" id="editors">
       <div class="wrap">
-        <p class="eyebrow mono">The editors</p>
+        <p class="eyebrow">The editors</p>
         <h2>Each editor is its own free app.</h2>
         <p class="lede">Crew opens them as windows in each bot's computer. Any AI can also drive them through MCP.</p>
         <div class="tablewrap">
@@ -105,6 +105,7 @@
 
   <script src="js/faces.js"></script>
   <script src="js/site.js"></script>
+  <script src="js/field.js"></script>
   <script src="js/download.js"></script>
 </body>
 </html>

@@ -4,19 +4,19 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Fenna Crew: AI bots that work on your computer</title>
-  <meta name="description" content="Give an AI bot a job, a schedule and its own computer. Fenna Crew runs on Claude Code, Codex or Antigravity with the plan you already pay for. Free and open source.">
+  <meta name="description" content="Always-on AI bots, each with a job, a schedule and a small computer of its own. New: Builder makes the apps and tools you ask for, then uses them for you. Runs on the Claude Code, Codex or Antigravity plan you already pay for. Free and open source.">
   <link rel="canonical" href="https://fenna.sidhilynx.com/">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://fenna.sidhilynx.com/">
   <meta property="og:title" content="Fenna Crew: AI bots that work on your computer">
-  <meta property="og:description" content="Give an AI bot a job, a schedule and its own computer. Fenna Crew runs on Claude Code, Codex or Antigravity with the plan you already pay for. Free and open source.">
+  <meta property="og:description" content="Always-on AI bots with a job, a schedule and a computer of their own. New: Builder makes the apps you ask for, tests them, then uses them for you. Free and open source.">
   <meta property="og:image" content="https://fenna.sidhilynx.com/assets/og.png">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" type="image/png" sizes="32x32" href="assets/icon/favicon-32.png">
   <link rel="apple-touch-icon" href="assets/icon/apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Silkscreen&display=swap">
   <link rel="stylesheet" href="css/style.css">
   <script>try{var t=localStorage.getItem("fenna-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 </head>
@@ -26,6 +26,7 @@
     <div class="wrap nav-in">
       <a class="brand" href="./"><img class="brand-icon" src="assets/icon/icon-64.png" width="32" height="32" alt="">Fenna Crew</a>
       <nav class="nav-links" aria-label="Main">
+        <a href="#builder">Builder</a>
         <a href="download.html">Download</a>
         <a href="changelog.html">Changelog</a>
         <a href="https://github.com/Sidhilynx/fenna">GitHub</a>
@@ -36,223 +37,217 @@
   </header>
 
   <main id="main">
-    <section class="hero">
-      <div class="wrap">
-        <p class="eyebrow mono">Fenna Crew 0.9 · Free and open source</p>
-        <h1>Bots that keep working when you stop.</h1>
-        <p class="lede">Give a bot a job and a schedule. It works on its own computer, with a browser that stays signed in, its own files and real editors, using the AI plan you already pay for.</p>
-        <div class="actions">
-          <a class="btn primary" data-dl="primary" href="https://github.com/Sidhilynx/fenna/releases/latest">Download</a>
-          <a class="btn" href="https://github.com/Sidhilynx/fenna">View on GitHub</a>
-        </div>
-        <p class="fine mono">Windows, macOS and Linux · Runs on Claude Code, Codex or Antigravity · No account</p>
-        <a class="ph-badge" href="https://www.producthunt.com/products/fenna-crew?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-fenna-crew" target="_blank" rel="noopener noreferrer"><img alt="Fenna Crew on Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1324314&amp;theme=neutral&amp;t=1795181668631"></a>
-
-        <div class="stage">
-          <canvas aria-hidden="true"></canvas>
-          <div class="stage-in">
-            <div class="window">
-              <div class="shelf" aria-hidden="true">
-                <span class="face" data-face="owl" data-color="sea" data-mood="need" data-sit style="--d:0s"></span>
-                <span class="face" data-face="lantern" data-color="ochre" data-mood="work" data-sit style="--d:.4s"></span>
-                <span class="face" data-face="sprout" data-color="moss" data-mood="sleep" data-sit></span>
-                <span class="face" data-face="crate" data-color="plum" data-mood="idle" data-sit></span>
-                <span class="face" data-face="kite" data-color="iris" data-mood="work" data-sit style="--d:1s"></span>
-              </div>
-              <div class="shot">
-                <img class="shot-dark" src="assets/shots/overview.jpg" width="1440" height="900" alt="The Fenna Crew overview: two approvals waiting, live screens of two bots, and a list of five bots with their faces and status lines.">
-                <img class="shot-light" loading="lazy" src="assets/shots/overview-light.jpg" width="1440" height="900" alt="The same Fenna Crew overview in the light theme.">
-              </div>
-            </div>
+    <section class="hero field-host" data-field="hero">
+      <canvas class="field" aria-hidden="true"></canvas>
+      <div class="wrap hero-in">
+        <div class="hero-copy">
+          <a class="new" href="#builder"><span class="chip px-label">New</span><span>Builder makes the apps it needs</span></a>
+          <h1>Bots that keep working when you stop.</h1>
+          <p class="lede">Each bot has one job, a schedule and a small computer of its own: a browser that stays signed in, its own files, and a screen you can watch. It runs on the AI plan you already pay for.</p>
+          <div class="actions">
+            <a class="btn primary" data-dl="primary" href="https://github.com/Sidhilynx/fenna/releases/latest">Download</a>
+            <a class="btn" href="https://github.com/Sidhilynx/fenna">View on GitHub</a>
           </div>
+          <p class="fine"><span>Windows, macOS and Linux</span><span>Claude Code, Codex or Antigravity</span><span>No account</span></p>
+          <a class="ph-badge" href="https://www.producthunt.com/products/fenna-crew?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-fenna-crew" target="_blank" rel="noopener noreferrer"><img alt="Fenna Crew on Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1324314&amp;theme=neutral&amp;t=1795181668631"></a>
         </div>
+        <figure class="hero-bot">
+          <button class="face-slot" type="button" data-face-slot aria-label="Show the next bot"></button>
+          <figcaption aria-live="polite">
+            <span class="bot-name"><span class="px-label" data-bot-name>Builder</span><span class="chip px-label" data-bot-when>On request</span></span>
+            <span class="bot-job" data-bot-job>Builds the apps, tools and small websites you ask for, tests them, then uses them for you.</span>
+            <span class="bot-pager" data-bot-pager aria-hidden="true"></span>
+          </figcaption>
+        </figure>
       </div>
     </section>
 
-    <section class="section" id="crew">
+    <section class="sec" id="watch">
       <div class="wrap">
-        <p class="eyebrow mono">One job each</p>
-        <h2>Every bot has one job, a schedule and a face.</h2>
-        <div class="cards4">
-          <article class="card px drop">
-            <div class="top"><span class="face" data-face="owl" data-color="sea" data-mood="idle" style="--u:5px"></span><span class="chip">Weekdays 09:00</span></div>
-            <h3>Inbox</h3>
-            <p>Sorts new mail and drafts the replies. Sends nothing without asking.</p>
-          </article>
-          <article class="card px drop">
-            <div class="top"><span class="face" data-face="lantern" data-color="ochre" data-mood="work" style="--u:5px"></span><span class="chip">Every 2h</span></div>
-            <h3>Research</h3>
-            <p>Watches three pricing pages and tells you when one changes.</p>
-          </article>
-          <article class="card px drop">
-            <div class="top"><span class="face" data-face="sprout" data-color="moss" data-mood="idle" style="--u:5px"></span><span class="chip">Mondays 10:00</span></div>
-            <h3>Standup</h3>
-            <p>Writes the team update in a Fenna doc from last week's work.</p>
-          </article>
-          <article class="card px drop">
-            <div class="top"><span class="face" data-face="crate" data-color="plum" data-mood="sleep" style="--u:5px"></span><span class="chip">Fridays 17:00</span></div>
-            <h3>Books</h3>
-            <p>Files receipts into a Fenna sheet and flags what doesn't add up.</p>
-          </article>
-        </div>
-        <p class="after">Describe the job in a sentence. Crew writes the bot, and you can change any of it.</p>
-      </div>
-    </section>
-
-    <section class="section" id="computer">
-      <div class="wrap">
-        <div class="split">
+        <div class="sec-head wide">
           <div>
-            <p class="eyebrow mono">Its own computer</p>
-            <h2>Each bot works on a computer of its own.</h2>
+            <p class="eyebrow">Its own computer</p>
+            <h2>Watch it work. Step in when it needs you.</h2>
           </div>
-          <p class="muted side">A real browser that keeps its sign-ins, a disk for its files, and Fenna's docs, sheets, slides, whiteboard and design editors as windows. It never touches your desktop, your browser or your files.</p>
+          <p class="lede">Every bot has a small computer: a browser that keeps its sign-ins, a disk for its files, and Fenna's editors as windows. It never touches your desktop, your browser or your files.</p>
         </div>
-        <div class="stage">
-          <canvas aria-hidden="true"></canvas>
-          <div class="stage-in plain">
-            <div class="pair">
-              <div class="shot a"><img src="assets/shots/computer.jpg" width="1440" height="900" loading="lazy" alt="A bot's own desktop in Fenna Crew: desktop icons for a browser, Fenna Docs and Sheets, with its Files and Activity windows open."></div>
-              <div class="shot b"><img src="assets/shots/computer-doc.jpg" width="1440" height="900" loading="lazy" alt="A Fenna doc open on a bot's computer: a team update with Blocked, Shipped last week and Next sections."></div>
+
+        <div class="watch-stage">
+          <div class="screen px" data-screen>
+            <div class="screen-bar">
+              <span class="face" data-face="crate" data-color="plum" data-mood="work" style="--u:2px"></span>
+              <span class="who"><b>Books's computer</b><span data-screen-status>Matching receipts to the November sheet</span></span>
+              <span class="seg" role="group" aria-label="Who controls the computer">
+                <button type="button" aria-pressed="true" data-watch>Watching</button>
+                <button type="button" aria-pressed="false" data-take>Take control</button>
+              </span>
+            </div>
+            <div class="screen-view">
+              <img src="assets/shots/computer.jpg" width="1440" height="900" loading="lazy" alt="Books's computer in Fenna Crew: desktop icons for its browser, files, Fenna Docs and Sheets, with its Files window and an Activity window that shows an approval waiting.">
+              <div class="held-bar"><span>You are in control. Books is paused and does not see what you type.</span><button class="btn tiny" type="button" data-give>Give back</button></div>
+              <div class="bot-cursor" data-cursor aria-hidden="true"><span class="tag">Books</span></div>
+            </div>
+          </div>
+
+          <div class="approval px drop" data-approval>
+            <div class="row"><span class="face" data-face="crate" data-color="plum" data-mood="need" style="--u:2px"></span><b>Books</b><span>needs your OK</span><span class="need-dot" aria-hidden="true"></span></div>
+            <p class="ask">Send the November reconciliation to accountant@example.com</p>
+            <div class="acts">
+              <button class="btn small primary" type="button" data-answer="once">Approve once</button>
+              <button class="btn small" type="button" data-answer="always">Always for Books</button>
+              <button class="btn small" type="button" data-answer="deny">Deny</button>
+            </div>
+            <p class="result" aria-live="polite" data-result></p>
+            <button class="btn tiny again" type="button" data-again>Ask again</button>
+          </div>
+        </div>
+
+        <dl class="specs cols">
+          <div><dt class="px-label">Ask me before</dt><dd>Name what needs your OK, like sending, paying or deleting. The bot stops and asks with a card like this one.</dd></div>
+          <div><dt class="px-label">Passwords</dt><dd>Saved logins live in a vault on this computer. Crew fills them in; the model never reads them.</dd></div>
+          <div><dt class="px-label">Schedules</dt><dd>A bot wakes on a schedule, a site notification or a change on a page. It doesn't sit there using up your plan.</dd></div>
+          <div><dt class="px-label">Group chats</dt><dd>Put bots in a group chat. Message the lead, or @mention who should answer.</dd></div>
+          <div><dt class="px-label">Connectors</dt><dd>Give a bot MCP connectors and choose allow, ask or off for each tool.</dd></div>
+          <div><dt class="px-label">Editors</dt><dd>Fenna's own editors open as windows on its computer.
+            <span class="apps-row"><span><img src="assets/icons/docs.png" width="22" height="22" alt="" loading="lazy">Docs</span><span><img src="assets/icons/sheets.png" width="22" height="22" alt="" loading="lazy">Sheets</span><span><img src="assets/icons/slides.png" width="22" height="22" alt="" loading="lazy">Slides</span><span><img src="assets/icons/whiteboard.png" width="22" height="22" alt="" loading="lazy">Whiteboard</span><span><img src="assets/icons/design.png" width="22" height="22" alt="" loading="lazy">Design</span></span></dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <section class="sec builder field-host" id="builder" data-field="construct">
+      <canvas class="field" aria-hidden="true"></canvas>
+      <div class="wrap">
+        <div class="sec-head wide">
+          <div>
+            <p class="eyebrow">New: Builder</p>
+            <h2>Ask for an app. Builder makes it, tests it, then uses it for you.</h2>
+          </div>
+          <p class="lede">Every crew now comes with Builder. Say what you want. It builds the app on its own computer, clicks through it to check that it works, and gives itself a tool to use it.</p>
+        </div>
+
+        <div class="bstage px" data-bstage aria-hidden="true">
+          <div class="bchat">
+            <div class="bhead"><span class="face" data-face="crate" data-color="ochre" data-mood="work" style="--u:2px"></span><span><b>Builder</b><small>Builds apps, tools and small websites</small></span></div>
+            <ol class="blog">
+              <li class="you" data-at="300">Build me a habit tracker.</li>
+              <li class="typing" data-at="900" data-off="1800"><i></i><i></i><i></i></li>
+              <li class="step" data-at="1800">Wrote <code>Apps/habits/app.json</code></li>
+              <li class="step" data-at="2500">Wrote <code>Apps/habits/index.html</code></li>
+              <li class="step" data-at="4900">Opened Habits and clicked through it</li>
+              <li class="bot" data-at="7000">Habits is on my desktop. It has a tool, <code>tick</code>, so I can use it for you.</li>
+              <li class="you" data-at="8600">Tick reading for today.</li>
+              <li class="step" data-at="9400"><code>app__habits__tick</code> reading</li>
+              <li class="bot" data-at="10600">Done. Reading is ticked for today, 4 days in a row.</li>
+            </ol>
+            <div class="bcomposer">Message Builder</div>
+          </div>
+          <div class="bdesk" data-bdesk>
+            <canvas class="bbuild" data-bbuild></canvas>
+            <div class="dicons">
+              <span class="dicon"><span class="pxi" data-icon="browser"></span>Browser</span>
+              <span class="dicon"><span class="pxi" data-icon="files"></span>Files</span>
+              <span class="dicon"><span class="pxi" data-icon="terminal"></span>Terminal</span>
+              <span class="dicon later" data-later><span class="pxi" data-icon="activity"></span>Habits</span>
+            </div>
+            <div class="hwin" data-hwin>
+              <div class="hwin-bar"><span class="pxi" data-icon="activity"></span>Habits<i></i><i></i></div>
+              <div class="hwin-body">
+                <div class="hwin-title"><b>This week</b><span data-streak>Reading: 3 days in a row</span></div>
+                <table class="htable">
+                  <thead><tr><th></th><th>M</th><th>T</th><th>W</th><th class="today">T</th><th>F</th><th>S</th><th>S</th><th></th></tr></thead>
+                  <tbody>
+                    <tr><td>Reading</td><td><i class="sq on"></i></td><td><i class="sq on"></i></td><td><i class="sq on"></i></td><td><i class="sq today" data-tick></i></td><td><i class="sq"></i></td><td><i class="sq"></i></td><td><i class="sq"></i></td><td class="n" data-count>3</td></tr>
+                    <tr><td>Walk</td><td><i class="sq on"></i></td><td><i class="sq"></i></td><td><i class="sq" data-try></i></td><td><i class="sq today"></i></td><td><i class="sq"></i></td><td><i class="sq"></i></td><td><i class="sq"></i></td><td class="n">0</td></tr>
+                    <tr><td>Water</td><td><i class="sq on"></i></td><td><i class="sq on"></i></td><td><i class="sq"></i></td><td><i class="sq today"></i></td><td><i class="sq"></i></td><td><i class="sq"></i></td><td><i class="sq"></i></td><td class="n">0</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="bot-cursor" data-bcursor><span class="tag">Builder</span></div>
+            <div class="dtask">
+              <span class="slot on"><span class="face" data-face="crate" data-color="ochre" data-mood="work" style="--u:1px"></span></span>
+              <span class="slot"><span class="pxi" data-icon="browser" style="--u:1px"></span></span>
+              <span class="slot"><span class="pxi" data-icon="files" style="--u:1px"></span></span>
+              <span class="slot" data-later-task hidden><span class="pxi" data-icon="activity" style="--u:1px"></span></span>
+              <span class="clock">17:32</span>
             </div>
           </div>
         </div>
-      </div>
-    </section>
-
-    <section class="section" id="features">
-      <div class="wrap">
-        <div class="feats nohead">
-          <article class="feat px drop">
-            <div class="ui mini" aria-hidden="true">
-              <div class="box">
-                <div class="ctl">You are in control. Inbox is paused and does not see what you type.</div>
-                <div class="page"></div>
-              </div>
-              <div class="row"><span class="face" data-face="owl" data-color="sea" data-mood="sleep" style="--u:2px"></span><span class="grow sub">Inbox · paused</span><span class="b2 pri">Give back</span></div>
-            </div>
-            <div class="txt">
-              <h3>Watch, or take control.</h3>
-              <p>Open any bot's screen and see it work. Take control to type a password; the bot pauses and doesn't see what you type.</p>
-            </div>
-          </article>
-          <article class="feat px drop">
-            <div class="ui mini" aria-hidden="true">
-              <div class="box">
-                <div class="row"><span class="face" data-face="owl" data-color="sea" data-mood="need" style="--u:2px"></span><span class="grow"><span class="name">Inbox</span> <span class="amber">needs your OK</span></span></div>
-                <p class="ask">Send 3 replies to customers.</p>
-                <div class="acts"><span class="b2 pri">Approve once</span><span class="b2">Always</span><span class="b2">Deny</span></div>
-              </div>
-              <div class="row"><span class="chip">Sending</span><span class="chip">Paying</span><span class="chip">Deleting</span></div>
-            </div>
-            <div class="txt">
-              <h3>It asks first.</h3>
-              <p>Name what needs your OK (sending, paying, deleting). The bot stops and asks with an approval card.</p>
-            </div>
-          </article>
-          <article class="feat px drop">
-            <div class="ui mini" aria-hidden="true">
-              <div class="box">
-                <div class="row"><span class="grow name">billing.example.com</span><span class="secret"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
-                <div class="row gap"><span class="grow sub">Filled in by Crew</span><span class="seg"><span class="on">Allow</span><span>Ask</span></span></div>
-              </div>
-              <div class="row"><span class="face" data-face="rover" data-color="moss" data-mood="work" style="--u:2px"></span><span class="sub">The bot never reads the password.</span></div>
-            </div>
-            <div class="txt">
-              <h3>It never sees your passwords.</h3>
-              <p>Saved logins live in a vault on this computer. Crew fills them in; the model never reads them.</p>
-            </div>
-          </article>
-          <article class="feat px drop">
-            <div class="ui mini" aria-hidden="true">
-              <div class="msg me"><span class="t">@Research what changed on the pricing page?</span></div>
-              <div class="msg"><span class="face" data-face="lantern" data-color="ochre" data-mood="work" style="--u:2px"></span><span class="t">One price changed. Details are in the doc.</span></div>
-              <div class="msg"><span class="face" data-face="sprout" data-color="moss" data-mood="idle" style="--u:2px"></span><span class="t">I will draft the update from that.</span></div>
-            </div>
-            <div class="txt">
-              <h3>Bots work as a team.</h3>
-              <p>Put bots in a group chat. Message the lead, or @mention who should answer.</p>
-            </div>
-          </article>
-          <article class="feat px drop">
-            <div class="ui mini" aria-hidden="true">
-              <div class="row"><span class="face" data-face="crate" data-color="plum" data-mood="sleep" style="--u:2px"></span><span class="grow sub">Asleep until</span><span class="chip">Fridays 17:00</span></div>
-              <div class="row"><span class="face" data-face="lantern" data-color="ochre" data-mood="work" style="--u:2px"></span><span class="grow sub">Woken by</span><span class="chip">Page change</span></div>
-              <div class="row"><span class="face" data-face="owl" data-color="sea" data-mood="work" style="--u:2px"></span><span class="grow sub">Woken by</span><span class="chip">Site notification</span></div>
-            </div>
-            <div class="txt">
-              <h3>Wakes on time, or on a change.</h3>
-              <p>Schedules, site notifications or a change on a page wake a bot. It doesn't sit there burning your plan.</p>
-            </div>
-          </article>
-          <article class="feat px drop">
-            <div class="ui mini" aria-hidden="true">
-              <div class="box">
-                <div class="row"><span class="grow name">search</span><span class="seg"><span class="on">Allow</span><span>Ask</span><span>Off</span></span></div>
-                <div class="row gap"><span class="grow name">create_issue</span><span class="seg"><span>Allow</span><span class="on">Ask</span><span>Off</span></span></div>
-                <div class="row gap"><span class="grow name">delete_issue</span><span class="seg"><span>Allow</span><span>Ask</span><span class="on">Off</span></span></div>
-              </div>
-            </div>
-            <div class="txt">
-              <h3>Connect your tools.</h3>
-              <p>Give a bot MCP connectors and choose allow, ask or off for each tool.</p>
-            </div>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <section class="section" id="plan">
-      <div class="wrap">
-        <p class="eyebrow mono">No account</p>
-        <h2>Your AI plan. Your computer. Nothing in between.</h2>
-        <div class="three">
-          <div class="plan px"><p class="mono">Claude Code</p><h3>Your Claude plan</h3></div>
-          <div class="plan px"><p class="mono">Codex</p><h3>Your ChatGPT plan</h3></div>
-          <div class="plan px"><p class="mono">Antigravity</p><h3>Your Google account</h3></div>
-        </div>
-        <div class="plan-note">
-          <p>Bots run through the official app you sign in to. Fenna has no servers, no account and no copy of your files. It is free and open source under the AGPL.</p>
-          <p><a class="link" href="https://github.com/Sidhilynx/fenna/blob/main/PRIVACY.md">Read exactly what the app sends →</a></p>
-        </div>
-      </div>
-    </section>
-
-    <section class="section" id="editors">
-      <div class="wrap">
-        <p class="eyebrow mono">Five editors</p>
-        <h2>The editors your bots work in.</h2>
-        <ul class="editors">
-          <li><img src="assets/icons/slides.png" width="56" height="56" loading="lazy" alt=""><div><h3>Fenna Slides</h3><p>Decks and presentations, with present mode and PowerPoint, PDF and web export.</p></div></li>
-          <li><img src="assets/icons/docs.png" width="56" height="56" loading="lazy" alt=""><div><h3>Fenna Docs</h3><p>Memos, plans and notes, with tabs, comments and suggested edits, and Word and Markdown export.</p></div></li>
-          <li><img src="assets/icons/sheets.png" width="56" height="56" loading="lazy" alt=""><div><h3>Fenna Sheets</h3><p>Spreadsheets with formulas, charts and conditional formatting, and Excel and CSV import and export.</p></div></li>
-          <li><img src="assets/icons/whiteboard.png" width="56" height="56" loading="lazy" alt=""><div><h3>Fenna Whiteboard</h3><p>Brainstorms, flowcharts and retros on an infinite canvas.</p></div></li>
-          <li><img src="assets/icons/design.png" width="56" height="56" loading="lazy" alt=""><div><h3>Fenna Design</h3><p>A canvas of artboards for screens, landing pages, posters and social posts, exported to PNG, SVG and PDF.</p></div></li>
-          <li class="note"><p>Each is also its own free app that any AI can drive through MCP.</p></li>
-        </ul>
-      </div>
-    </section>
-
-    <section class="section" id="start">
-      <div class="wrap">
-        <p class="eyebrow mono">Three steps</p>
-        <h2>Start in three steps.</h2>
-        <ol class="steps">
-          <li><p class="mono">01</p><h3>Install Crew.</h3><p>Free, for Windows, macOS and Linux. No account to make.</p></li>
-          <li><p class="mono">02</p><h3>Sign in.</h3><p>Sign in to Claude Code, Codex or Antigravity from inside the app.</p></li>
-          <li><p class="mono">03</p><h3>Describe the first job.</h3><p>The lead bot, Fenna, helps you set it up.</p></li>
+        <ol class="sr-only">
+          <li>You: Build me a habit tracker.</li>
+          <li>Builder writes the app's files, opens the app on its own computer and clicks through it.</li>
+          <li>Builder: Habits is on my desktop. It has a tool, tick, so I can use it for you.</li>
+          <li>You: Tick reading for today.</li>
+          <li>Builder calls the app's tick tool. Done. Reading is ticked for today, 4 days in a row.</li>
         </ol>
+        <div class="bfoot"><span>An example run, played in the page.</span><button class="btn small" type="button" data-replay hidden>Play again</button></div>
+
+        <dl class="specs">
+          <div><dt class="px-label">Sealed</dt><dd>An app runs in its own session with no Node and no network, except the sites you allow when you first open it.</dd></div>
+          <div><dt class="px-label">Its own tools</dt><dd>An app can define tools. The bot calls them like any other tool, so it gives itself new abilities that stay sealed.</dd></div>
+          <div><dt class="px-label">Websites too</dt><dd>Builder also builds and runs small websites in a project folder, and opens them in its own browser to test. Its first command in a project asks you first.</dd></div>
+        </dl>
       </div>
     </section>
 
-    <section class="section final" id="hire">
+    <section class="sec field-host" id="files" data-field="scatter">
+      <canvas class="field" aria-hidden="true"></canvas>
+      <div class="wrap files-in">
+        <div>
+          <p class="eyebrow">Files</p>
+          <h2>Drop in a file. It reads it.</h2>
+          <p class="lede">Drag files and images into a bot's chat. Bots read Excel, CSV and images, hand files to each other, and every file opens in a viewer on the bot's computer.</p>
+        </div>
+        <div class="fchat px">
+          <div class="fmsg you">
+            <div class="t">
+              <div class="chips">
+                <span class="chip-file"><span class="pxi" data-icon="sheet"></span>november.xlsx <small>3 sheets</small></span>
+                <span class="chip-file"><span class="pxi" data-icon="image"></span>receipt.jpg</span>
+              </div>
+              <span class="bubble">Does this receipt match the sheet?</span>
+            </div>
+          </div>
+          <div class="fmsg">
+            <span class="face" data-face="crate" data-color="plum" data-mood="idle" style="--u:2px"></span>
+            <div class="t"><span class="who">Books</span>Not quite. The receipt says 48.20 and row 14 of the November sheet says 42.80. Should I fix the row?</div>
+          </div>
+          <p class="fnote"><span class="pxi" data-icon="text"></span>Research sent leads.csv to Scout</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec" id="plan">
+      <div class="wrap">
+        <p class="eyebrow">No account</p>
+        <h2>Your AI plan. Your computer. Nothing in between.</h2>
+        <ul class="plans">
+          <li><span class="px-label">Claude Code</span><b>Your Claude plan</b></li>
+          <li><span class="px-label">Codex</span><b>Your ChatGPT plan</b></li>
+          <li><span class="px-label">Antigravity</span><b>Your Google account</b></li>
+        </ul>
+        <div class="plan-note">
+          <p>Bots run through the official app you sign in to. There is no Fenna account and no API key, and your files stay on your computer. Crew sends one anonymous count a day, and you can turn it off.</p>
+          <p>Fenna Crew is free and open source under the AGPL. Read the code, file an issue, or build it yourself.</p>
+          <p><a class="link" href="https://github.com/Sidhilynx/fenna/blob/main/PRIVACY.md">Read exactly what the app sends</a> · <a class="link" href="https://github.com/Sidhilynx/fenna">Source on GitHub</a></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="final field-host" id="start" data-field="reveal" data-wallpaper="assets/wallpapers/clay.png">
+      <canvas class="field" aria-hidden="true"></canvas>
       <div class="wrap">
         <h2>Hire your first bot tonight.</h2>
+        <ol class="steps">
+          <li><span><b>Install Crew.</b> Free, for Windows, macOS and Linux.</span></li>
+          <li><span><b>Sign in</b> to Claude Code, Codex or Antigravity from inside the app.</span></li>
+          <li><span><b>Describe the first job.</b> Fenna, the lead bot, helps you set it up.</span></li>
+        </ol>
         <div class="actions">
           <a class="btn primary" data-dl="primary" href="https://github.com/Sidhilynx/fenna/releases/latest">Download</a>
           <a class="btn" href="https://github.com/Sidhilynx/fenna">View on GitHub</a>
         </div>
-        <p class="fine">Version 0.9. Expect rough edges, and <a class="link" href="https://github.com/Sidhilynx/fenna/issues">tell us about them</a>.</p>
+        <p class="fine">Expect rough edges, and <a class="link" href="https://github.com/Sidhilynx/fenna/issues">tell us about them</a>.</p>
       </div>
     </section>
   </main>
@@ -273,6 +268,8 @@
 
   <script src="js/faces.js"></script>
   <script src="js/site.js"></script>
+  <script src="js/field.js"></script>
+  <script src="js/home.js"></script>
   <script src="js/download.js"></script>
 </body>
 </html>

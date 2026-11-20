@@ -1,9 +1,9 @@
-/* Theme toggle, the pixel faces and the pixel field. */
+/* Theme toggle, and the pixel art drawn as crisp SVG: bot faces from the
+   app's own sprites, the colour icons of a bot's desktop, the bot's cursor. */
 (function () {
   var KEY = "fenna-theme";
   var root = document.documentElement;
   var faces = window.FENNA_FACES;
-  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
   var scheme = window.matchMedia("(prefers-color-scheme: light)");
 
   function theme() {
@@ -32,16 +32,14 @@
   syncToggle();
   scheme.addEventListener("change", function () { syncToggle(); window.dispatchEvent(new Event("fenna-theme")); });
 
-  /* Faces: crisp SVG rects from the app's own sprite data. */
+  /* Faces: one rect per sprite rect, coloured by CSS for both themes. */
   function face(el) {
     var sprite = faces && faces.sprites[el.dataset.face];
     var colors = faces && [faces.colors.dark[el.dataset.color], faces.colors.light[el.dataset.color]];
     if (!sprite || !colors[0]) return;
     var mood = el.dataset.mood || "idle";
-    var low = 0;
     var out = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">';
     sprite.rects.forEach(function (r) {
-      low = Math.max(low, r[1] + r[3]);
       out += '<rect class="' + r[4] + '" x="' + r[0] + '" y="' + r[1] + '" width="' + r[2] + '" height="' + r[3] + '"/>';
     });
     out += '<g class="eyes">';
@@ -55,75 +53,47 @@
     el.style.setProperty("--fsd", colors[0][1]);
     el.style.setProperty("--fbl", colors[1][0]);
     el.style.setProperty("--fsl", colors[1][1]);
-    if (el.hasAttribute("data-sit")) { el.classList.add("sit"); el.style.setProperty("--gap", String(16 - low)); }
   }
   document.querySelectorAll(".face[data-face]").forEach(face);
 
-  /* The pixel field: sparse squares of the face colours, a few flickering in whole steps. */
-  var STEPS = [0, 0.1, 0.2, 0.32];
-  var PITCH = 16;
-  var SIZE = 8;
+  /* The bot's desktop icons, 16 by 16, from the app's fileIcons.ts. Each letter is a palette key. */
+  var ICONS = {
+    browser: "mmmmmmmmmmmmmmmm|mmmmmmmmmmmmmmmm|mmmmmmmmmmmmmmmm|mwwwwwwwwwwwwwwm|mwwwwwwwwwwwwwwm|mwwwwbbbbbbwwwwm|mwwwbbbbbbbbwwwm|mwwwbbnnbbbbwwwm|mwwwbbnnbbbbwwwm|mwwwbbbbbnnbwwwm|mwwwbbbbbnnbwwwm|mwwwbbbbbbbbwwwm|mwwwwbbbbbbwwwwm|mwwwwwwwwwwwwwwm|mwwwwwwwwwwwwwwm|mmmmmmmmmmmmmmmm",
+    files: "mmmmmmmmmmmmmmmm|mwwwwwwwwwwwwwwm|mwwwwwwwwwwwwwwm|mwwwwwwwwwwwwwwm|mwwAAAAAwwwwwwwm|mwwAAAAAAAAAAwwm|mwwAAAAAAAAAAwwm|mwwaaaaaaaaaawwm|mwwaaaaaaaaaawwm|mwwaaaaaaaaaawwm|mwwaaaaaaaaaawwm|mwwaaaaaaaaaawwm|mwwaaaaaaaaaawwm|mwwwwwwwwwwwwwwm|mwwwwwwwwwwwwwwm|mmmmmmmmmmmmmmmm",
+    terminal: "mmmmmmmmmmmmmmmm|mwwwwwwwwwwwwwwm|mwwwwwwwwwwwwwwm|mwkkkkkkkkkkkkwm|mwkkkkkkkkkkkkwm|mwkknkkkkkkkkkwm|mwkkknkkkkkkkkwm|mwkkkknkkkkkkkwm|mwkkknkkkkkkkkwm|mwkknkkkkkkkkkwm|mwkkkkkkNNNNkkwm|mwkkkkkkkkkkkkwm|mwkkkkkkkkkkkkwm|mwwwwwwwwwwwwwwm|mwwwwwwwwwwwwwwm|mmmmmmmmmmmmmmmm",
+    activity: "mmmmmmmmmmmmmmmm|mwwwwwwwwwwwwwwm|mwwwwwwwwwwwwwwm|mwwwwwwwwwwwwwwm|mwwwwwwwwNNNwwwm|mwwwwwwwwNNNwwwm|mwwwwwnnnNNNwwwm|mwwwwwnnnNNNwwwm|mwwwwwnnnNNNwwwm|mwwnnnnnnNNNwwwm|mwwnnnnnnNNNwwwm|mwwnnnnnnNNNwwwm|mwwwwwwwwwwwwwwm|mwwwwwwwwwwwwwwm|mwwwwwwwwwwwwwwm|mmmmmmmmmmmmmmmm",
+    sheet: "................|................|..NNNNNNNNNNNN..|..NnnnnnnnnnnN..|..NnnnnnnnnnnN..|..NwwwNwwwNwwN..|..NwwwNwwwNwwN..|..NNNNNNNNNNNN..|..NwwwNwwwNwwN..|..NwwwNwwwNwwN..|..NNNNNNNNNNNN..|..NwwwNwwwNwwN..|..NwwwNwwwNwwN..|..NNNNNNNNNNNN..|................|................",
+    image: "................|................|.bbbbbbbbbbbbbb.|.bbbbbbbbbbbbbb.|.bbbbbbbbbaabbb.|.bbbbbbbbbaabbb.|.bbbbbbbbbbbbbb.|.bbnnnbbbbbbbbb.|.bnnnnnbbbbbbbb.|.nnnnnnnbbbbbbb.|.nnnnnnnnnbbbbb.|.NNNNNNNNNNNNNN.|.NNNNNNNNNNNNNN.|.NNNNNNNNNNNNNN.|................|................",
+    text: "................|...mmmmmmmmmm...|...mwwwwwwwwm...|...mwwwwwwwwm...|...mwkkkkkkwm...|...mwwwwwwwwm...|...mwkkkkkkwm...|...mwwwwwwwwm...|...mwkkkkkkwm...|...mwwwwwwwwm...|...mwkkkkwwwm...|...mwwwwwwwwm...|...mwwwwwwwwm...|...mwwwwwwwwm...|...mmmmmmmmmm...|................"
+  };
 
-  function field(canvas) {
-    var ctx = canvas.getContext("2d");
-    var cells = [];
-    var flick = [];
-    var timer = 0;
-    var visible = true;
-
-    function seeded(seed) {
-      return function () {
-        seed = (seed * 1664525 + 1013904223) % 4294967296;
-        return seed / 4294967296;
-      };
-    }
-
-    function build() {
-      var dpr = window.devicePixelRatio || 1;
-      var w = canvas.clientWidth;
-      var h = canvas.clientHeight;
-      canvas.width = Math.round(w * dpr);
-      canvas.height = Math.round(h * dpr);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      var rnd = seeded(7);
-      var names = Object.keys(faces.colors.dark);
-      cells = [];
-      for (var y = 0; y < h; y += PITCH) {
-        for (var x = 0; x < w; x += PITCH) {
-          if (rnd() < 0.085) cells.push({ x: x, y: y, c: names[Math.floor(rnd() * names.length)], a: 1 + Math.floor(rnd() * 2), f: 0 });
-        }
+  /* Rows of keys to SVG rects, merging runs of the same key on a row. */
+  function grid(rows, w, h) {
+    var out = '<svg viewBox="0 0 ' + w + " " + h + '" aria-hidden="true" focusable="false">';
+    rows.forEach(function (row, y) {
+      var x = 0;
+      while (x < row.length) {
+        var k = row[x], n = 1;
+        while (row[x + n] === k) n++;
+        if (k !== ".") out += '<rect class="' + k + '" x="' + x + '" y="' + y + '" width="' + n + '" height="1"/>';
+        x += n;
       }
-      flick = cells.filter(function () { return rnd() < 0.08; });
-      flick.forEach(function (c) { c.f = 1; });
-      draw();
-    }
-
-    function draw() {
-      var set = faces.colors[theme()];
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      cells.forEach(function (c) {
-        ctx.globalAlpha = STEPS[c.a] * (theme() === "dark" ? 1 : 1.6);
-        ctx.fillStyle = set[c.c][0];
-        ctx.fillRect(c.x, c.y, SIZE, SIZE);
-      });
-    }
-
-    function tick() {
-      flick.forEach(function (c) { c.a = Math.floor(Math.random() * STEPS.length); });
-      draw();
-    }
-
-    function run() {
-      window.clearInterval(timer);
-      if (!reduced.matches && visible) timer = window.setInterval(tick, 700);
-    }
-
-    new ResizeObserver(build).observe(canvas);
-    new IntersectionObserver(function (e) { visible = e[0].isIntersecting; run(); }).observe(canvas);
-    window.addEventListener("fenna-theme", draw);
-    reduced.addEventListener("change", run);
-    build();
-    run();
+    });
+    return out + "</svg>";
   }
-  if (faces) document.querySelectorAll(".stage canvas").forEach(field);
+
+  document.querySelectorAll(".pxi[data-icon]").forEach(function (el) {
+    var rows = ICONS[el.dataset.icon];
+    if (rows) el.innerHTML = grid(rows.split("|"), 16, 16);
+  });
+
+  /* The bot's cursor: an arrow with a dark rim, 9 by 13. */
+  var ARROW = [
+    "o........", "oo.......", "ofo......", "offo.....", "offfo....", "offffo...", "offfffo..",
+    "offffffo.", "offffoooo", "offofo...", "ofo.ofo..", "oo..ofo..", ".....oo.."
+  ];
+  var arrow = grid(ARROW, 9, 13).replace(/class="o"/g, 'class="rim"').replace(/class="f"/g, 'class="arrow"');
+  document.querySelectorAll(".bot-cursor").forEach(function (el) {
+    el.insertAdjacentHTML("afterbegin", arrow);
+  });
 })();
