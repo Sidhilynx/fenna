@@ -55,7 +55,7 @@ function ProcessRow({ bot, proc, buf, now, onOpenPort }: { bot: BotSummary; proc
         </span>
         <span className={`proc-status ${proc.status}`}>{statusText(proc)}</span>
         <span className="proc-time">{formatDuration(runTime(proc, now))}</span>
-        {proc.port !== null && (
+        {proc.port !== null && proc.status === "running" && (
           <button type="button" className="proc-port" onClick={() => onOpenPort(proc.port!)} title={`Open ${portUrl(proc.port)} in ${bot.name}'s browser`}>
             localhost:{proc.port}
           </button>

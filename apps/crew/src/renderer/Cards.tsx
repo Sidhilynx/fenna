@@ -145,7 +145,8 @@ export function ApprovalCard({ item, waiting }: { item: Approval; waiting: boole
   const fromLogin = item.source === "login";
   const [connector, tool] = fromConnector && item.tool ? item.tool.split("/") : ["", ""];
   const sub = fromConnector ? `Uses ${tool} from ${connector}.` : fromLogin ? "Uses a login from your vault, on this site only." : "";
-  const always = fromConnector ? `Allow ${tool} for this bot without asking` : "Sign in to this site for this bot without asking";
+  const fromProject = item.source === "project";
+  const always = fromConnector ? `Allow ${tool} for this bot without asking` : fromProject ? "Let this bot run commands in this project without asking" : "Sign in to this site for this bot without asking";
   return (
     <div className="card" role="group" aria-label="Approval needed">
       <div className="card-head">
@@ -163,9 +164,9 @@ export function ApprovalCard({ item, waiting }: { item: Approval; waiting: boole
           <button type="button" className="btn" disabled={busy} onClick={() => void decide(false)}>
             Deny
           </button>
-          {(fromConnector || fromLogin) && (
+          {(fromConnector || fromLogin || fromProject) && (
             <button type="button" className="btn ghost" disabled={busy} onClick={() => void decide(true, true)} title={always}>
-              Always for this bot
+              {fromProject ? "Always for this project" : "Always for this bot"}
             </button>
           )}
         </div>

@@ -464,7 +464,8 @@ function createProjects({ disk, store, runner, approve, browsers, broadcast, nod
     stop(slug, id) {
       const rec = get(slug, id);
       if (rec.status === "running") kill(rec);
-      return [...procs.values()].filter((r) => r.slug === slug).map(infoOf);
+      // The process ends a moment later; the list says stopped at once, and crew:process follows with the end time.
+      return [...procs.values()].filter((r) => r.slug === slug).map((r) => (r.stopping && r.status === "running" ? { ...infoOf(r), status: "stopped" } : infoOf(r)));
     },
 
     /** The person stopped the bot's run: its running processes stop. */

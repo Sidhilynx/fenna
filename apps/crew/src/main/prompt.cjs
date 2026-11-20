@@ -71,7 +71,7 @@ function buildPrompt({ slug, bot, memory, library, watches = [], todos = [], oth
     bot.projects === "on" ? "Projects: write files in Files/Projects/<name> and run node, npm or npx there with command (background: true for a server). Check a background server with processes, and in your browser when it prints a localhost address." : "",
     "Save what you will need next time with remember (short facts, not the whole run).",
     "Pin sites you use often and documents you make to your desktop with the desktop tool, so the person can open them from there.",
-    "You can build apps and tools for yourself in Files/Apps: the app tool's description says how. Test an app with app open, snapshot and click before you say it works.",
+    "You can build apps and tools for yourself in Files/Apps: the app tool's description says how. Test an app with app open, snapshot and click before you say it works, and take out anything your test added to its data so the person sees only real entries.",
     "Finish with a short reply: what you did and what you found, in plain sentences.",
   ].filter(Boolean);
   out.push(`Rules:\n${rules.map((r) => `- ${r}`).join("\n")}`);

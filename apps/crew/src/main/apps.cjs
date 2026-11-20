@@ -268,7 +268,11 @@ function createApps({ disk, store, broadcast = () => {}, runner, session, ipcMai
   // ── Files and grants ─────────────────────────────────────────────────
 
   /** The disk path of an app's folder, or of a file in it. Throws what the disk throws. */
-  const appPath = (name, rel = "") => ["Files", "Apps", name, rel].filter((s) => s !== "").join("/");
+  /** An app's own path on the bot's disk. A path that would leave the app's folder is refused here, naming the folder. */
+  const appPath = (name, rel = "") => {
+    if (rel !== "" && !F.insideFolder(rel)) throw new Error(`${String(rel).slice(0, 200)} is outside this app's folder. An app reads and writes only Files/Apps/${name}/; use a path inside it, like "data.json".`);
+    return ["Files", "Apps", name, rel].filter((s) => s !== "").join("/");
+  };
 
   /** A file in an app's folder: { abs, st } when it is a file, else null. */
   function fileIn(slug, name, rel) {

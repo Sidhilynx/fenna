@@ -201,7 +201,7 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
   handle("crew:decide", (_e, id, allowed, always) => {
     const w = waits.get(id);
     if (!w || w.kind !== "approval") return false;
-    return waits.answer(id, { allowed: allowed === true, always: always === true && (w.source === "connector" || w.source === "login") });
+    return waits.answer(id, { allowed: allowed === true, always: always === true && (w.source === "connector" || w.source === "login" || w.source === "project") });
   });
 
   handle("crew:teamCreate", (_e, team) => {
