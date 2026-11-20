@@ -37,7 +37,7 @@
 .ov-row, .ov-new { border-top: 2px solid var(--line); }
 .ov-row:first-child, .ov-new:first-child { border-top: 0; }
 
-/* Banners: a neutral framed panel; the one that waits on the person has a steel edge, not amber. */
+/* Banners: a neutral framed panel; the one that waits on the person has a steel edge and the attention mark. */
 .banner {
   --px-c: var(--line-strong);
   --px-edge: 0 -2px 0 0 var(--px-c), 0 2px 0 0 var(--px-c), -2px 0 0 0 var(--px-c), 2px 0 0 0 var(--px-c);
@@ -47,7 +47,7 @@
   --px-c: var(--sel);
   background: var(--panel);
 }
-.banner-dot { border-radius: 0; background: var(--sel); }
+.banner > .pixel-icon { color: var(--text); }
 
 /* The usage notice: the text, then its three buttons; they drop under the text when the window is narrow. */
 .usage-notice { flex-wrap: wrap; padding: 12px 12px 12px 16px; }

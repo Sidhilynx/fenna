@@ -49,7 +49,8 @@ export type PixelIconName =
   | "clock"
   | "send"
   | "question"
-  | "shield";
+  | "shield"
+  | "attention";
 
 export const PIXEL_ICONS: Record<PixelIconName, readonly string[]> = {
   overview: [
@@ -666,6 +667,20 @@ export const PIXEL_ICONS: Record<PixelIconName, readonly string[]> = {
     "..xxxxxxxx..",
     "...xxxxxx...",
     "....xxxx....",
+    "............",
+  ],
+  attention: [
+    "............",
+    ".xxxxxxxxxx.",
+    ".x........x.",
+    ".x...xx...x.",
+    ".x...xx...x.",
+    ".x...xx...x.",
+    ".x...xx...x.",
+    ".x........x.",
+    ".x...xx...x.",
+    ".x...xx...x.",
+    ".xxxxxxxxxx.",
     "............",
   ],
 };

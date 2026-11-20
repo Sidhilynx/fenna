@@ -5,6 +5,7 @@
 import type { CSSProperties } from "react";
 import type { Avatar as AvatarId, AvatarColor, Mood } from "@opendeck/crew";
 import { GRID, MASCOT, SPRITES, eyeRects, spriteRects } from "./pixels.ts";
+import { PixelIcon } from "./PixelIcon.tsx";
 
 interface AvatarProps {
   avatar: AvatarId;
@@ -35,12 +36,12 @@ export function Avatar({ avatar, color, mood = "idle", size, title }: AvatarProp
   return <Art avatar={avatar} mood={mood} size={size} label={title ?? avatar} style={style} />;
 }
 
-/** The face with the amber dot when the bot is waiting on the person. `ring` outlines it as selected. */
+/** The face with the attention mark when the bot is waiting on the person. `ring` outlines it as selected. */
 export function Face({ avatar, color, mood = "idle", size, ring = false, title }: AvatarProps & { ring?: boolean }) {
   return (
     <span className={ring ? "face face-ring" : "face"}>
       <Avatar avatar={avatar} color={color} mood={mood} size={size} title={title} />
-      {mood === "need" && <span className="face-dot" />}
+      {mood === "need" && <span className="face-dot"><PixelIcon name="attention" size={12} /></span>}
     </span>
   );
 }

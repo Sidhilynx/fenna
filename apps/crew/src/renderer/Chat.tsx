@@ -12,6 +12,7 @@ import { Avatar } from "./Avatar.tsx";
 import { PendingFiles, SendingFiles, SentFiles, pickFiles, usePreviews } from "./AttachChips.tsx";
 import { DocCards } from "./DocCard.tsx";
 import { docCardAnchors } from "./docCards.ts";
+import { greeting } from "./greeting.ts";
 import { PixelIcon } from "./PixelIcon.tsx";
 import { Markdown } from "./Markdown.tsx";
 import { openMention } from "./mentions.ts";
@@ -236,7 +237,7 @@ export function BrainNotice({ bot }: { bot: BotSummary }) {
   };
   return (
     <div className="brain-notice" role="status">
-      <span className="brain-dot" aria-hidden />
+      <PixelIcon name="attention" size={12} />
       <span className="brain-text">{mine.installed ? `${name} isn't signed in on this computer.` : `${name} isn't installed on this computer.`}</span>
       {other && (
         <button type="button" className="btn small" onClick={swap}>
@@ -390,7 +391,22 @@ export function Messages({ bot, chat, waiting, pending, runState, library = NO_L
             Earlier messages
           </button>
         )}
-        {loaded && !items.length && !shownPending.length && !runningHere && <p className="thread-empty">{chat === RUNS_CHAT ? "Scheduled and watch runs show here." : "Nothing said yet."}</p>}
+        {loaded &&
+          !items.length &&
+          !shownPending.length &&
+          !runningHere &&
+          (chat === RUNS_CHAT ? (
+            <p className="thread-empty">Scheduled and watch runs show here.</p>
+          ) : (
+            <div className="msg bot">
+              <span className="msg-face">
+                <Avatar avatar={bot.avatar} color={bot.color} size={face} title={bot.name} />
+              </span>
+              <div className="msg-text">
+                <Markdown text={greeting(bot)} />
+              </div>
+            </div>
+          ))}
         {error && <p className="composer-error">{error}</p>}
         {items.map((it, i) => (
           <Fragment key={it.key}>

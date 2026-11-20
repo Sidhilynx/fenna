@@ -38,9 +38,8 @@
 .px-ibtn[aria-pressed="true"] { --px-c: var(--sel); background: var(--sel-soft); color: var(--text); }
 .px-ibtn:focus-visible { outline: 2px solid var(--sel); outline-offset: 2px; }
 
-/* Status tags: a framed square label. Warnings are amber, nothing else. */
-.px-tag.warn { --px-c: var(--warn); color: var(--warn); }
-.cli-state.warn { --px-c: var(--warn); }
+/* Status tags: a framed square label. */
+.px-tag.warn { color: var(--text); }
 
 /* Settings */
 .settings-shell { gap: 0; }

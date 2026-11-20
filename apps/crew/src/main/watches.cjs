@@ -28,6 +28,8 @@ const EVENT_MAX = 1500;
 /** Lines a page change lists; the last one says how many more there are. */
 const DIFF_LINES = 20;
 const BUNDLE_MS = 10_000;
+/** A notification watch that fired this recently is not fired again by its tab's title. */
+const TITLE_SKIP_MS = 10_000;
 /** Events held for a bot's next wake; the oldest drop out, with a note. */
 const BUNDLE_MAX = 50;
 const WAKES_PER_HOUR = 12;
@@ -405,6 +407,17 @@ function createWatches({ store, runner, browsers, broadcast = () => {}, onFire =
     }
   }
 
+  /** A tab's title gained an unread count: a notification watch on its site fires, unless it fired in the last 10 seconds. */
+  function onTitleCount(slug, { origin, title, count }) {
+    const hay = String(title ?? "").toLowerCase();
+    for (const w of store.readWatches(slug)) {
+      if (w.kind !== "notification" || w.origin !== origin) continue;
+      if (w.match && !hay.includes(w.match.toLowerCase())) continue;
+      if (w.fired && now().getTime() - Date.parse(w.fired) < TITLE_SKIP_MS) continue;
+      fire(slug, w.id, `New activity: the tab's title is now "${title}".`);
+    }
+  }
+
   function onElementChange(slug, id, text) {
     const w = find(slug, id);
     if (!w || w.kind !== "element") return;
@@ -453,6 +466,7 @@ function createWatches({ store, runner, browsers, broadcast = () => {}, onFire =
     addTodo,
     setTodo,
     onNotification,
+    onTitleCount,
     onElementChange,
   };
 }

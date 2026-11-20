@@ -3,7 +3,7 @@ import vm from "node:vm";
 import { describe, expect, it, vi } from "vitest";
 
 const require = createRequire(import.meta.url);
-const { rateLimiter, pushCapped, clipText, NOTIFY_PER_MINUTE, NOTICES_KEPT, NOTIFY_TEXT_CAP } = require("../src/main/browser.cjs");
+const { rateLimiter, pushCapped, clipText, unreadCount, NOTIFY_PER_MINUTE, NOTICES_KEPT, NOTIFY_TEXT_CAP } = require("../src/main/browser.cjs");
 const { NOTIFY_SOURCE, pageWatchTarget, pageWatchArm, pageWatchStop } = require("../src/main/page-scripts.cjs");
 
 describe("rate limiter", () => {
@@ -17,6 +17,28 @@ describe("rate limiter", () => {
     expect(take()).toBe(false);
     now = 60_000;
     expect(take()).toBe(true);
+  });
+});
+
+describe("unread counts in titles", () => {
+  it("reads the count a site puts first, in brackets, or in the middle of a title", () => {
+    expect(unreadCount("(3) WhatsApp")).toBe(3);
+    expect(unreadCount("Inbox (3) - Gmail")).toBe(3);
+    expect(unreadCount("[2] Slack")).toBe(2);
+    expect(unreadCount("(12) Messenger")).toBe(12);
+  });
+
+  it("is null when the title has no count, and words in brackets are not counts", () => {
+    expect(unreadCount("WhatsApp")).toBeNull();
+    expect(unreadCount("(beta) Site")).toBeNull();
+    expect(unreadCount("Notes (draft) - Docs")).toBeNull();
+    expect(unreadCount("Dune (2024) - IMDb")).toBeNull();
+    expect(unreadCount("")).toBeNull();
+    expect(unreadCount(undefined)).toBeNull();
+  });
+
+  it("reads a zero, which is a count that has gone back down", () => {
+    expect(unreadCount("(0) WhatsApp")).toBe(0);
   });
 });
 

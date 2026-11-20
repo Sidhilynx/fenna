@@ -35,8 +35,9 @@ disagree, the rule wins; when the rule is silent, choose the plainer option.
 - No hex, `rgb()`, `hsl()` in a rule or a component. No Tailwind palette
   values (`#f97316`, `#38bdf8`, `#64748b` and their friends) anywhere.
 - One accent, `--sel`, and it means "selected" or "the main action here".
-  `--warn` (amber) means "waiting on the person". `--danger` means "this
-  failed or deletes". Nothing else is colored.
+  In Crew, "waiting on the person" is the pixel attention mark in the
+  text color, never a color of its own. `--danger` means "this failed or
+  deletes". Nothing else is colored.
 - The content is the only colorful thing: the slide, the doc, the bot's live
   screen. The chrome around it is grays.
 - No gradients. No glows. No colored shadows.
@@ -156,7 +157,7 @@ rules above still hold; these replace the ones they name.
   are 16×16 sprites. Model and CLI logos are the one exception: they show as
   the vendor's mark wherever a brain is named, with its name in the tooltip.
 - **Cards that wait on the person** (questions, approvals) are neutral
-  panels with a pixel header; amber is only the small "needs you" dot.
+  panels with a pixel header; the attention mark is the only "needs you" sign.
 - **Motion** moves in whole pixels with `steps()`. Allowed loops: the
   loading bar, the faces hopping on the first screens, the thinking dots,
   the typing caret, a working face's eyes, the living pixel layer behind

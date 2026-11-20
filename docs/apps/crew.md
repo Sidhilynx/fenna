@@ -36,7 +36,8 @@ run, and approves its first action.
      is paused and does not see what you type.", Give back.
    - The bot's cursor (arrow plus a name tag) moves to where the bot clicks.
 4. **Sidebar** on overview and chat: Crew overview, search, "+", Bots list
-   (face, name, status, amber badge when it needs you), Teams list.
+   (face, name, status, attention mark when it needs you), Teams list.
+   Right-click a bot (or the menu key) for Open chat, Open computer and Delete bot.
 5. **Sign-in**: no account. If no CLI is signed in, the shell's install and
    sign-in card is the first screen ("configure your CLI").
 6. **First bot**: on first launch a lead bot named Fenna greets the person,
@@ -45,7 +46,7 @@ run, and approves its first action.
    schedule, brain, connectors, ask-me-before).
 
 Each bot's face is pixel art (see Decisions): moods `idle`, `work` (eyes
-move), `sleep` (closed eyes), `need` (wide eyes, plus an amber badge where
+move), `sleep` (closed eyes), `need` (wide eyes, plus the attention mark where
 shown). Faces are the only exception to the no-decorative-icons rule.
 
 ## How it works
@@ -155,7 +156,7 @@ Files, on the `crew` server (`apps/crew/src/main/files.cjs`):
   ("answers by default"); `@Name` sends it to that bot, `@all` to everyone.
   2026-11-19
 - Crew's palette: the primary action is ink (not a brand blue); one quiet
-  steel accent means selected; amber means waiting on the person; red means
+  steel accent means selected; red means
   failed or deletes. Defined in `styles.css` `:root`. 2026-11-19
 - New bot is one form with a "More" disclosure, not a wizard; starting points
   fill the form and never create a bot by themselves. 2026-11-19
@@ -208,8 +209,8 @@ Files, on the `crew` server (`apps/crew/src/main/files.cjs`):
   conversation from it (also "Compact this chat"). 2026-11-20
 - Every surface is pixel: radius tokens are 0, boxes use the notched 2px
   frame from `pixel.css`, menus and dialogs have a hard drop shadow.
-  Question and approval cards are neutral, not amber; amber is only the
-  small "needs you" dot. Per-area skins live in `src/renderer/px/`.
+  Question and approval cards are neutral; the pixel attention mark is the
+  only "needs you" sign. Per-area skins live in `src/renderer/px/`.
   2026-11-20
 - Crew's pixels live: a sparse layer of flickering, jittering blocks behind
   the main surfaces and on the bot's desktop (`PixelField.tsx`), and one
@@ -238,6 +239,15 @@ Files, on the `crew` server (`apps/crew/src/main/files.cjs`):
   tests them, keeps them working and uses them. It is the one bot with
   Projects on by default; its first command in a project still asks the
   person. Deleting it is final. 2026-11-20
+- No amber: "waiting on the person" is a pixel attention mark (a framed
+  "!") in the text color, on faces, banners, the desk status and app icons.
+  The `--warn` token is gone. 2026-11-21
+- An empty chat opens with a hello that is never saved: a bot that ships
+  with Crew or came from a template says what it does in its own words; a
+  bot the person wrote (or whose job they changed) just says "Hi."
+  2026-11-21
+- The back button on a bot's computer is named for the bot and goes to its
+  chat, not to Home. 2026-11-21
 ## Build summary
 
 (Written by the builders.)

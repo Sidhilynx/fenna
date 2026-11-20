@@ -3,14 +3,19 @@
 // drags to resize. Collapsed (Ctrl+B): a 64px rail of faces, with new,
 // connectors, vault and settings at the bottom.
 
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { MenuButton, type MenuEntry } from "@opendeck/shell";
+import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from "react";
+import { Menu, MenuButton, type MenuEntry } from "@opendeck/shell";
 import { Face } from "./Avatar.tsx";
+import { DeleteBotDialog } from "./DeleteBot.tsx";
 import { PixelIcon } from "./PixelIcon.tsx";
 import type { PixelIconName } from "./pixelIcons.ts";
 import { TeamFaces } from "./Team.tsx";
 import { botOf, useCrew } from "./crew.tsx";
 import { PixelField } from "./PixelField.tsx";
+import type { BotSummary } from "../shared/contract.ts";
+
+/** A bot's right-click menu: where it opens, and the row to give focus back to. */
+type BotMenu = { slug: string; anchor: { x: number; y: number } | HTMLElement; row: HTMLElement };
 
 const WIDTH_KEY = "fenna:sidebar-width";
 const COLLAPSED_KEY = "fenna:sidebar-collapsed";
@@ -53,6 +58,8 @@ export function Sidebar() {
   const [width, setWidth] = useState(readWidth);
   const [searching, setSearching] = useState(false);
   const [q, setQ] = useState("");
+  const [botMenu, setBotMenu] = useState<BotMenu | null>(null);
+  const [deleting, setDeleting] = useState<BotSummary | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const widthNow = useRef(width);
@@ -103,6 +110,7 @@ export function Sidebar() {
   const bots = term ? overview.bots.filter((b) => `${b.name} ${b.job}`.toLowerCase().includes(term)) : overview.bots;
   const teams = term ? overview.teams.filter((t) => `${t.name} ${t.purpose}`.toLowerCase().includes(term)) : overview.teams;
   const current = route.name === "chat" || route.name === "computer" ? route.slug : null;
+  const menuBot = botMenu ? overview.bots.find((b) => b.slug === botMenu.slug) : undefined;
   const newEntries: MenuEntry[] = [
     { label: "New bot", onSelect: newBot },
     { label: "New group chat", onSelect: newTeam, disabled: overview.bots.length < 1 },
@@ -155,6 +163,41 @@ export function Sidebar() {
     </button>
   );
 
+  /** Right-click, or the menu key or Shift+F10 on a focused bot, opens its menu. */
+  const menuOn = (slug: string) => ({
+    onContextMenu: (e: ReactMouseEvent<HTMLButtonElement>) => {
+      e.preventDefault();
+      setBotMenu({ slug, row: e.currentTarget, anchor: { x: e.clientX, y: e.clientY } });
+    },
+    onKeyDown: (e: KeyboardEvent<HTMLButtonElement>) => {
+      if (e.key !== "ContextMenu" && !(e.shiftKey && e.key === "F10")) return;
+      e.preventDefault();
+      setBotMenu({ slug, row: e.currentTarget, anchor: e.currentTarget });
+    },
+  });
+
+  const overlays = (
+    <>
+      {botMenu && menuBot && (
+        <Menu
+          label={menuBot.name}
+          anchor={botMenu.anchor}
+          onClose={() => {
+            botMenu.row.focus();
+            setBotMenu(null);
+          }}
+          entries={[
+            { label: "Open chat", onSelect: () => go({ name: "chat", slug: menuBot.slug }) },
+            { label: "Open computer", onSelect: () => go({ name: "computer", slug: menuBot.slug }) },
+            "separator",
+            { label: "Delete bot…", danger: true, onSelect: () => setDeleting(menuBot) },
+          ]}
+        />
+      )}
+      {deleting && <DeleteBotDialog bot={deleting} onClose={() => setDeleting(null)} />}
+    </>
+  );
+
   if (collapsed) {
     return (
       <aside className="sidebar rail px-host" aria-label="Crew">
@@ -164,7 +207,7 @@ export function Sidebar() {
         <span className="rail-line" aria-hidden />
         <div className="rail-list" ref={list} onKeyDown={move}>
           {overview.bots.map((b) => (
-            <button key={b.slug} type="button" className="rail-btn" aria-label={`${b.name}: ${b.statusLine}`} title={`${b.name}: ${b.statusLine}`} aria-current={current === b.slug ? "page" : undefined} onClick={() => go({ name: "chat", slug: b.slug })}>
+            <button key={b.slug} type="button" className="rail-btn" aria-label={`${b.name}: ${b.statusLine}`} title={`${b.name}: ${b.statusLine}`} aria-current={current === b.slug ? "page" : undefined} onClick={() => go({ name: "chat", slug: b.slug })} {...menuOn(b.slug)}>
               <Face avatar={b.avatar} color={b.color} mood={b.mood} size={32} ring={current === b.slug} />
             </button>
           ))}
@@ -183,6 +226,7 @@ export function Sidebar() {
           {page("vault", "Vault", "vault")}
           {page("settings", "Settings", "settings")}
         </div>
+        {overlays}
       </aside>
     );
   }
@@ -253,7 +297,15 @@ export function Sidebar() {
       <div className="side-list" ref={list} onKeyDown={move}>
         <div className="side-label">Bots</div>
         {bots.map((b) => (
-          <button key={b.slug} type="button" className="row bot-row" aria-current={current === b.slug ? "page" : undefined} onClick={() => go({ name: "chat", slug: b.slug })} title={`${b.name}: ${b.statusLine}`}>
+          <button
+            key={b.slug}
+            type="button"
+            className="row bot-row"
+            aria-current={current === b.slug ? "page" : undefined}
+            onClick={() => go({ name: "chat", slug: b.slug })}
+            {...menuOn(b.slug)}
+            title={`${b.name}: ${b.statusLine}`}
+          >
             <Face avatar={b.avatar} color={b.color} mood={b.mood} size={32} />
             <span className="row-text">
               <span className="row-name ell">{b.name}</span>
@@ -282,6 +334,7 @@ export function Sidebar() {
         {term && overview.teams.length > 0 && !teams.length && <p className="side-none">No match.</p>}
       </div>
       <div className="side-drag" role="separator" aria-orientation="vertical" aria-label="Resize sidebar" aria-valuemin={MIN_WIDTH} aria-valuemax={MAX_WIDTH} aria-valuenow={width} tabIndex={0} onMouseDown={startResize} onKeyDown={onHandleKey} />
+      {overlays}
     </aside>
   );
 }

@@ -39,7 +39,7 @@ export const waitsForYou = (app: Pick<AppInfo, "grant" | "pending">): boolean =>
 
 export type AppBadge = "needs" | "changed" | null;
 
-/** The dot on an app's icon: amber when it waits for the person, plain when its files changed lately. */
+/** The mark on an app's icon: the attention mark when it waits for the person, a plain dot when its files changed lately. */
 export function appBadge(app: Pick<AppInfo, "grant" | "pending" | "updatedAt">, now: number): AppBadge {
   if (waitsForYou(app)) return "needs";
   const at = Date.parse(app.updatedAt);
