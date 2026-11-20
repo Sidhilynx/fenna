@@ -409,16 +409,10 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
     crew.onChange();
     return out;
   });
-  // The first-start notice's three buttons. "details" opens the page that lists what is sent; the others end the notice.
-  handle("crew:usageNotice", async (_e, action) => {
-    if (action === "details") {
-      await openUrl(USAGE_DETAILS_URL);
-      return settings.get();
-    }
-    if (action !== "ok" && action !== "off") throw new Error('Answer the notice with "ok", "off" or "details".');
-    const out = settings.set(action === "off" ? { usageNoticeSeen: true, usageCounts: false } : { usageNoticeSeen: true });
-    crew.onChange();
-    return out;
+  // Settings' "What's sent": the page that lists everything Fenna sends.
+  handle("crew:usageDetails", async () => {
+    await openUrl(USAGE_DETAILS_URL);
+    return true;
   });
   handle("crew:feedback", async (_e, input) => {
     if (!input || typeof input !== "object") throw new Error("Pick Good or Not good, or write something.");

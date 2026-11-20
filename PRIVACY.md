@@ -14,7 +14,7 @@ network, and when.
 | Setting up an AI app | Anthropic (Claude Code), GitHub (Codex) or Google (Antigravity) | Only when you choose to install one from the chat | A download of that app's official build. |
 | AI chat | The AI service you chose (Anthropic, OpenAI or Google) | Only when you use the chat or ask the AI for something | What you send it, the parts of the open file it reads through its tools, and anything you attach. This goes through the AI app you installed and signed in to (Claude Code, Codex or Antigravity), under that service's own terms and privacy policy. |
 
-| Usage counts (Fenna Crew) | `usage.sidhilynx.com` | Once a day for each finished day, from a minute after start. Not before you have seen the notice on the overview. | Numbers only: the app version, your system, which AI apps are signed in, and counts such as runs and approvals. [The full list](#usage-counts). |
+| Usage counts (Fenna Crew) | `usage.sidhilynx.com` | Once a day for each finished day, from a minute after start. On unless you turn it off in Settings. | Numbers only: the app version, your system, which AI apps are signed in, and counts such as runs and approvals. [The full list](#usage-counts). |
 | Feedback (Fenna Crew) | `usage.sidhilynx.com` | Only when you press Send in the feedback window. | The text you wrote, your good or not good choice, the app version and your system. |
 
 That's all.
@@ -32,8 +32,9 @@ AI accounts.
 Crew keeps the counts for each day in a small file on your computer
 (`usage.json` in Crew's data folder). From a minute after it starts, and then
 every six hours, it sends each finished day once, at most the last seven days.
-Nothing is sent for today, and nothing is sent until the notice on the
-overview has been answered. If a send fails, Crew tries again the next day.
+Nothing is sent for today. If a send fails, Crew tries again the next day.
+Counts are on unless you turn them off. No ping carries a number that
+stays the same, so pings are not tied to one computer.
 
 The counts go to `usage.sidhilynx.com`, a Cloudflare Worker run by Sidhilynx.
 The IP address is not stored. The code that receives them is in
@@ -48,7 +49,7 @@ What each ping holds:
 | Field | Meaning |
 |---|---|
 | `v` | The version of this format, `1`. |
-| `id` | A random number made once on this computer (a UUID). It is not made from your name, account or hardware. Turning counts off deletes it. |
+| `id` | A random number (a UUID) made new for every ping and never kept, so two pings can't be tied to the same computer. |
 | `app` | `crew`. |
 | `version` | The Crew version. |
 | `os`, `arch` | `win`, `mac` or `linux`; `x64` or `arm64`. |

@@ -96,14 +96,13 @@ function buildFeedback({ id, version, os, rating, text }) {
  * @param {string} o.dir  where usage.json lives (userData)
  * @param {string} o.version
  * @param {() => boolean} o.enabled  counting and sending are on (the person's switch and FENNA_NO_USAGE)
- * @param {() => boolean} o.noticed  the person has answered the first-start notice
  * @param {() => Record<string, number>} o.totals  bots, groups, connectors, logins, read when a day is sent
  * @param {() => Promise<string[]>} o.signedIn  the AI apps that are installed and signed in
  * @param {(url: string, init: object) => Promise<{ ok: boolean, status: number }>} o.fetch
  * @param {NodeJS.ProcessEnv} [o.env]
  * @param {() => Date} [o.now]
  */
-function createUsage({ dir, version, enabled, noticed, totals, signedIn, fetch, env = process.env, now = () => new Date(), platform = process.platform, arch = process.arch }) {
+function createUsage({ dir, version, enabled, totals, signedIn, fetch, env = process.env, now = () => new Date(), platform = process.platform, arch = process.arch }) {
   const file = path.join(dir, "usage.json");
   const base = (env.FENNA_USAGE_URL || BASE).replace(/\/+$/, "");
   let data = null;
@@ -115,7 +114,7 @@ function createUsage({ dir, version, enabled, noticed, totals, signedIn, fetch, 
   const on = () => env.FENNA_NO_USAGE !== "1" && enabled();
 
   function fresh() {
-    return { v: 1, id: crypto.randomUUID(), days: {}, first: { signed_in: false, bot: false, run_ok: false }, failedOn: "" };
+    return { v: 1, days: {}, first: { signed_in: false, bot: false, run_ok: false }, failedOn: "" };
   }
 
   /** usage.json as it is on disk, repaired: only what this version knows. */
@@ -129,7 +128,6 @@ function createUsage({ dir, version, enabled, noticed, totals, signedIn, fetch, 
     }
     const d = fresh();
     if (raw && typeof raw === "object") {
-      if (typeof raw.id === "string" && /^[0-9a-f-]{36}$/i.test(raw.id)) d.id = raw.id;
       if (typeof raw.failedOn === "string" && DAY_RE.test(raw.failedOn)) d.failedOn = raw.failedOn;
       for (const k of FIRST_KEYS) d.first[k] = !!(raw.first && raw.first[k] === true);
       if (raw.days && typeof raw.days === "object") {
@@ -240,7 +238,7 @@ function createUsage({ dir, version, enabled, noticed, totals, signedIn, fetch, 
     async bodies() {
       const days = pending(localDay(now()));
       const cli = await signedIn().catch(() => []);
-      return days.map((day) => buildPing({ id: load().id, version, os: osName(platform), arch: archName(arch), day, cli, counts: { ...load().days[day].counts, ...totals() }, first: load().first }));
+      return days.map((day) => buildPing({ id: crypto.randomUUID(), version, os: osName(platform), arch: archName(arch), day, cli, counts: { ...load().days[day].counts, ...totals() }, first: load().first }));
     },
 
     /**
@@ -248,7 +246,7 @@ function createUsage({ dir, version, enabled, noticed, totals, signedIn, fetch, 
      * attempt, and the next one waits for another day. Returns how many days were sent.
      */
     async sendDue() {
-      if (sending || !on() || !noticed()) return 0;
+      if (sending || !on()) return 0;
       const today = localDay(now());
       const d = load();
       if (d.failedOn === today) return 0;
@@ -271,7 +269,7 @@ function createUsage({ dir, version, enabled, noticed, totals, signedIn, fetch, 
         if (whole(t.bots) > 1) d.first.bot = true;
         for (const day of days) {
           if (!on()) return sent;
-          const body = JSON.stringify(buildPing({ id: d.id, version, os: osName(platform), arch: archName(arch), day, cli, counts: { ...d.days[day].counts, ...t }, first: d.first }));
+          const body = JSON.stringify(buildPing({ id: crypto.randomUUID(), version, os: osName(platform), arch: archName(arch), day, cli, counts: { ...d.days[day].counts, ...t }, first: d.first }));
           if (Buffer.byteLength(body) > MAX_BODY) {
             delete d.days[day];
             continue;
@@ -314,9 +312,7 @@ function createUsage({ dir, version, enabled, noticed, totals, signedIn, fetch, 
       if (rating !== null && rating !== "up" && rating !== "down") throw new Error('The rating is "up", "down" or none.');
       if (typeof text !== "string" || text.length > MAX_FEEDBACK) throw new Error(`The feedback is text, at most ${MAX_FEEDBACK} characters.`);
       if (!rating && !text.trim()) throw new Error("Pick Good or Not good, or write something.");
-      // With counts off nothing is kept, so there is no number to send; this one is used once.
-      const id = on() ? load().id : crypto.randomUUID();
-      const body = JSON.stringify(buildFeedback({ id, version, os: osName(platform), rating, text }));
+      const body = JSON.stringify(buildFeedback({ id: crypto.randomUUID(), version, os: osName(platform), rating, text }));
       if (Buffer.byteLength(body) > MAX_BODY) throw new Error("That feedback is too long to send. Shorten it.");
       let r;
       try {
