@@ -106,6 +106,12 @@ export interface Settings {
   defaultCli: CliKind;
   defaultModel: string;
   defaultEffort: string;
+  /** Send an anonymous count once a day (PRIVACY.md). Off when FENNA_NO_USAGE=1. */
+  usageCounts: boolean;
+  /** The person has answered the first-start notice about the counts. */
+  usageNoticeSeen: boolean;
+  /** FENNA_NO_USAGE=1 is set: counts are off and the switch can't change it (read only). */
+  usageLocked: boolean;
   /** Where Crew keeps its files (read only). */
   storagePath: string;
   /** The vault is encrypted with the system's secure storage (read only). */
@@ -629,6 +635,10 @@ export interface Calls {
   "crew:tab": { args: [slug: string, action: "new" | "switch" | "close", id?: number]; result: BrowserState };
   "crew:settings": { args: []; result: Settings };
   "crew:setSettings": { args: [patch: Partial<Settings>]; result: Settings };
+  /** The first-start notice about usage counts: OK, Turn off, or open the page that lists what is sent. */
+  "crew:usageNotice": { args: [action: "ok" | "off" | "details"]; result: Settings };
+  /** Send feedback; rejects with what to tell the person when it could not be sent. */
+  "crew:feedback": { args: [input: { rating: "up" | "down" | null; text: string }]; result: boolean };
   "crew:libraryText": { args: [slug: string, id: string]; result: LibraryText };
   "crew:workspace": { args: [slug: string]; result: WorkspaceFile[] };
   "crew:workspaceRead": { args: [slug: string, relPath: string]; result: string };

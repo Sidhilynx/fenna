@@ -21,7 +21,8 @@ can take control at any moment.
 - **Use the AI you already pay for.** Bots run Claude Code, Codex or
   Antigravity on your own plan, on this computer.
 - **No account. Your files stay yours.** A crew is a plain folder on your
-  computer; nothing is uploaded.
+  computer; nothing is uploaded. Crew sends an anonymous daily count of how
+  it is used, which you can turn off ([what is sent](PRIVACY.md#usage-counts)).
 
 ## The editors your bots work in
 

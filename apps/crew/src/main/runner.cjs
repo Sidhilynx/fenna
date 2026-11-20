@@ -7,6 +7,7 @@
 const crypto = require("node:crypto");
 const F = require("./format.cjs");
 const { buildPrompt } = require("./prompt.cjs");
+const { noUsage } = require("./usage.cjs");
 
 const RUN_TIMEOUT_MS = 30 * 60_000;
 /** A chat this full after a person's run is compacted before the next one. */
@@ -47,8 +48,9 @@ const isLibraryCall = (server, tool) => server === "fenna" || tool === "new_docu
  * @param {(tool: string, params: object, server: string) => string|null} [o.toolLabel]
  * @param {(name: string) => boolean} [o.installed]  whether a granted connector is installed (the prompt names only those)
  * @param {(runId: string) => void} [o.onEnd]  a run ended (its connector calls in flight are stopped)
+ * @param {{ run(info: { trigger: string, outcome: string, manual: boolean }): void }} [o.usage]  counts the run when it ends (usage.cjs)
  */
-function createRunner({ store, startRun, serversFor, link, waits, emitLive, onChange, toolLabel, installed, onEnd = () => {}, now = () => new Date(), maxConcurrent = 2, runTimeoutMs = RUN_TIMEOUT_MS }) {
+function createRunner({ store, startRun, serversFor, link, waits, emitLive, onChange, toolLabel, installed, onEnd = () => {}, usage = noUsage, now = () => new Date(), maxConcurrent = 2, runTimeoutMs = RUN_TIMEOUT_MS }) {
   /** @type {Map<string, object>} slug → its running run */
   const active = new Map();
   /** @type {object[]} */
@@ -80,16 +82,16 @@ function createRunner({ store, startRun, serversFor, link, waits, emitLive, onCh
 
   /**
    * Queue a run. trigger: person | schedule | bot | welcome | watch | compact. A hand-off
-   * (trigger "bot") carries the chain it belongs to. `chat` picks the chat; by default the
+   * (trigger "bot") carries the chain it belongs to. `manual`: the person pressed Run (counted apart from the schedule). `chat` picks the chat; by default the
    * person's own messages go to their current chat and everything else to the runs chat.
    * @returns {{ runId: string, queued: boolean, done: Promise<{ outcome: string, text: string, message: string|null }> }}
    */
-  function enqueue({ slug, trigger, text = "", from = null, team = null, chain = null, chat = null }) {
+  function enqueue({ slug, trigger, text = "", from = null, team = null, chain = null, chat = null, manual = false }) {
     if (!store.readBot(slug)) throw new Error(`There is no bot "${slug}".`);
     const runId = crypto.randomUUID();
     let resolve;
     const done = new Promise((r) => (resolve = r));
-    const item = { runId, slug, trigger, text: trigger === "compact" ? COMPACT_ASK : text, from, team, chain, chat, resolve, handoff: trigger === "bot" };
+    const item = { runId, slug, trigger, text: trigger === "compact" ? COMPACT_ASK : text, from, team, chain, chat, manual, resolve, handoff: trigger === "bot" };
     queue.push(item);
     pump();
     onChange();
@@ -264,6 +266,7 @@ function createRunner({ store, startRun, serversFor, link, waits, emitLive, onCh
     active.delete(run.slug);
     byId.delete(run.runId);
     record(run, { type: "end", at: iso(), outcome, message });
+    usage.run({ trigger: run.trigger, outcome, manual: !!run.manual });
     let full = false;
     store.patchState(run.slug, (s) => {
       const chat = F.chatIn(s, run.chat);

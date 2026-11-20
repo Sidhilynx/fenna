@@ -8,8 +8,10 @@ const F = require("./format.cjs");
 const { searchRegistry } = require("./registry.cjs");
 const { chatFileName, chatMarkdown } = require("./store.cjs");
 const { createSiteIcons, originOf } = require("./siteicons.cjs");
+const { noUsage } = require("./usage.cjs");
 
 const MAX_MESSAGE = 20_000;
+const USAGE_DETAILS_URL = "https://github.com/Sidhilynx/fenna/blob/main/PRIVACY.md#usage-counts";
 
 const str = (v, what, max = 200) => {
   if (typeof v !== "string" || !v.trim()) throw new Error(`${what} is missing.`);
@@ -44,8 +46,10 @@ function lookArgs(o) {
  * @param {ReturnType<import("./crew.cjs").createCrew>} o.crew
  * @param {{ get(): object, set(patch: object): object }} o.settings
  * @param {(dir: string) => Promise<string>} o.reveal
+ * @param {ReturnType<import("./usage.cjs").createUsage>} [o.usage]
+ * @param {(url: string) => Promise<void>} [o.openUrl]  open an address in the default browser
  */
-function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog, disk, search, shell }) {
+function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog, disk, search, shell, usage = noUsage, openUrl = async () => {} }) {
   const { store, runner, waits, browsers, views, replay } = crew;
   const siteIcons = createSiteIcons({ dir: path.join(require("electron").app.getPath("userData"), "Crew", "siteicons") });
   // The save dialog, in Documents, over the window that asked; null when the person cancels.
@@ -74,6 +78,8 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
   handle("crew:create", (_e, input) => {
     if (!input || typeof input !== "object") throw new Error("Say the bot's name and job.");
     const slug = store.createBot({ ...input, ...lookArgs(input) });
+    usage.count("bots_created");
+    usage.reached("bot");
     crew.onChange();
     return { slug };
   });
@@ -158,10 +164,11 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
   handle("crew:send", (_e, slug, text, chat) => {
     const s = slugArg(slug);
     const r = runner.enqueue({ slug: s, trigger: "person", text: str(text, "The message", MAX_MESSAGE), chat: chat === undefined ? null : chatArg(s, chat) });
+    usage.count("messages");
     return { runId: r.runId, queued: r.queued };
   });
   handle("crew:run", (_e, slug) => {
-    const r = runner.enqueue({ slug: slugArg(slug), trigger: "schedule" });
+    const r = runner.enqueue({ slug: slugArg(slug), trigger: "schedule", manual: true });
     return { runId: r.runId, queued: r.queued };
   });
   handle("crew:greet", async () => {
@@ -201,7 +208,11 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
     crew.onChange();
     return true;
   });
-  handle("crew:teamSend", (_e, slug, text) => crew.teamSend(slugArg(slug), str(text, "The message", MAX_MESSAGE)));
+  handle("crew:teamSend", (_e, slug, text) => {
+    const r = crew.teamSend(slugArg(slug), str(text, "The message", MAX_MESSAGE));
+    usage.count("messages");
+    return r;
+  });
   handle("crew:teamThread", (_e, slug) => store.readThread(slugArg(slug)));
 
   handle("crew:registrySearch", (_e, query) => searchRegistry(str(query, "The search", 100)));
@@ -318,7 +329,10 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
     if (!["live", "thumb", "off"].includes(mode)) throw new Error('Watch mode is "live", "thumb" or "off".');
     return browsers.watch(slugArg(slug), e.sender.id, mode);
   });
-  handle("crew:control", (_e, slug, on) => browsers.setControl(slugArg(slug), on === true));
+  handle("crew:control", (_e, slug, on) => {
+    if (on === true) usage.count("take_control");
+    return browsers.setControl(slugArg(slug), on === true);
+  });
   handle("crew:navigate", (_e, slug, url) => browsers.navigate(slugArg(slug), str(url, "The address", 4000)));
   handle("crew:browserGo", (_e, slug, what) => {
     if (!["back", "forward", "reload", "stop"].includes(what)) throw new Error('Go "back", "forward", "reload" or "stop".');
@@ -371,6 +385,22 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
     const out = settings.set(patch);
     crew.onChange();
     return out;
+  });
+  // The first-start notice's three buttons. "details" opens the page that lists what is sent; the others end the notice.
+  handle("crew:usageNotice", async (_e, action) => {
+    if (action === "details") {
+      await openUrl(USAGE_DETAILS_URL);
+      return settings.get();
+    }
+    if (action !== "ok" && action !== "off") throw new Error('Answer the notice with "ok", "off" or "details".');
+    const out = settings.set(action === "off" ? { usageNoticeSeen: true, usageCounts: false } : { usageNoticeSeen: true });
+    crew.onChange();
+    return out;
+  });
+  handle("crew:feedback", async (_e, input) => {
+    if (!input || typeof input !== "object") throw new Error("Pick Good or Not good, or write something.");
+    await usage.sendFeedback({ rating: input.rating === undefined ? null : input.rating, text: input.text === undefined ? "" : input.text });
+    return true;
   });
   handle("crew:clis", async (_e, fresh) => {
     const list = await Promise.all(F.CLI_KINDS.map((k) => assistantCatalog(k, { fresh: fresh === true }).catch(() => null)));

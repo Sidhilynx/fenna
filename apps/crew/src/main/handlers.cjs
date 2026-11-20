@@ -3,6 +3,7 @@
 
 const F = require("./format.cjs");
 const { watchLine, todoLine } = require("./watches.cjs");
+const { noUsage } = require("./usage.cjs");
 
 const MAX_HANDOFFS = 6;
 const quoteList = (xs) => xs.map((x) => `"${x}"`).join(", ");
@@ -44,13 +45,17 @@ function desktopText(sentence, items) {
  * @param {() => Date} [o.now]
  * @returns {(ctx: object, a: { action: string, details: string, source: string, tool: string|null }) => Promise<{ allowed: boolean, always: boolean, by: string }>}
  */
-function createApprover({ store, runner, waits, now = () => new Date() }) {
+function createApprover({ store, runner, waits, usage = noUsage, now = () => new Date() }) {
   return async function approve(ctx, { action, details, source, tool }) {
     const w = waits.add({ kind: "approval", slug: ctx.slug, botName: botNameOf(store, ctx.slug), runId: ctx.runId, action, details, source, tool });
     runner.record(ctx.runId, { type: "approval", at: w.record.at, approvalId: w.id, action, details, source, tool });
     const r = await w.done;
     const allowed = r.by === "person" && !!(r.value && r.value.allowed);
     const always = allowed && !!(r.value && r.value.always);
+    if (r.by === "person") {
+      usage.count("approvals");
+      if (!allowed) usage.count("approvals_denied");
+    }
     runner.record(ctx.runId, { type: "decision", at: now().toISOString(), approvalId: w.id, allowed, always, by: r.by });
     return { allowed, always, by: r.by };
   };
@@ -72,7 +77,7 @@ function createApprover({ store, runner, waits, now = () => new Date() }) {
  * @param {{ exec(slug: string, line: string, cwd: string|null, who: string): Promise<{ out: string, cwd: string }> }} o.shell  the bot's terminal (shell.cjs)
  * @param {() => Date} [o.now]
  */
-function createHandlers({ store, runner, waits, approve, browsers, gateway, logins = null, onChange, onDesktop, watches, search, shell, now = () => new Date() }) {
+function createHandlers({ store, runner, waits, approve, browsers, gateway, logins = null, onChange, onDesktop, watches, search, shell, usage = noUsage, now = () => new Date() }) {
   const iso = () => now().toISOString();
   const botName = (slug) => botNameOf(store, slug);
 
@@ -85,6 +90,7 @@ function createHandlers({ store, runner, waits, approve, browsers, gateway, logi
       runner.record(ctx.runId, { type: "ask", at: w.record.at, askId: w.id, question, options, multi });
       const r = await w.done;
       const answer = r.by === "person" && Array.isArray(r.value) ? r.value.map(String) : [];
+      if (r.by === "person") usage.count("questions");
       runner.record(ctx.runId, { type: "answer", at: iso(), askId: w.id, answer, by: r.by });
       if (r.by === "timeout") return { text: `No answer after ${minutes(waits.timeoutMs)}. Don't act on this question; say in your reply what you need from the person.` };
       if (r.by === "stopped") return { text: "The run was stopped before the person answered." };
@@ -154,6 +160,8 @@ function createHandlers({ store, runner, waits, approve, browsers, gateway, logi
       const r = await approve(ctx, { action: `Create a bot named ${check.bot.name}`, details, source: "bot", tool: null });
       if (!r.allowed) return { text: r.by === "timeout" ? `No answer after ${minutes(waits.timeoutMs)}; the bot was not created.` : "The person said no; the bot was not created." };
       const slug = store.createBot(input);
+      usage.count("bots_created");
+      usage.reached("bot");
       onChange();
       return { text: `Created ${check.bot.name} (folder "${slug}"). It runs: ${when}. Hand it a first task with message_bot {bot: "${slug}", …} if the person wants it to start now.` };
     },
