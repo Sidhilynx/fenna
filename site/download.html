@@ -2,377 +2,108 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Download · Fenna Workspace & Standalone Apps</title>
-  <meta name="description" content="Download Fenna Workspace or individual standalone apps for Windows, macOS, and Linux. Free, open source, AGPLv3.">
-  <link rel="icon" type="image/png" href="assets/icons/fenna.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Download Fenna Crew</title>
+  <meta name="description" content="Download Fenna Crew for Windows, macOS or Linux. Free and open source, with no account.">
+  <link rel="canonical" href="https://fenna.sidhilynx.com/download.html">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Download Fenna Crew">
+  <meta property="og:description" content="Download Fenna Crew for Windows, macOS or Linux. Free and open source, with no account.">
+  <meta property="og:image" content="https://fenna.sidhilynx.com/assets/og.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
   <link rel="stylesheet" href="css/style.css">
+  <script>try{var t=localStorage.getItem("fenna-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 </head>
 <body>
-
-  <!-- Background grid layer -->
-  <div class="bg-grid"></div>
-
-  <!-- Navigation -->
-  <header class="site-header">
-    <div class="header-inner">
-      <a href="index.html" class="brand">
-        <img src="assets/icons/fenna.png" alt="Fenna" class="brand-icon">
-        <span>Fenna Workspace</span>
-        <span class="brand-badge">AGPLv3</span>
-      </a>
-      <nav class="nav-links">
-        <a href="index.html" class="nav-link">Home</a>
-        <a href="changelog.html" class="nav-link">Changelog</a>
-        <a href="download.html" class="nav-link active">Download</a>
-        <a href="https://github.com/Sidhilynx/fenna" class="nav-link" target="_blank" rel="noopener noreferrer">GitHub</a>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="nav">
+    <div class="wrap nav-in">
+      <a class="brand" href="./"><span class="face" data-face="kite" data-color="sea" data-mood="idle" style="--u:2px"></span>Fenna Crew</a>
+      <nav class="nav-links" aria-label="Main">
+        <a href="download.html" aria-current="page">Download</a>
+        <a href="changelog.html">Changelog</a>
+        <a href="https://github.com/Sidhilynx/fenna">GitHub</a>
       </nav>
+      <button class="theme" type="button" aria-label="Switch theme"><i></i></button>
+      <a class="btn primary small" href="download.html">Download</a>
     </div>
   </header>
 
-  <main class="container">
-    <!-- Header -->
-    <div class="changelog-header" style="text-align: center; max-width: 800px; margin: 0 auto; border-bottom: none; padding-bottom: 24px;">
-      <div class="section-tag" style="justify-content: center; margin-bottom: 12px;">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Releases & Installers
-      </div>
-      <h1 class="hero-title" style="font-size: clamp(34px, 5vw, 54px); margin-bottom: 16px;">Download Fenna</h1>
-      <p class="hero-sub" style="margin-bottom: 0;">
-        Choose the unified <strong>Fenna Workspace</strong> uniting all 5 tools, or download individual standalone apps. Open source, local-first, zero account.
-      </p>
-      <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 18px; flex-wrap: wrap;">
-        <span id="hero-download-stat-badge" class="bento-badge" style="background: rgba(91,140,255,0.1); border-color: rgba(91,140,255,0.3); color: #5b8cff; font-weight: 500; padding: 4px 12px; border-radius: 20px; font-size: 12px;">
-          Permanent download tracking active
-        </span>
-      </div>
-    </div>
-
-    <!-- TABLE 1: All-in-One Workspace (Recommended) -->
-    <section class="section" style="padding-top: 24px; border-top: none;">
-      <div class="section-head" style="display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 24px;">
-        <div>
-          <span class="bento-badge" style="background: rgba(91,140,255,0.15); color: #5b8cff; border-color: #5b8cff; font-weight: 600;">Recommended</span>
-          <h2 class="section-title" style="font-size: 26px;">Fenna Workspace (All-in-One)</h2>
-          <p class="step-desc">All five apps in one unified window with multi-product tabs and shared navigation.</p>
+  
+  <main id="main">
+    <section class="dl-hero">
+      <div class="wrap">
+        <p class="eyebrow mono">Fenna Crew <span data-version>0.9</span> · Free and open source</p>
+        <h1>Download Fenna Crew.</h1>
+        <p class="lede">Windows, macOS and Linux. No account. When a new version is out, Home shows it with a download link. Nothing installs by itself.</p>
+        <div class="actions">
+          <a class="btn primary" data-dl="primary" href="https://github.com/Sidhilynx/fenna/releases/latest">Download</a>
+          <a class="btn" href="https://github.com/Sidhilynx/fenna/releases/latest">All files on GitHub</a>
         </div>
-        <div style="font-size: 12px; color: #8a8f98; font-family: ui-monospace, monospace;">
-          Latest release: <span class="version-tag-display text-white font-semibold">v0.9</span>
-        </div>
-      </div>
-
-      <div class="download-matrix">
-        <!-- macOS Workspace -->
-        <div class="download-card" id="card-mac">
-          <div class="download-card-header">
-            <div class="os-name">
-              <span>macOS</span>
-              <span class="os-tag">Apple Silicon & Intel</span>
-            </div>
-            <p class="os-details">macOS 12 or later · DMG</p>
-          </div>
-          <div class="download-buttons">
-            <a href="https://github.com/Sidhilynx/fenna/releases/download/v0.9.3/Fenna-Workspace-0.9.3-arm64.dmg" id="dl-workspace-macArm" class="btn-dl primary-dl">
-              <span>Apple Silicon</span>
-              <span class="btn-dl-arch">arm64 .dmg</span>
-            </a>
-            <a href="https://github.com/Sidhilynx/fenna/releases/download/v0.9.3/Fenna-Workspace-0.9.3-x64.dmg" id="dl-workspace-macIntel" class="btn-dl">
-              <span>Intel Mac</span>
-              <span class="btn-dl-arch">x64 .dmg</span>
-            </a>
-          </div>
-        </div>
-
-        <!-- Windows Workspace -->
-        <div class="download-card" id="card-windows">
-          <div class="download-card-header">
-            <div class="os-name">
-              <span>Windows</span>
-              <span class="os-tag">64-bit</span>
-            </div>
-            <p class="os-details">Windows 10, 11 · NSIS Installer</p>
-          </div>
-          <div class="download-buttons">
-            <a href="https://github.com/Sidhilynx/fenna/releases/download/v0.9.3/Fenna-Workspace-0.9.3-setup.exe" id="dl-workspace-win" class="btn-dl primary-dl">
-              <span>Windows Installer</span>
-              <span class="btn-dl-arch">setup.exe</span>
-            </a>
-          </div>
-        </div>
-
-        <!-- Linux Workspace -->
-        <div class="download-card" id="card-linux">
-          <div class="download-card-header">
-            <div class="os-name">
-              <span>Linux</span>
-              <span class="os-tag">x64</span>
-            </div>
-            <p class="os-details">Universal AppImage & Debian Package</p>
-          </div>
-          <div class="download-buttons">
-            <a href="https://github.com/Sidhilynx/fenna/releases/download/v0.9.3/Fenna-Workspace-0.9.3-x86_64.AppImage" id="dl-workspace-linuxAppImage" class="btn-dl primary-dl">
-              <span>AppImage</span>
-              <span class="btn-dl-arch">.AppImage</span>
-            </a>
-            <a href="https://github.com/Sidhilynx/fenna/releases/latest" id="dl-workspace-linuxDeb" class="btn-dl">
-              <span>Debian / Ubuntu</span>
-              <span class="btn-dl-arch">.deb</span>
-            </a>
-          </div>
-        </div>
+        <ul class="installers">
+          <li><span class="os">Windows</span><span class="file">Fenna-Crew-…-setup.exe</span><a class="btn small" data-asset="win" href="https://github.com/Sidhilynx/fenna/releases/latest">Download</a></li>
+          <li><span class="os">macOS, Apple silicon</span><span class="file">Fenna-Crew-…-arm64.dmg</span><a class="btn small" data-asset="macArm" href="https://github.com/Sidhilynx/fenna/releases/latest">Download</a></li>
+          <li><span class="os">macOS, Intel</span><span class="file">Fenna-Crew-…-x64.dmg</span><a class="btn small" data-asset="macX64" href="https://github.com/Sidhilynx/fenna/releases/latest">Download</a></li>
+          <li><span class="os">Linux, AppImage</span><span class="file">Fenna-Crew-…-x86_64.AppImage</span><a class="btn small" data-asset="appimage" href="https://github.com/Sidhilynx/fenna/releases/latest">Download</a></li>
+          <li><span class="os">Linux, .deb</span><span class="file">Fenna-Crew-…-amd64.deb</span><a class="btn small" data-asset="deb" href="https://github.com/Sidhilynx/fenna/releases/latest">Download</a></li>
+        </ul>
       </div>
     </section>
 
-    <!-- TABLE 2: Standalone Individual Apps -->
-    <section class="section" style="padding-top: 36px;">
-      <div class="section-head" style="margin-bottom: 24px;">
-        <div class="section-tag">Standalone Binaries</div>
-        <h2 class="section-title" style="font-size: 24px;">Individual Apps</h2>
-        <p class="step-desc">If you only want a specific app on its own window without the unified tabs.</p>
-      </div>
-
-      <div style="background: #0f1012; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; overflow-x: auto; box-shadow: 0 4px 24px rgba(0,0,0,0.4);">
-        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
-          <thead>
-            <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); background: #141619; color: #8a8f98; font-family: ui-monospace, monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;">
-              <th style="padding: 14px 20px;">App</th>
-              <th style="padding: 14px 16px;">Windows</th>
-              <th style="padding: 14px 16px;">macOS (Apple Silicon)</th>
-              <th style="padding: 14px 16px;">macOS (Intel)</th>
-              <th style="padding: 14px 16px;">Linux</th>
-            </tr>
-          </thead>
-          <tbody style="divide-y divide-white/[0.06];">
-            <!-- Whiteboard -->
-            <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
-              <td style="padding: 16px 20px;">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                  <img src="assets/icons/whiteboard.png" alt="Whiteboard" style="width: 24px; height: 24px; border-radius: 4px;">
-                  <div>
-                    <div style="font-weight: 600; color: #fff;">Fenna Whiteboard</div>
-                    <div style="font-size: 11px; color: #62666d;">Infinite spatial canvas</div>
-                  </div>
-                </div>
-              </td>
-              <td style="padding: 16px 16px;">
-                <a href="https://github.com/Sidhilynx/fenna/releases/latest" id="dl-whiteboard-win" class="btn-dl" style="padding: 6px 12px; font-size: 12px;">.exe</a>
-              </td>
-              <td style="padding: 16px 16px;">
-                <a href="https://github.com/Sidhilynx/fenna/releases/latest" id="dl-whiteboard-macArm" class="btn-dl" style="padding: 6px 12px; font-size: 12px;">arm64 .dmg</a>
-              </td>
-              <td style="padding: 16px 16px;">
-                <a href="https://github.com/Sidhilynx/fenna/releases/latest" id="dl-whiteboard-macIntel" class="btn-dl" style="padding: 6px 12px; font-size: 12px;">x64 .dmg</a>
-              </td>
-              <td style="padding: 16px 16px;">
-                <div style="display: flex; gap: 6px;">
-                  <a href="https://github.com/Sidhilynx/fenna/releases/latest" id="dl-whiteboard-linuxAppImage" class="btn-dl" style="padding: 6px 10px; font-size: 12px;">AppImage</a>
-                  <a href="https://github.com/Sidhilynx/fenna/releases/latest" id="dl-whiteboard-linuxDeb" class="btn-dl" style="padding: 6px 10px; font-size: 12px;">.deb</a>
-                </div>
-              </td>
-            </tr>
-
-            <!-- Slides -->
-            <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
-              <td style="padding: 16px 20px;">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                  <img src="assets/icons/slides.png" alt="Slides" style="width: 24px; height: 24px; border-radius: 4px;">
-                  <div>
-                    <div style="font-weight: 600; color: #fff;">Fenna Slides</div>
-                    <div style="font-size: 11px; color: #62666d;">Decks & present mode</div>
-                  </div>
-                </div>
-              </td>
-              <td style="padding: 16px 16px;">
-                <a href="https://github.com/Sidhilynx/fenna/releases/latest" id="dl-slides-win" class="btn-dl" style="padding: 6px 12px; font-size: 12px;">.exe</a>
-              </td>
-              <td style="padding: 16px 16px;">
-                <a href="https://github.com/Sidhilynx/fenna/releases/latest" id="dl-slides-macArm" class="btn-dl" style="padding: 6px 12px; font-size: 12px;">arm64 .dmg</a>
-              </td>
-              <td style="padding: 16px 16px;">
-                <a href="https://github.com/Sidhilynx/fenna/releases/latest" id="dl-slides-macIntel" class="btn-dl" style="padding: 6px 12px; font-size: 12px;">x64 .dmg</a>
-              </td>
-              <td style="padding: 16px 16px;">
-                <div style="display: flex; gap: 6px;">
-                  <a href="https://github.com/Sidhilynx/fenna/releases/latest" id="dl-slides-linuxAppImage" class="btn-dl" style="padding: 6px 10px; font-size: 12px;">AppImage</a>
-                  <a href="https://github.com/Sidhilynx/fenna/releases/latest" id="dl-slides-linuxDeb" class="btn-dl" style="padding: 6px 10px; font-size: 12px;">.deb</a>
-                </div>
-              </td>
-            </tr>
-
-            <!-- Docs -->
-            <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
-              <td style="padding: 16px 20px;">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                  <img src="assets/icons/docs.png" alt="Docs" style="width: 24px; height: 24px; border-radius: 4px;">
-                  <div>
-                    <div style="font-weight: 600; color: #fff;">Fenna Docs</div>
-                    <div style="font-size: 11px; color: #62666d;">Documents, notes & tabs</div>
-                  </div>
-                </div>
-              </td>
-              <td style="padding: 16px 16px;">
-                <a href="https://github.com/Sidhilynx/fenna/releases/latest" id="dl-docs-win" class="btn-dl" style="padding: 6px 12px; font-size: 12px;">.exe</a>
-              </td>
-              <td style="padding: 16px 16px;">
-                <a href="https://github.com/Sidhilynx/fenna/releases/latest" id="dl-docs-macArm" class="btn-dl" style="padding: 6px 12px; font-size: 12px;">arm64 .dmg</a>
-              </td>
-              <td style="padding: 16px 16px;">
-                <a href="https://github.com/Sidhilynx/fenna/releases/latest" id="dl-docs-macIntel" class="btn-dl" style="padding: 6px 12px; font-size: 12px;">x64 .dmg</a>
-              </td>
-              <td style="padding: 16px 16px;">
-                <div style="display: flex; gap: 6px;">
-                  <a href="https://github.com/Sidhilynx/fenna/releases/latest" id="dl-docs-linuxAppImage" class="btn-dl" style="padding: 6px 10px; font-size: 12px;">AppImage</a>
-                  <a href="https://github.com/Sidhilynx/fenna/releases/latest" id="dl-docs-linuxDeb" class="btn-dl" style="padding: 6px 10px; font-size: 12px;">.deb</a>
-                </div>
-              </td>
-            </tr>
-
-            <!-- Sheets -->
-            <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
-              <td style="padding: 16px 20px;">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                  <img src="assets/icons/sheets.png" alt="Sheets" style="width: 24px; height: 24px; border-radius: 4px;">
-                  <div>
-                    <div style="font-weight: 600; color: #fff;">Fenna Sheets</div>
-                    <div style="font-size: 11px; color: #62666d;">Spreadsheets & formulas</div>
-                  </div>
-                </div>
-              </td>
-              <td style="padding: 16px 16px;">
-                <a href="https://github.com/Sidhilynx/fenna/releases/latest" id="dl-sheets-win" class="btn-dl" style="padding: 6px 12px; font-size: 12px;">.exe</a>
-              </td>
-              <td style="padding: 16px 16px;">
-                <a href="https://github.com/Sidhilynx/fenna/releases/latest" id="dl-sheets-macArm" class="btn-dl" style="padding: 6px 12px; font-size: 12px;">arm64 .dmg</a>
-              </td>
-              <td style="padding: 16px 16px;">
-                <a href="https://github.com/Sidhilynx/fenna/releases/latest" id="dl-sheets-macIntel" class="btn-dl" style="padding: 6px 12px; font-size: 12px;">x64 .dmg</a>
-              </td>
-              <td style="padding: 16px 16px;">
-                <div style="display: flex; gap: 6px;">
-                  <a href="https://github.com/Sidhilynx/fenna/releases/latest" id="dl-sheets-linuxAppImage" class="btn-dl" style="padding: 6px 10px; font-size: 12px;">AppImage</a>
-                  <a href="https://github.com/Sidhilynx/fenna/releases/latest" id="dl-sheets-linuxDeb" class="btn-dl" style="padding: 6px 10px; font-size: 12px;">.deb</a>
-                </div>
-              </td>
-            </tr>
-
-            <!-- Design -->
-            <tr>
-              <td style="padding: 16px 20px;">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                  <img src="assets/icons/design.png" alt="Design" style="width: 24px; height: 24px; border-radius: 4px;">
-                  <div>
-                    <div style="font-weight: 600; color: #fff;">Fenna Design</div>
-                    <div style="font-size: 11px; color: #62666d;">Artboard canvas & screens</div>
-                  </div>
-                </div>
-              </td>
-              <td style="padding: 16px 16px;">
-                <a href="https://github.com/Sidhilynx/fenna/releases/latest" id="dl-design-win" class="btn-dl" style="padding: 6px 12px; font-size: 12px;">.exe</a>
-              </td>
-              <td style="padding: 16px 16px;">
-                <a href="https://github.com/Sidhilynx/fenna/releases/latest" id="dl-design-macArm" class="btn-dl" style="padding: 6px 12px; font-size: 12px;">arm64 .dmg</a>
-              </td>
-              <td style="padding: 16px 16px;">
-                <a href="https://github.com/Sidhilynx/fenna/releases/latest" id="dl-design-macIntel" class="btn-dl" style="padding: 6px 12px; font-size: 12px;">x64 .dmg</a>
-              </td>
-              <td style="padding: 16px 16px;">
-                <div style="display: flex; gap: 6px;">
-                  <a href="https://github.com/Sidhilynx/fenna/releases/latest" id="dl-design-linuxAppImage" class="btn-dl" style="padding: 6px 10px; font-size: 12px;">AppImage</a>
-                  <a href="https://github.com/Sidhilynx/fenna/releases/latest" id="dl-design-linuxDeb" class="btn-dl" style="padding: 6px 10px; font-size: 12px;">.deb</a>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- All-time Download Metrics Card -->
-      <div style="margin-top: 24px; background: #0f1012; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.4);">
-        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
-          <div>
-            <div style="font-size: 11px; font-family: ui-monospace, monospace; color: #5b8cff; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Metrics</div>
-            <h3 style="font-size: 16px; font-weight: 600; color: #fff;">All-Time Permanent Downloads</h3>
-          </div>
-          <div style="font-size: 14px; font-weight: 600; color: #5b8cff; font-family: ui-monospace, monospace;" id="total-downloads-stat">
-            29 total downloads
-          </div>
-        </div>
-        <p style="font-size: 12px; color: #8a8f98; margin-bottom: 16px;">
-          Calculated by summing all binary releases published to GitHub Releases. Even when new versions release, your cumulative numbers stay preserved.
-        </p>
-        <div id="stats-breakdown-table" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
-          <!-- Dynamically populated -->
-        </div>
+    <section class="sec" id="unsigned">
+      <div class="wrap">
+        <p class="eyebrow mono">First start</p>
+        <h2>Opening an unsigned app.</h2>
+        <p class="lede">The apps aren't code-signed yet, so your system will ask before the first start.</p>
+        <ul class="os-steps">
+          <li><span class="mono">Windows</span><p>"Windows protected your PC" → <strong>More info</strong> → <strong>Run anyway</strong>.</p></li>
+          <li><span class="mono">macOS</span><p>Open the app once, then <strong>System Settings → Privacy &amp; Security → Open Anyway</strong>.</p></li>
+          <li><span class="mono">Linux AppImage</span><p>Make it executable (<code>chmod +x Fenna-*.AppImage</code>), then run it.</p></li>
+        </ul>
       </div>
     </section>
 
-    <!-- Unsigned Binary Launch Guide -->
-    <section class="section" style="padding-top: 36px;">
-      <div id="unsigned-guide" class="unsigned-box">
-        <h3 class="unsigned-title">Unsigned for now: how to open on first start</h3>
-        <p class="unsigned-subtitle">The installers are not code-signed yet, so your operating system will display an alert on first launch.</p>
-
-        <div class="guide-tabs">
-          <button type="button" class="tab-btn active" data-tab="mac">macOS</button>
-          <button type="button" class="tab-btn" data-tab="windows">Windows</button>
-          <button type="button" class="tab-btn" data-tab="linux">Linux</button>
-        </div>
-
-        <!-- macOS Tab -->
-        <div id="tab-mac" class="tab-content active">
-          <ol class="guide-steps">
-            <li>Open the downloaded <code>.dmg</code> and drag the app to your <code>/Applications</code> folder.</li>
-            <li>Double-click to open. When macOS warns that the app cannot be opened, click <strong>Done</strong>.</li>
-            <li>Open <strong>System Settings → Privacy & Security</strong>, scroll down to the <strong>Security</strong> section, and click <strong>Open Anyway</strong>.</li>
-          </ol>
-          <div class="code-box">
-            <code>xattr -cr "/Applications/Fenna Workspace.app"</code>
-            <button type="button" class="btn-copy" data-copy="xattr -cr &quot;/Applications/Fenna Workspace.app&quot;">Copy</button>
-          </div>
-        </div>
-
-        <!-- Windows Tab -->
-        <div id="tab-windows" class="tab-content">
-          <ol class="guide-steps">
-            <li>Launch <code>Fenna-*-setup.exe</code>.</li>
-            <li>When the blue "Windows protected your PC" SmartScreen alert appears, click <strong>More info</strong>.</li>
-            <li>Click <strong>Run anyway</strong> to start installation.</li>
-          </ol>
-        </div>
-
-        <!-- Linux Tab -->
-        <div id="tab-linux" class="tab-content">
-          <ol class="guide-steps">
-            <li>Make the downloaded <code>.AppImage</code> executable:</li>
-          </ol>
-          <div class="code-box">
-            <code>chmod +x Fenna-*.AppImage && ./Fenna-*.AppImage</code>
-            <button type="button" class="btn-copy" data-copy="chmod +x Fenna-*.AppImage && ./Fenna-*.AppImage">Copy</button>
-          </div>
+    <section class="sec" id="editors">
+      <div class="wrap">
+        <p class="eyebrow mono">The editors</p>
+        <h2>Each editor is its own free app.</h2>
+        <p class="lede">Crew opens them as windows in each bot's computer. Any AI can also drive them through MCP.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th scope="col">App</th><th scope="col">For</th><th scope="col">Windows</th><th scope="col">macOS arm64</th><th scope="col">macOS x64</th><th scope="col">Linux AppImage</th><th scope="col">Linux deb</th></tr></thead>
+            <tbody>
+            <tr><td class="app"><img src="assets/icons/slides.png" width="32" height="32" loading="lazy" alt="">Fenna Slides</td><td class="for">Decks and presentations</td><td><a class="link" data-app="Slides" data-kind="win" href="https://github.com/Sidhilynx/fenna/releases/latest">exe</a></td><td><a class="link" data-app="Slides" data-kind="macArm" href="https://github.com/Sidhilynx/fenna/releases/latest">arm64</a></td><td><a class="link" data-app="Slides" data-kind="macX64" href="https://github.com/Sidhilynx/fenna/releases/latest">x64</a></td><td><a class="link" data-app="Slides" data-kind="appimage" href="https://github.com/Sidhilynx/fenna/releases/latest">AppImage</a></td><td><a class="link" data-app="Slides" data-kind="deb" href="https://github.com/Sidhilynx/fenna/releases/latest">deb</a></td></tr>
+            <tr><td class="app"><img src="assets/icons/docs.png" width="32" height="32" loading="lazy" alt="">Fenna Docs</td><td class="for">Memos, plans and notes</td><td><a class="link" data-app="Docs" data-kind="win" href="https://github.com/Sidhilynx/fenna/releases/latest">exe</a></td><td><a class="link" data-app="Docs" data-kind="macArm" href="https://github.com/Sidhilynx/fenna/releases/latest">arm64</a></td><td><a class="link" data-app="Docs" data-kind="macX64" href="https://github.com/Sidhilynx/fenna/releases/latest">x64</a></td><td><a class="link" data-app="Docs" data-kind="appimage" href="https://github.com/Sidhilynx/fenna/releases/latest">AppImage</a></td><td><a class="link" data-app="Docs" data-kind="deb" href="https://github.com/Sidhilynx/fenna/releases/latest">deb</a></td></tr>
+            <tr><td class="app"><img src="assets/icons/sheets.png" width="32" height="32" loading="lazy" alt="">Fenna Sheets</td><td class="for">Spreadsheets with formulas and charts</td><td><a class="link" data-app="Sheets" data-kind="win" href="https://github.com/Sidhilynx/fenna/releases/latest">exe</a></td><td><a class="link" data-app="Sheets" data-kind="macArm" href="https://github.com/Sidhilynx/fenna/releases/latest">arm64</a></td><td><a class="link" data-app="Sheets" data-kind="macX64" href="https://github.com/Sidhilynx/fenna/releases/latest">x64</a></td><td><a class="link" data-app="Sheets" data-kind="appimage" href="https://github.com/Sidhilynx/fenna/releases/latest">AppImage</a></td><td><a class="link" data-app="Sheets" data-kind="deb" href="https://github.com/Sidhilynx/fenna/releases/latest">deb</a></td></tr>
+            <tr><td class="app"><img src="assets/icons/whiteboard.png" width="32" height="32" loading="lazy" alt="">Fenna Whiteboard</td><td class="for">Brainstorms, flowcharts and retros</td><td><a class="link" data-app="Whiteboard" data-kind="win" href="https://github.com/Sidhilynx/fenna/releases/latest">exe</a></td><td><a class="link" data-app="Whiteboard" data-kind="macArm" href="https://github.com/Sidhilynx/fenna/releases/latest">arm64</a></td><td><a class="link" data-app="Whiteboard" data-kind="macX64" href="https://github.com/Sidhilynx/fenna/releases/latest">x64</a></td><td><a class="link" data-app="Whiteboard" data-kind="appimage" href="https://github.com/Sidhilynx/fenna/releases/latest">AppImage</a></td><td><a class="link" data-app="Whiteboard" data-kind="deb" href="https://github.com/Sidhilynx/fenna/releases/latest">deb</a></td></tr>
+            <tr><td class="app"><img src="assets/icons/design.png" width="32" height="32" loading="lazy" alt="">Fenna Design</td><td class="for">Screens, landing pages, posters and social posts</td><td><a class="link" data-app="Design" data-kind="win" href="https://github.com/Sidhilynx/fenna/releases/latest">exe</a></td><td><a class="link" data-app="Design" data-kind="macArm" href="https://github.com/Sidhilynx/fenna/releases/latest">arm64</a></td><td><a class="link" data-app="Design" data-kind="macX64" href="https://github.com/Sidhilynx/fenna/releases/latest">x64</a></td><td><a class="link" data-app="Design" data-kind="appimage" href="https://github.com/Sidhilynx/fenna/releases/latest">AppImage</a></td><td><a class="link" data-app="Design" data-kind="deb" href="https://github.com/Sidhilynx/fenna/releases/latest">deb</a></td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </section>
   </main>
 
-  <!-- Footer -->
-  <footer class="site-footer">
-    <div class="footer-inner">
-      <div>
-        Fenna is free software licensed under <a href="https://github.com/Sidhilynx/fenna/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" style="color: #fff;">GNU AGPLv3</a>.
-      </div>
-      <div class="footer-links">
-        <a href="https://github.com/Sidhilynx/fenna" target="_blank" rel="noopener noreferrer">GitHub</a>
-        <a href="index.html">Home</a>
+  <footer class="foot">
+    <div class="wrap foot-in">
+      <span>Fenna Crew by <a href="https://sidhilynx.com">Sidhilynx</a></span>
+      <nav aria-label="Footer">
+        <a href="https://github.com/Sidhilynx/fenna">GitHub</a>
         <a href="changelog.html">Changelog</a>
-        <a href="https://github.com/Sidhilynx/fenna/blob/main/PRIVACY.md" target="_blank" rel="noopener noreferrer">Privacy</a>
-        <a href="https://github.com/Sidhilynx/fenna/issues" target="_blank" rel="noopener noreferrer">Issues</a>
-      </div>
-      <div>
-        Made by SidhiLynx, Chennai
-      </div>
+        <a href="https://github.com/Sidhilynx/fenna/blob/main/PRIVACY.md">Privacy</a>
+        <a href="https://github.com/Sidhilynx/fenna/issues">Issues</a>
+        <a href="https://github.com/Sidhilynx/fenna/blob/main/LICENSE">License AGPL-3.0</a>
+      </nav>
+      <span class="copy">© 2026 Sidhilynx</span>
     </div>
   </footer>
 
+  <script src="js/faces.js"></script>
+  <script src="js/site.js"></script>
   <script src="js/download.js"></script>
 </body>
 </html>
