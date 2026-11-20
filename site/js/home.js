@@ -261,7 +261,7 @@
     window.setTimeout(function () { bcursor.classList.remove("click"); }, 160);
   }
   function rest() {
-    aim(bcursor, desk, desk.clientWidth * 0.82, desk.clientHeight * 0.78);
+    aim(bcursor, desk, Math.min(desk.clientWidth * 0.82, desk.clientWidth - 110), desk.clientHeight * 0.78);
   }
 
   /* What happens when, in ms from the start. The chat lines carry their own times in data-at. */

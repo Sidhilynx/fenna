@@ -308,7 +308,7 @@ p { max-width: 62ch; }
 .approval .acts { display: flex; flex-wrap: wrap; gap: 8px; }
 .approval .result { color: var(--text-2); font-size: 15px; }
 .approval .result:empty { display: none; }
-.approval.done .acts, .approval.done .need-dot { display: none; }
+.approval.done .acts, .approval.done .need-dot, .approval.done .waiting { display: none; }
 .approval .again { display: none; justify-self: start; }
 .approval.done .again { display: inline-flex; }
 
@@ -362,7 +362,8 @@ p { max-width: 62ch; }
 .hwin-bar i { width: 8px; height: 2px; background: #6f6f6f; margin-left: 6px; }
 .hwin-bar i:first-of-type { margin-left: auto; }
 .hwin-body { padding: 14px 14px 16px; }
-.hwin-title { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.hwin-title { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 8px; margin-bottom: 10px; }
+.hwin-title b, .hwin-title span { white-space: nowrap; }
 .hwin-title b { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
 .hwin-title span { color: #5f5a50; font-size: 12px; }
 .htable { width: 100%; border-collapse: collapse; min-width: 0; font-size: 12px; }
@@ -457,7 +458,7 @@ main > .sec:last-child { padding-bottom: var(--section); }
 .release-tag a { text-decoration: none; font-size: 20px; font-weight: 600; letter-spacing: -0.02em; }
 .release-date { color: var(--text-3); }
 .latest { --px-c: var(--pri); background: var(--pri); color: var(--pri-ink); }
-.release-body { color: var(--text-2); max-width: 70ch; font-size: 17px; min-width: 0; }
+.release-body { color: var(--text-2); max-width: 70ch; font-size: 17px; min-width: 0; overflow-wrap: anywhere; }
 .release-body h1, .release-body h2, .release-body h3 { color: var(--text); font-size: 18px; letter-spacing: -0.01em; margin: 28px 0 10px; }
 .release-body h1:first-child, .release-body h2:first-child, .release-body h3:first-child { margin-top: 0; }
 .release-body p { margin: 0 0 12px; }

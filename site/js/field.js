@@ -322,7 +322,8 @@
       }
       ripples = live;
 
-      if ((mode === "hero" || mode === "glow") && inside) glowAt(px, py, 132, 4);
+      if (mode === "hero" && inside) glowAt(px, py, 132, 4);
+      if (mode === "glow" && inside) glowAt(px, py, 110, 3);
       if (mode === "reveal" && inside) glowAt(px, py, 150, 4);
       if (mode === "construct") {
         var gw = w < 600 ? 9 : 12, gh = w < 600 ? 7 : 8;
@@ -399,7 +400,7 @@
           sx = Math.max(0, Math.min(cw - G, Math.round(sx / G) * G));
           sy = Math.max(0, Math.min(ch - G, Math.round(sy / G) * G));
         }
-        return { cx: p.cx, cy: p.cy, k: p.k, hx: hx, hy: hy, x: sx, y: sy, vx: 0, vy: 0, at: assemble ? now + (15 - p.cy) * 34 + Math.random() * 160 : 0 };
+        return { cx: p.cx, cy: p.cy, k: p.k, hx: hx, hy: hy, x: sx, y: sy, vx: 0, vy: 0, at: assemble ? now + (15 - p.cy) * 24 + Math.random() * 120 : 0 };
       });
       built = !assemble;
     }
