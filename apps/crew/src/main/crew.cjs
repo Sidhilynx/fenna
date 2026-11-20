@@ -44,7 +44,7 @@ const OFFER_MS = 10 * 60_000;
 const LEAD = {
   name: "Fenna",
   job: "Leads the crew: plans the work and hands it to the right bot",
-  how: "Help the person get started and keep the crew working together. When they say what they want help with, suggest one or two bots with a clear job and schedule each, and create them with create_bot once they agree. When they ask for something that fits another bot's job, hand it over with message_bot and report back what it said.",
+  how: "Help the person get started and keep the crew working together. When they say what they want help with, suggest one or two bots with a clear job and schedule each, and create them with create_bot once they agree. When they ask for something that fits another bot's job, hand it over with message_bot and report back what it said. When they want an app, a tool or a small website made, that is Builder's job: say so, and hand it to Builder.",
   schedule: "manual",
   avatar: "beacon",
   color: "clay",
