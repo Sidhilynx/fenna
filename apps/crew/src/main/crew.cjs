@@ -30,6 +30,7 @@ const { createNotices } = require("./notices.cjs");
 const { createShell } = require("./shell.cjs");
 const { createSearch } = require("./search.cjs");
 const { createReplay } = require("./replay.cjs");
+const { noUsage } = require("./usage.cjs");
 const F = require("./format.cjs");
 
 /** How long an offer to save a login waits for the person. */
@@ -62,9 +63,10 @@ const LEAD = {
  * @param {{ writeText(text: string): void, readText(): string }} [o.clipboard]  copying from the vault
  * @param {number} [o.waitTimeoutMs]
  * @param {(waiting: object[], offers: object[]) => void} [o.onNeeds]  told everything that waits on the person each time the overview changes (system notifications)
+ * @param {object} [o.usage]  counts events for the anonymous usage counts (usage.cjs)
  * @param {object | null} [o.sandbox]  runs the bots' scripts (`run` in the terminal); null: scripts aren't available
  */
-function createCrew({ root, userData, packaged, resources, repo, broadcast, liveTarget, secrets, client, openExternal = async () => {}, trash, settings, clipboard = null, waitTimeoutMs, onNeeds = () => {}, sandbox = null }) {
+function createCrew({ root, userData, packaged, resources, repo, broadcast, liveTarget, secrets, client, openExternal = async () => {}, trash, settings, clipboard = null, waitTimeoutMs, onNeeds = () => {}, sandbox = null, usage = noUsage }) {
   // Connectors belong to this computer, not to a crew folder, so they live under userData always.
   const connectors = createConnectorStore({ dir: path.join(userData, "Crew", "connectors"), secrets });
   const store = createStore(root, { trash, migrate: (slug, legacy) => connectors.migrate(slug, legacy) });
@@ -137,6 +139,7 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
     onChange,
     maxConcurrent: Math.max(1, Math.min(4, Number(settings && settings().maxConcurrent) || 2)),
     installed: (name) => connectors.has(name),
+    usage,
     onEnd: (runId) => {
       if (gateway) gateway.endRun(runId);
       if (logins) logins.endRun(runId);
@@ -148,11 +151,11 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
     },
   });
   const replay = createReplay({ store, runner });
-  const approve = createApprover({ store, runner, waits });
+  const approve = createApprover({ store, runner, waits, usage });
   gateway = createGateway({ store, connectors, connections, approve, runner, onChange });
   logins = createLogins({ store, vault, browsers, approve, runner, onChange });
   const watches = createWatches({ store, runner, browsers, broadcast, onFire: (slug, w, what) => notices.add(slug, { kind: w.kind === "timer" ? "reminder" : "watch", title: w.note, body: what }) });
-  handle = createHandlers({ store, runner, waits, approve, browsers, gateway, logins, onChange, onDesktop, watches, search, shell });
+  handle = createHandlers({ store, runner, waits, approve, browsers, gateway, logins, onChange, onDesktop, watches, search, shell, usage });
   const scheduler = createScheduler({ store, runner });
   const teamChat = createTeamChat({ store, runner, onChange });
   views = createViews({ store, runner, waits, scheduler, browsers, settings, offers: () => offerViews() });

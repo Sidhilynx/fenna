@@ -1,5 +1,7 @@
 // Crew overview: bots that have a screen show it as a live tile, the others
 // show what they did last as a list, and a banner says what waits on the person.
+import { toast } from "@opendeck/shell";
+import { errorText, invoke } from "../shared/api.ts";
 import type { BotSummary, Waiting } from "../shared/contract.ts";
 import { Face } from "./Avatar.tsx";
 import { PixelIcon } from "./PixelIcon.tsx";
@@ -26,6 +28,27 @@ function lastLine(bot: BotSummary): string {
   if (!bot.lastRunAt) return "Not run yet";
   const at = when(bot.lastRunAt);
   return bot.status && bot.status !== bot.statusLine ? `${at} · ${bot.status}` : at;
+}
+
+/** Said once, on the first start with usage counts: what is sent, with a way to look, turn it off, or carry on. */
+function UsageNotice() {
+  const answer = (action: "ok" | "off" | "details") => void invoke("crew:usageNotice", action).catch((e) => toast(errorText(e)));
+  return (
+    <section className="banner usage-notice" aria-label="Anonymous usage counts">
+      <p className="banner-text">Fenna sends an anonymous count once a day: the version, your system, and numbers like how many runs and approvals. Never your files, chats, jobs or sites.</p>
+      <div className="usage-notice-acts">
+        <button type="button" className="btn" onClick={() => answer("details")}>
+          What's sent
+        </button>
+        <button type="button" className="btn" onClick={() => answer("off")}>
+          Turn off
+        </button>
+        <button type="button" className="btn primary" onClick={() => answer("ok")}>
+          OK
+        </button>
+      </div>
+    </section>
+  );
 }
 
 function Banner({ w }: { w: Waiting }) {
@@ -88,6 +111,8 @@ export function Overview() {
   const { bots, waiting } = overview;
   const summary = summaryLine(bots);
   const shown = waiting.slice(0, 3);
+  const { settings } = overview;
+  const askUsage = !settings.usageNoticeSeen && !settings.usageLocked && settings.usageCounts;
   const live = bots.filter((b) => b.browser);
   const rest = bots.filter((b) => !b.browser);
   return (
@@ -107,6 +132,7 @@ export function Overview() {
           </button>
         </div>
       )}
+      {askUsage && <UsageNotice />}
       {shown.map((w) => (
         <Banner key={w.id} w={w} />
       ))}

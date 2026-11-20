@@ -6,10 +6,12 @@ const { app, BrowserWindow, Menu, Notification, Tray, clipboard, dialog, ipcMain
 const fs = require("node:fs");
 const path = require("node:path");
 const { PRELOAD, registerAssistantSetup, registerShell, applyReviewTheme } = require("@opendeck/shell/main");
+const { assistantCatalog } = require("@opendeck/shell/main/agent.cjs");
 const { createCrew } = require("./crew.cjs");
 const { registerIpc } = require("./ipc.cjs");
 const client = require("./client.cjs");
 const { DEFAULTS, checkSettingsPatch, readStored } = require("./settings.cjs");
+const { createUsage } = require("./usage.cjs");
 const { createNotifier } = require("./notify.cjs");
 const { createSandbox } = require("./sandbox.cjs");
 const { registerNoticesIpc } = require("./notices.cjs");
@@ -49,6 +51,10 @@ let quitting = false;
 let crew = null;
 /** @type {ReturnType<typeof createEditors> | null} */
 let editors = null;
+/** Anonymous usage counts and feedback (usage.cjs). */
+let usage = null;
+/** FENNA_NO_USAGE=1 turns usage counts off for good; the switch in Settings shows it and can't change it. */
+const usageLocked = () => process.env.FENNA_NO_USAGE === "1";
 /** Runs the bots' scripts (`run` in their terminal), each in a sealed hidden window. */
 let sandbox = null;
 
@@ -87,6 +93,8 @@ const settings = {
       ...DEFAULTS,
       openAtLogin: !!login.openAtLogin,
       ...stored,
+      usageCounts: !usageLocked() && stored.usageCounts !== false,
+      usageLocked: usageLocked(),
       storagePath: app.getPath("userData"),
       vaultEncrypted: safeStorage.isEncryptionAvailable(),
     };
@@ -98,9 +106,11 @@ const settings = {
       app.setLoginItemSettings({ openAtLogin: checked.openAtLogin, openAsHidden: true, args: [HIDDEN_ARG] });
       delete checked.openAtLogin;
     }
+    if (usageLocked()) delete checked.usageCounts;
     loadSettings();
     Object.assign(stored, checked);
     saveSettings();
+    if (checked.usageCounts === false && usage) usage.purge();
     return settings.get();
   },
 };
@@ -234,7 +244,21 @@ async function start() {
   Menu.setApplicationMenu(null);
   applyReviewTheme(nativeTheme);
   const repo = path.resolve(__dirname, "..", "..", "..", "..");
+  loadSettings();
+  usage = createUsage({
+    dir: app.getPath("userData"),
+    version: app.getVersion(),
+    enabled: () => !usageLocked() && stored.usageCounts !== false,
+    noticed: () => stored.usageNoticeSeen === true,
+    totals: () => ({ bots: crew.store.slugs().length, groups: crew.store.teamSlugs().length, connectors: crew.connectors.list().length, logins: crew.vault.list().length }),
+    signedIn: async () => {
+      const list = await Promise.all(F.CLI_KINDS.map((k) => assistantCatalog(k).catch(() => null)));
+      return list.filter((c) => c && c.installed && c.signedIn).map((c) => (c.kind === "antigravity" ? "agy" : c.kind));
+    },
+    fetch: (url, init) => net.fetch(url, init),
+  });
   crew = createCrew({
+    usage,
     root: process.env.OPENDECK_CREW_ROOT || path.join(app.getPath("userData"), "Crew"),
     userData: app.getPath("userData"),
     packaged: app.isPackaged,
@@ -258,6 +282,7 @@ async function start() {
   ipcMain.handle("crew:editor", (e, slug, item, webContentsId) => {
     assertSender(e);
     if (!F.isSlug(slug) || !crew.store.readBot(slug)) throw new Error("That bot isn't there any more.");
+    usage.count("editor_opens");
     return editors.open(e.sender, slug, item, Number(webContentsId));
   });
   crew.disk.handleScheme(protocol);
@@ -271,12 +296,15 @@ async function start() {
     shell: crew.shell,
     search: crew.search,
     settings,
+    usage,
+    openUrl: (url) => shell.openExternal(url),
     reveal: async (target) => {
       if (fs.existsSync(target)) shell.showItemInFolder(target);
       else throw new Error("That file isn't there any more.");
     },
   });
   await crew.start();
+  usage.start();
   createTray();
   createWindow({ show: !process.argv.includes(HIDDEN_ARG) });
   nativeTheme.on("updated", () => {
@@ -287,6 +315,7 @@ async function start() {
 app.on("before-quit", () => {
   quitting = true;
   if (sandbox) sandbox.stopAll();
+  if (usage) usage.stop();
   if (crew) crew.stop();
 });
 

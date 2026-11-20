@@ -5,6 +5,7 @@ import { Dialog, toast, ThemeToggle } from "@opendeck/shell";
 import { CLI_KINDS, CLI_NAMES, type CliKind } from "@opendeck/crew";
 import { errorText, invoke } from "../shared/api.ts";
 import type { Settings } from "../shared/contract.ts";
+import { FeedbackDialog } from "./Feedback.tsx";
 import { Pick } from "./Pick.tsx";
 import { useCrew } from "./crew.tsx";
 
@@ -51,6 +52,7 @@ export function SettingsDialog({ onClose }: { onClose(): void }) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState(false);
 
   useEffect(() => {
     invoke("crew:settings")
@@ -81,6 +83,7 @@ export function SettingsDialog({ onClose }: { onClose(): void }) {
   const efforts = model ? model.efforts : [...new Set(models.flatMap((m) => m.efforts))];
 
   return (
+    <>
     <Dialog title="Settings" onClose={onClose} width={680}>
       <div className="settings-shell">
         <nav className="settings-nav" aria-label="Settings sections">
@@ -105,6 +108,23 @@ export function SettingsDialog({ onClose }: { onClose(): void }) {
                   </Row>
                   <Row name="Notifications" sub="When a bot needs you and Crew is out of sight." htmlFor="set-notify">
                     <input id="set-notify" className="px-switch" type="checkbox" checked={settings.notifications} disabled={saving} onChange={(e) => void update({ notifications: e.target.checked })} />
+                  </Row>
+                  <Row
+                    name="Send anonymous usage counts"
+                    sub={settings.usageLocked ? "Off on this computer: FENNA_NO_USAGE is set." : "Once a day: version, system and how many runs and approvals. Never your files, chats, jobs or sites."}
+                    htmlFor="set-usage"
+                  >
+                    <input id="set-usage" className="px-switch" type="checkbox" checked={settings.usageCounts} disabled={saving || settings.usageLocked} onChange={(e) => void update({ usageCounts: e.target.checked })} />
+                  </Row>
+                  <Row name="What Fenna sends" sub="The full list of what Fenna sends over the network, and when.">
+                    <button type="button" className="btn" onClick={() => void invoke("crew:usageNotice", "details").catch((e) => toast(errorText(e)))}>
+                      What's sent
+                    </button>
+                  </Row>
+                  <Row name="Feedback" sub="Tell us how Crew is working for you.">
+                    <button type="button" className="btn" onClick={() => setFeedback(true)}>
+                      Send feedback
+                    </button>
                   </Row>
                 </>
               )}
@@ -184,5 +204,7 @@ export function SettingsDialog({ onClose }: { onClose(): void }) {
         </button>
       </div>
     </Dialog>
+    {feedback && <FeedbackDialog onClose={() => setFeedback(false)} />}
+    </>
   );
 }

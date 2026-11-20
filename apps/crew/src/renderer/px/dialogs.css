@@ -104,3 +104,8 @@
   .dialog .nb-start-item, .dialog .nb-more svg { transition: none; }
   .dialog .nb-start-item:hover { transform: none; }
 }
+
+/* Feedback: the rating buttons, the text with its counter, and the answer. */
+.fb-count { align-self: flex-end; }
+.fb-error { color: var(--danger); }
+.fb-done { margin: 0 0 16px; font-size: var(--fs-md); }
