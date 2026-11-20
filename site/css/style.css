@@ -147,6 +147,7 @@ p { max-width: 62ch; }
 .nav { position: sticky; top: 0; z-index: 20; background: var(--bg); border-bottom: 2px solid var(--line); }
 .nav-in { display: flex; align-items: center; gap: 28px; height: 64px; }
 .brand { display: inline-flex; align-items: center; gap: 12px; font-weight: 600; font-size: 17px; letter-spacing: -0.02em; text-decoration: none; margin-right: auto; }
+.brand-icon { width: 32px; height: 32px; display: block; image-rendering: pixelated; }
 .nav a:not(.brand):not(.btn) { color: var(--text-2); font-size: 15px; text-decoration: none; }
 .nav a:not(.brand):not(.btn):hover, .nav a[aria-current="page"] { color: var(--text); }
 .nav-links { display: flex; gap: 28px; }
