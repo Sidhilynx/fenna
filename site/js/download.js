@@ -1,290 +1,86 @@
-/**
- * Handles OS detection, multi-app asset parsing, and cumulative download tracking
- * across all published releases from the GitHub Releases API.
- */
-
+/* Resolves installers from the latest GitHub release by file-name pattern and
+   points the download buttons at the right one for this computer. Without the
+   API (offline, rate limited) every link stays on /releases/latest. */
 (function () {
-  const GITHUB_REPO = "Sidhilynx/fenna";
-  const RELEASES_API = `https://api.github.com/repos/${GITHUB_REPO}/releases`;
-  const CURRENT_TAG = "v0.9.3";
-  const BASE_DL = `https://github.com/${GITHUB_REPO}/releases/download/${CURRENT_TAG}`;
+  var REPO = "Sidhilynx/fenna";
+  var LATEST = "https://github.com/" + REPO + "/releases/latest";
+  var API = "https://api.github.com/repos/" + REPO + "/releases/latest";
+  var CACHE = "fenna-latest-release";
 
-  function formatBytes(bytes) {
-    if (!bytes || bytes === 0) return "";
-    const mb = bytes / (1024 * 1024);
-    return `${mb.toFixed(1)} MB`;
+  var KINDS = {
+    win: /-setup\.exe$/i,
+    macArm: /-arm64\.dmg$/i,
+    macX64: /-x64\.dmg$/i,
+    appimage: /\.AppImage$/i,
+    deb: /\.deb$/i
+  };
+  var LABELS = { win: "Windows", macArm: "macOS", macX64: "macOS", appimage: "Linux", deb: "Linux" };
+
+  function detect() {
+    var ua = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "";
+    var agent = navigator.userAgent || "";
+    if (/android|iphone|ipad|ipod/i.test(agent)) return null;
+    if (/win/i.test(ua) || /windows/i.test(agent)) return "win";
+    if (/mac/i.test(ua) || /macintosh/i.test(agent)) return "macArm";
+    if (/linux|x11|cros/i.test(ua + agent)) return "appimage";
+    return null;
   }
 
-  // Fallback defaults
-  function defaultMatrix() {
-    return {
-      workspace: {
-        win: `${BASE_DL}/Fenna-Workspace-0.9.3-setup.exe`,
-        macArm: `${BASE_DL}/Fenna-Workspace-0.9.3-arm64.dmg`,
-        macIntel: `${BASE_DL}/Fenna-Workspace-0.9.3-x64.dmg`,
-        linuxAppImage: `${BASE_DL}/Fenna-Workspace-0.9.3-x86_64.AppImage`,
-        linuxDeb: `https://github.com/${GITHUB_REPO}/releases/latest`,
-      },
-      whiteboard: {
-        win: `${BASE_DL}/Fenna-Whiteboard-0.9.3-setup.exe`,
-        macArm: `${BASE_DL}/Fenna-Whiteboard-0.9.3-arm64.dmg`,
-        macIntel: `${BASE_DL}/Fenna-Whiteboard-0.9.3-x64.dmg`,
-        linuxAppImage: `${BASE_DL}/Fenna-Whiteboard-0.9.3-x86_64.AppImage`,
-        linuxDeb: `${BASE_DL}/Fenna-Whiteboard-0.9.3-amd64.deb`,
-      },
-      slides: {
-        win: `${BASE_DL}/Fenna-Slides-0.9.3-setup.exe`,
-        macArm: `${BASE_DL}/Fenna-Slides-0.9.3-arm64.dmg`,
-        macIntel: `${BASE_DL}/Fenna-Slides-0.9.3-x64.dmg`,
-        linuxAppImage: `${BASE_DL}/Fenna-Slides-0.9.3-x86_64.AppImage`,
-        linuxDeb: `${BASE_DL}/Fenna-Slides-0.9.3-amd64.deb`,
-      },
-      docs: {
-        win: `${BASE_DL}/Fenna-Docs-0.9.3-setup.exe`,
-        macArm: `${BASE_DL}/Fenna-Docs-0.9.3-arm64.dmg`,
-        macIntel: `${BASE_DL}/Fenna-Docs-0.9.3-x64.dmg`,
-        linuxAppImage: `${BASE_DL}/Fenna-Docs-0.9.3-x86_64.AppImage`,
-        linuxDeb: `${BASE_DL}/Fenna-Docs-0.9.3-amd64.deb`,
-      },
-      sheets: {
-        win: `${BASE_DL}/Fenna-Sheets-0.9.3-setup.exe`,
-        macArm: `${BASE_DL}/Fenna-Sheets-0.9.3-arm64.dmg`,
-        macIntel: `${BASE_DL}/Fenna-Sheets-0.9.3-x64.dmg`,
-        linuxAppImage: `${BASE_DL}/Fenna-Sheets-0.9.3-x86_64.AppImage`,
-        linuxDeb: `${BASE_DL}/Fenna-Sheets-0.9.3-amd64.deb`,
-      },
-      design: {
-        win: `${BASE_DL}/Fenna-Design-0.9.3-setup.exe`,
-        macArm: `${BASE_DL}/Fenna-Design-0.9.3-arm64.dmg`,
-        macIntel: `${BASE_DL}/Fenna-Design-0.9.3-x64.dmg`,
-        linuxAppImage: `${BASE_DL}/Fenna-Design-0.9.3-x86_64.AppImage`,
-        linuxDeb: `${BASE_DL}/Fenna-Design-0.9.3-amd64.deb`,
-      },
-    };
+  function size(bytes) {
+    return bytes ? (bytes / 1048576).toFixed(0) + " MB" : "";
   }
 
-  function detectOS() {
-    const ua = navigator.userAgent;
-    const platform = navigator.platform || "";
-
-    if (/Mac/i.test(platform) || /Macintosh|Mac OS X/i.test(ua)) {
-      return "mac";
+  function find(assets, prefix, kind) {
+    for (var i = 0; i < assets.length; i++) {
+      var name = assets[i].name;
+      if (name.indexOf(prefix) === 0 && KINDS[kind].test(name)) return assets[i];
     }
-    if (/Win/i.test(platform) || /Windows/i.test(ua)) {
-      return "windows";
-    }
-    if (/Linux/i.test(platform) || /Linux/i.test(ua)) {
-      return "linux";
-    }
-    return "unknown";
+    return null;
   }
 
-  function parseAssetInfo(filename) {
-    const name = filename.toLowerCase();
-    let app = "unknown";
-
-    if (name.includes("workspace")) app = "workspace";
-    else if (name.includes("whiteboard") || name.includes("board")) app = "whiteboard";
-    else if (name.includes("slides") || name.includes("desktop")) app = "slides";
-    else if (name.includes("docs") || name.includes("doc")) app = "docs";
-    else if (name.includes("sheets") || name.includes("sheet")) app = "sheets";
-    else if (name.includes("design") || name.includes("artboard")) app = "design";
-
-    let target = "unknown";
-    if (name.endsWith(".exe")) {
-      target = "win";
-    } else if (name.endsWith(".dmg")) {
-      if (name.includes("arm64")) {
-        target = "macArm";
-      } else if (name.includes("x64") || name.includes("intel")) {
-        target = "macIntel";
-      } else {
-        target = "macArm";
-      }
-    } else if (name.endsWith(".appimage")) {
-      target = "linuxAppImage";
-    } else if (name.endsWith(".deb")) {
-      target = "linuxDeb";
-    }
-
-    return { app, target };
-  }
-
-  function setupTabs() {
-    const tabBtns = document.querySelectorAll(".tab-btn");
-    tabBtns.forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const targetTab = btn.getAttribute("data-tab");
-        document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
-        document.querySelectorAll(".tab-content").forEach((c) => c.classList.remove("active"));
-
-        btn.classList.add("active");
-        const panel = document.getElementById(`tab-${targetTab}`);
-        if (panel) panel.classList.add("active");
-      });
-    });
-
-    const os = detectOS();
-    const matchingBtn = document.querySelector(`.tab-btn[data-tab="${os}"]`);
-    if (matchingBtn) {
-      matchingBtn.click();
-    }
-  }
-
-  function setupCopyButtons() {
-    document.querySelectorAll(".btn-copy").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const text = btn.getAttribute("data-copy") || "";
-        navigator.clipboard.writeText(text).then(() => {
-          const original = btn.textContent;
-          btn.textContent = "Copied";
-          setTimeout(() => {
-            btn.textContent = original;
-          }, 1800);
-        });
-      });
-    });
-  }
-
-  function applyAssetUrls(appMatrix, latestTag, stats) {
-    const os = detectOS();
-    const wsAssets = appMatrix.workspace;
-
-    // 1. Update version tag display
-    document.querySelectorAll(".version-tag-display").forEach((el) => {
-      el.textContent = latestTag;
-    });
-
-    // 2. Update all-time cumulative download counters
-    const counterEl = document.getElementById("total-downloads-stat");
-    if (counterEl) {
-      counterEl.textContent = `${stats.total.toLocaleString()} total downloads`;
-    }
-
-    const counterBadge = document.getElementById("hero-download-stat-badge");
-    if (counterBadge && stats.total > 0) {
-      counterBadge.textContent = `${stats.total} total downloads across all versions`;
-      counterBadge.style.display = "inline-flex";
-    }
-
-    // 3. Update home hero primary download button
-    const heroBtn = document.getElementById("hero-download-btn");
-    if (heroBtn) {
-      if (os === "mac") {
-        heroBtn.innerHTML = `
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          <span>Download Workspace for macOS</span>
-        `;
-        heroBtn.href = wsAssets.macArm || wsAssets.macIntel;
-      } else if (os === "windows") {
-        heroBtn.innerHTML = `
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          <span>Download Workspace for Windows</span>
-        `;
-        heroBtn.href = wsAssets.win;
-      } else if (os === "linux") {
-        heroBtn.innerHTML = `
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          <span>Download Workspace for Linux</span>
-        `;
-        heroBtn.href = wsAssets.linuxAppImage || wsAssets.linuxDeb;
-      }
-    }
-
-    // 4. Highlight detected OS card
-    const osCard = document.getElementById(`card-${os}`);
-    if (osCard) {
-      osCard.classList.add("highlight");
-    }
-
-    // 5. Update download links
-    const targets = ["win", "macArm", "macIntel", "linuxAppImage", "linuxDeb"];
-    const apps = ["workspace", "whiteboard", "slides", "docs", "sheets", "design"];
-
-    apps.forEach((app) => {
-      targets.forEach((tgt) => {
-        const linkEl = document.getElementById(`dl-${app}-${tgt}`);
-        if (linkEl && appMatrix[app] && appMatrix[app][tgt]) {
-          linkEl.href = appMatrix[app][tgt];
-        }
-      });
-    });
-
-    // 6. Update download breakdown stats if present
-    const statBreakdown = document.getElementById("stats-breakdown-table");
-    if (statBreakdown) {
-      let rows = "";
-      for (const [appName, count] of Object.entries(stats.perApp)) {
-        rows += `
-          <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 12px;">
-            <span style="color: #fff; text-transform: capitalize;">${appName}</span>
-            <span style="font-family: ui-monospace, monospace; color: #5b8cff;">${count} downloads</span>
-          </div>
-        `;
-      }
-      statBreakdown.innerHTML = rows;
-    }
-  }
-
-  // Fetch all releases to compute permanent all-time stats and get latest assets
-  async function initDownloads() {
-    const appMatrix = defaultMatrix();
-    let latestTag = CURRENT_TAG;
-    const stats = {
-      total: 0,
-      perOS: { Windows: 0, macOS: 0, Linux: 0 },
-      perApp: { workspace: 0, whiteboard: 0, slides: 0, docs: 0, sheets: 0, design: 0 },
-    };
-
-    try {
-      const res = await fetch(RELEASES_API);
-      if (res.ok) {
-        const releases = await res.json();
-        if (Array.isArray(releases) && releases.length > 0) {
-          // Latest release is first
-          const latestRelease = releases[0];
-          latestTag = latestRelease.tag_name || latestRelease.name || CURRENT_TAG;
-
-          // 1. Parse latest assets for download links
-          if (Array.isArray(latestRelease.assets)) {
-            for (const asset of latestRelease.assets) {
-              const { app, target } = parseAssetInfo(asset.name);
-              if (appMatrix[app] && target !== "unknown") {
-                appMatrix[app][target] = asset.browser_download_url;
-              }
-            }
-          }
-
-          // 2. Aggregate all-time permanent download stats across ALL releases
-          for (const rel of releases) {
-            if (Array.isArray(rel.assets)) {
-              for (const asset of rel.assets) {
-                const count = asset.download_count || 0;
-                stats.total += count;
-
-                const { app, target } = parseAssetInfo(asset.name);
-                if (stats.perApp[app] !== undefined) {
-                  stats.perApp[app] += count;
-                }
-
-                if (target === "win") stats.perOS.Windows += count;
-                else if (target === "macArm" || target === "macIntel") stats.perOS.macOS += count;
-                else if (target === "linuxAppImage" || target === "linuxDeb") stats.perOS.Linux += count;
-              }
-            }
-          }
-        }
-      }
-    } catch (err) {
-      console.warn("Could not fetch release metrics from GitHub API:", err);
-    } finally {
-      applyAssetUrls(appMatrix, latestTag, stats);
-    }
-  }
-
-  document.addEventListener("DOMContentLoaded", () => {
-    setupTabs();
-    setupCopyButtons();
-    initDownloads();
+  var mine = detect();
+  var primaries = document.querySelectorAll("[data-dl='primary']");
+  primaries.forEach(function (a) {
+    a.textContent = mine ? "Download for " + LABELS[mine] : "Download";
+    if (!mine) a.setAttribute("href", "download.html");
   });
+
+  function apply(release) {
+    var assets = release.assets || [];
+    primaries.forEach(function (a) {
+      var asset = mine && find(assets, "Fenna-Crew-", mine);
+      if (asset) a.setAttribute("href", asset.browser_download_url);
+    });
+    document.querySelectorAll("[data-asset]").forEach(function (a) {
+      var asset = find(assets, "Fenna-Crew-", a.getAttribute("data-asset"));
+      if (!asset) return;
+      a.setAttribute("href", asset.browser_download_url);
+      var row = a.closest("li");
+      var file = row && row.querySelector(".file");
+      if (file) file.textContent = asset.name + "  " + size(asset.size);
+    });
+    document.querySelectorAll("[data-app]").forEach(function (a) {
+      var asset = find(assets, "Fenna-" + a.getAttribute("data-app") + "-", a.getAttribute("data-kind"));
+      if (asset) a.setAttribute("href", asset.browser_download_url);
+    });
+    document.querySelectorAll("[data-version]").forEach(function (el) {
+      el.textContent = release.tag_name || "";
+    });
+  }
+
+  function load() {
+    try {
+      var cached = JSON.parse(sessionStorage.getItem(CACHE) || "null");
+      if (cached && Date.now() - cached.at < 600000) return Promise.resolve(cached.release);
+    } catch (e) { /* storage can be blocked */ }
+    return fetch(API).then(function (res) {
+      if (!res.ok) throw new Error("GitHub returned " + res.status);
+      return res.json();
+    }).then(function (release) {
+      try { sessionStorage.setItem(CACHE, JSON.stringify({ at: Date.now(), release: { tag_name: release.tag_name, assets: release.assets.map(function (a) { return { name: a.name, size: a.size, browser_download_url: a.browser_download_url }; }) } })); } catch (e) { /* storage can be blocked */ }
+      return release;
+    });
+  }
+
+  load().then(apply).catch(function () { /* links stay on the latest release page */ });
 })();

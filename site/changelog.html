@@ -2,69 +2,67 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Changelog · Fenna Workspace</title>
-  <meta name="description" content="Release notes and updates for Fenna Workspace, fetched directly from GitHub Releases.">
-  <link rel="icon" type="image/png" href="assets/icons/fenna.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Changelog · Fenna Crew</title>
+  <meta name="description" content="Release notes for Fenna Crew, fetched from GitHub Releases.">
+  <link rel="canonical" href="https://fenna.sidhilynx.com/changelog.html">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Changelog · Fenna Crew">
+  <meta property="og:description" content="Release notes for Fenna Crew, fetched from GitHub Releases.">
+  <meta property="og:image" content="https://fenna.sidhilynx.com/assets/og.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
   <link rel="stylesheet" href="css/style.css">
+  <script>try{var t=localStorage.getItem("fenna-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 </head>
 <body>
-
-  <!-- Background grid layer -->
-  <div class="bg-grid"></div>
-
-  <!-- Navigation -->
-  <header class="site-header">
-    <div class="header-inner">
-      <a href="index.html" class="brand">
-        <img src="assets/icons/fenna.png" alt="Fenna" class="brand-icon">
-        <span>Fenna Workspace</span>
-        <span class="brand-badge">AGPLv3</span>
-      </a>
-      <nav class="nav-links">
-        <a href="index.html" class="nav-link">Home</a>
-        <a href="changelog.html" class="nav-link active">Changelog</a>
-        <a href="download.html" class="nav-link">Download</a>
-        <a href="https://github.com/Sidhilynx/fenna" class="nav-link" target="_blank" rel="noopener noreferrer">GitHub</a>
-        <a href="download.html" class="nav-btn">Download ▾</a>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="nav">
+    <div class="wrap nav-in">
+      <a class="brand" href="./"><span class="face" data-face="kite" data-color="sea" data-mood="idle" style="--u:2px"></span>Fenna Crew</a>
+      <nav class="nav-links" aria-label="Main">
+        <a href="download.html">Download</a>
+        <a href="changelog.html" aria-current="page">Changelog</a>
+        <a href="https://github.com/Sidhilynx/fenna">GitHub</a>
       </nav>
+      <button class="theme" type="button" aria-label="Switch theme"><i></i></button>
+      <a class="btn primary small" href="download.html">Download</a>
     </div>
   </header>
 
-  <main class="container">
-    <div class="changelog-header">
-      <h1 class="changelog-title">Changelog</h1>
-      <p class="changelog-sub">Releases and updates published directly to <a href="https://github.com/Sidhilynx/fenna/releases" target="_blank" rel="noopener noreferrer" style="text-decoration: underline; color: #fff;">GitHub Releases</a>.</p>
-    </div>
-
-    <!-- Feed Container -->
-    <div id="releases-container" class="releases-feed">
-      <div class="release-entry">
-        <p style="color: #62666d; font-family: ui-monospace, monospace; font-size: 13px;">
-          Connecting to GitHub Releases API…
-        </p>
+  
+  <main id="main">
+    <section class="log-head">
+      <div class="wrap">
+        <p class="eyebrow mono">Release notes</p>
+        <h1>Changelog</h1>
+        <p class="lede">Every release, as published on <a class="link" href="https://github.com/Sidhilynx/fenna/releases">GitHub Releases</a>.</p>
       </div>
-    </div>
+    </section>
+    <section class="wrap releases" id="releases-container">
+      <p class="state">Loading releases from GitHub.</p>
+    </section>
   </main>
 
-  <!-- Footer -->
-  <footer class="site-footer">
-    <div class="footer-inner">
-      <div>
-        Fenna Workspace is free software licensed under <a href="https://github.com/Sidhilynx/fenna/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" style="color: #fff;">GNU AGPLv3</a>.
-      </div>
-      <div class="footer-links">
-        <a href="https://github.com/Sidhilynx/fenna" target="_blank" rel="noopener noreferrer">GitHub</a>
+  <footer class="foot">
+    <div class="wrap foot-in">
+      <span>Fenna Crew by <a href="https://sidhilynx.com">Sidhilynx</a></span>
+      <nav aria-label="Footer">
+        <a href="https://github.com/Sidhilynx/fenna">GitHub</a>
         <a href="changelog.html">Changelog</a>
-        <a href="https://github.com/Sidhilynx/fenna/blob/main/PRIVACY.md" target="_blank" rel="noopener noreferrer">Privacy</a>
-        <a href="https://github.com/Sidhilynx/fenna/issues" target="_blank" rel="noopener noreferrer">Issues</a>
-      </div>
-      <div>
-        Made by SidhiLynx, Chennai
-      </div>
+        <a href="https://github.com/Sidhilynx/fenna/blob/main/PRIVACY.md">Privacy</a>
+        <a href="https://github.com/Sidhilynx/fenna/issues">Issues</a>
+        <a href="https://github.com/Sidhilynx/fenna/blob/main/LICENSE">License AGPL-3.0</a>
+      </nav>
+      <span class="copy">© 2026 Sidhilynx</span>
     </div>
   </footer>
 
+  <script src="js/faces.js"></script>
+  <script src="js/site.js"></script>
   <script src="js/vendor/marked.min.js"></script>
   <script src="js/changelog.js"></script>
 </body>
