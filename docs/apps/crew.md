@@ -222,6 +222,17 @@ Files, on the `crew` server (`apps/crew/src/main/files.cjs`):
   only when the person presses Send. Fields are exactly those in
   PRIVACY.md#usage-counts; the receiver is `services/usage`. A day Crew is
   open counts as active even with no events. 2026-11-20
+- A bot's computer runs software it makes, under rules in
+  `docs/spec/crew-apps.md`. Apps (`Files/Apps/<name>/`, an `app.json` plus web
+  files) run sealed: own in-memory session, no Node, network only to origins
+  the person granted, a `crew` API checked against the grant. An app can
+  define tools the bot then calls (`app__<name>__<tool>`): a bot gives itself
+  new abilities that run sealed. Projects (`Files/Projects/<name>/`) run
+  `node`, `npm` and `npx` with the person's Node under Node's permission
+  model (project folder only, no child processes; network open, said on the
+  approval card), off until the person turns Projects on for the bot.
+  Containers and mounted folders from the person's computer come later.
+  2026-11-20
 ## Build summary
 
 (Written by the builders.)
