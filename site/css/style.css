@@ -142,6 +142,8 @@ p { max-width: 62ch; }
 .actions { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 40px; }
 .fine { margin-top: 22px; color: var(--text-3); font-size: 14px; max-width: none; }
 .fine.mono { font-size: 12px; }
+.ph-badge { display: inline-block; margin-top: 24px; line-height: 0; }
+.ph-badge img { display: block; width: 250px; height: 54px; }
 
 /* Nav */
 .nav { position: sticky; top: 0; z-index: 20; background: var(--bg); border-bottom: 2px solid var(--line); }
