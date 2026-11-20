@@ -14,3 +14,7 @@ shots/
 docs/apps/*-reference.md
 # Copied from Fenna Workspace by apps/crew/scripts/build-editors.mjs.
 apps/crew/src/main/editors/
+
+# Local secrets (API tokens and the like) are never committed.
+*.env
+.env*

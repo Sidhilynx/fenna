@@ -99,7 +99,7 @@ describe("the counter store", () => {
     const u = make();
     u.count("runs");
     clock = at("2026-11-21");
-    reply = { ok: false, status: 400 };
+    reply = { ok: false, status: 503 };
     expect(await u.sendDue()).toBe(0);
     reply = { ok: true, status: 204 };
     expect(await u.sendDue()).toBe(0);
@@ -107,6 +107,39 @@ describe("the counter store", () => {
     clock = at("2026-11-22");
     expect(await u.sendDue()).toBe(1);
     expect(posts).toHaveLength(2);
+  });
+
+  it("drops a day the server rejects instead of sending it every day", async () => {
+    const u = make();
+    u.count("runs");
+    clock = at("2026-11-21");
+    u.count("messages");
+    clock = at("2026-11-22");
+    reply = { ok: false, status: 400 };
+    expect(await u.sendDue()).toBe(0);
+    expect(posts).toHaveLength(2);
+    reply = { ok: true, status: 204 };
+    expect(await u.sendDue()).toBe(0);
+    expect(posts).toHaveLength(2);
+    expect(JSON.parse(fs.readFileSync(file(), "utf8")).days).toEqual({});
+  });
+
+  it("counts a day Crew was open on, even with no events", async () => {
+    const u = make();
+    u.active();
+    clock = at("2026-11-21");
+    expect(await u.sendDue()).toBe(1);
+    const body = JSON.parse(posts[0].body);
+    expect(body.day).toBe("2026-11-20");
+    expect(body.counts).toEqual({ bots: 3, groups: 1, logins: 2 });
+  });
+
+  it("marks nothing active while counts are off", async () => {
+    on = false;
+    const u = make();
+    u.active();
+    u.flush();
+    expect(fs.existsSync(file())).toBe(false);
   });
 
   it("fails silently when the network is down", async () => {

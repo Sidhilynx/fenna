@@ -205,6 +205,16 @@ function createUsage({ dir, version, enabled, noticed, totals, signedIn, fetch, 
       later();
     },
 
+    /** Crew is open today, even if nothing else happens: the day is sent with its totals. */
+    active() {
+      if (!on()) return;
+      const d = load();
+      const day = localDay(now());
+      if (d.days[day]) return;
+      d.days[day] = { counts: {}, sent: false };
+      later();
+    },
+
     /** The person reached a step for the first time ("signed_in", "bot", "run_ok"). */
     reached(step) {
       if (!on() || !FIRST_KEYS.includes(step)) return;
@@ -267,12 +277,20 @@ function createUsage({ dir, version, enabled, noticed, totals, signedIn, fetch, 
             continue;
           }
           let ok = false;
+          let rejected = false;
           try {
-            ok = (await post(`${base}/v1/ping`, body)).ok;
+            const r = await post(`${base}/v1/ping`, body);
+            ok = r.ok;
+            rejected = r.status === 400;
           } catch {
             ok = false;
           }
           if (!data) return sent;
+          if (rejected) {
+            // The server will never take this day as it is; sending it again won't help.
+            delete d.days[day];
+            continue;
+          }
           if (!ok) {
             d.failedOn = today;
             return sent;
@@ -316,7 +334,11 @@ function createUsage({ dir, version, enabled, noticed, totals, signedIn, fetch, 
         purge();
         return;
       }
-      const check = () => void api.sendDue().catch(() => undefined);
+      const check = () => {
+        api.active();
+        void api.sendDue().catch(() => undefined);
+      };
+      api.active();
       firstTimer = setTimeout(check, FIRST_SEND_MS);
       checkTimer = setInterval(check, CHECK_MS);
       for (const t of [firstTimer, checkTimer]) if (t.unref) t.unref();
@@ -332,6 +354,6 @@ function createUsage({ dir, version, enabled, noticed, totals, signedIn, fetch, 
 }
 
 /** A stand-in that counts nothing, for tests and callers that don't track usage. */
-const noUsage = { count() {}, reached() {}, run() {} };
+const noUsage = { count() {}, active() {}, reached() {}, run() {} };
 
 module.exports = { createUsage, buildPing, buildFeedback, runCounts, localDay, osName, archName, noUsage, COUNT_KEYS, MAX_FEEDBACK, MAX_DAYS, MAX_BODY };
