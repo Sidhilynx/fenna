@@ -73,7 +73,7 @@
 /* ── Living pixels (PixelField.tsx) and the glitch ───────────────────── */
 /* The layer sits behind a host's content: above its background, under its words. */
 .px-host { position: relative; isolation: isolate; }
-.px-field { position: absolute; inset: 0; z-index: -1; display: block; pointer-events: none; image-rendering: pixelated; }
+.px-field { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; display: block; pointer-events: none; image-rendering: pixelated; }
 /* On a wallpaper the layer sits over the picture and under the icons and windows. */
 .px-field.flat { z-index: auto; }
 

@@ -14,6 +14,9 @@ const IDLE_MS = 10 * 60_000;
 const CALL_MS = 10_000;
 const RESULT_MAX = 64 * 1024;
 const LOAD_MS = 15_000;
+/** How long a tool call waits for the page to define the tool after it loads, and how often it looks. */
+const DEFINE_WAIT_MS = 5000;
+const DEFINE_POLL_MS = 100;
 const ERRORS_KEPT = 20;
 const LINE_MAX = 300;
 const SNAPSHOT_CHARS = 14_000;
@@ -77,7 +80,7 @@ const keyOf = (slug, name) => `${slug}/${name}`;
  * @param {(channel: string, payload: unknown) => void} [o.broadcast]
  * @param {new (opts: object) => object} [o.BrowserWindow]
  */
-function createAppHost({ apps, broadcast = () => {}, BrowserWindow: Win = BrowserWindow }) {
+function createAppHost({ apps, broadcast = () => {}, BrowserWindow: Win = BrowserWindow, sleep = (ms) => new Promise((r) => setTimeout(r, ms)) }) {
   /** "slug/name" → an open app: { slug, name, win, wc, errors, world, crashed, idle }. */
   const live = new Map();
 
@@ -267,6 +270,8 @@ function createAppHost({ apps, broadcast = () => {}, BrowserWindow: Win = Browse
       inst = (await start(slug, name)).inst;
     }
     touch(inst);
+    // A page often defines its tools after it loads (after reading its data), so give it a moment.
+    for (let waited = 0; waited < DEFINE_WAIT_MS && !apps.toolsOf(inst.wc).includes(tool) && !inst.crashed; waited += DEFINE_POLL_MS) await sleep(DEFINE_POLL_MS);
     if (!apps.toolsOf(inst.wc).includes(tool)) throw new Error(`${name}'s page does not define the tool "${tool}". Check that its script calls crew.tools.define("${tool}", …) and that it loads without errors.`);
     const result = await withTimeout(apps.callTool(inst.wc, tool, input, { timeoutMs: CALL_MS }), CALL_MS, `${name}'s tool "${tool}" did not answer within 10 seconds. Check it for loops or for waits that never end.`).catch((e) => {
       if (/did not answer within 10 seconds/.test(e.message)) throw e;

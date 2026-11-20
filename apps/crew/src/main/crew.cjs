@@ -6,6 +6,7 @@
 // calls (ipc.cjs).
 
 const crypto = require("node:crypto");
+const fs = require("node:fs");
 const path = require("node:path");
 const { startRun } = require("@opendeck/shell/main/agent.cjs");
 const { createStore } = require("./store.cjs");
@@ -49,6 +50,35 @@ const LEAD = {
   color: "clay",
   wallpaper: "slate",
 };
+
+/** Ships with Crew: builds apps, tools and small websites on its own computer (docs/spec/crew-apps.md). */
+const BUILDER = {
+  name: "Builder",
+  job: "Builds apps, tools and small websites for you, tests them, and keeps them working",
+  how: [
+    "You build software for the person on your own computer, so they only have to say what they want.",
+    "An app is something they open and use: make Files/Apps/<name>/ with an app.json and web files using write_file (the app tool's description has the format). Ask only for the permissions it needs. Give it tools when the person, or you, will want to use it from chat. Then open it with the app tool, try every feature, fix what is wrong, and take out your test data. Tell the person to open it from your desktop and press Allow.",
+    "A website or a program goes in Files/Projects/<name>/ and runs with the command tool (node, npm, npx). Plain HTML, CSS and JavaScript with a small Node server work; build tools that start other programs, like Vite or Next.js, don't work here yet, so don't use them. Start a server in the background and check it in your browser.",
+    "When the person asks for a change, read the files first, change them with edit_file, and test again. When they ask for something an app you made can do, use that app's tools.",
+    "Keep a short list of what you have built, and what each app's tools do, with remember.",
+  ].join("\n\n"),
+  schedule: "manual",
+  avatar: "crate",
+  color: "ochre",
+  wallpaper: "indigo",
+  projects: "on",
+};
+/** Marks a crew that has been given the Builder, so a person who deletes it doesn't get it back. */
+const BUILDER_MARK = "builder-added.json";
+
+/** Every crew gets the Builder once: new ones on first launch, older ones on their first start with it. */
+function giveBuilder(store, root) {
+  const mark = path.join(root, BUILDER_MARK);
+  if (fs.existsSync(mark)) return;
+  const has = store.slugs().some((s) => store.readBot(s)?.bot?.name === BUILDER.name);
+  if (!has) store.createBot({ ...BUILDER, cli: "claude" });
+  fs.writeFileSync(mark, `${JSON.stringify({ at: new Date().toISOString() })}\n`);
+}
 
 /**
  * @param {object} o
@@ -495,6 +525,7 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
       store.ensure();
       await vault.load();
       if (!store.slugs().length) store.createBot({ ...LEAD, cli: "claude" });
+      giveBuilder(store, root);
       await link.listen();
       scheduler.start();
       watches.start();
@@ -513,9 +544,11 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
         return r && r.bot && r.bot.name === LEAD.name;
       });
       if (!lead || runner.running(lead) || runner.isQueued(lead)) return null;
-      const cur = store.readBot(lead);
-      if (signedIn.length && cur && cur.bot && !signedIn.includes(cur.bot.brain.cli)) {
-        store.updateBot(lead, { brain: { cli: signedIn[0], model: "", effort: "" } });
+      // The bots Crew ships with move to a CLI the person has signed in to.
+      for (const slug of store.slugs()) {
+        const cur = store.readBot(slug);
+        if (!cur || !cur.bot || (cur.bot.name !== LEAD.name && cur.bot.name !== BUILDER.name)) continue;
+        if (signedIn.length && !signedIn.includes(cur.bot.brain.cli)) store.updateBot(slug, { brain: { cli: signedIn[0], model: "", effort: "" } });
       }
       return { runId: runner.enqueue({ slug: lead, trigger: "welcome" }).runId };
     },
@@ -543,4 +576,4 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
   };
 }
 
-module.exports = { createCrew };
+module.exports = { createCrew, giveBuilder, BUILDER };

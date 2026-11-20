@@ -81,6 +81,8 @@ const MANIFESTS: Record<string, { app: Record<string, unknown> | null; problems:
 let grants: Record<string, object | null> = {};
 let calls: { wc: unknown; name: string; input: unknown; opts: unknown }[] = [];
 let callAnswer: (name: string, input: unknown) => unknown = () => ({ ok: true });
+/** How many times toolsOf answers "none yet" before the page has defined its tools. */
+let definedAfter = 0;
 
 function fakeApps() {
   return {
@@ -99,7 +101,7 @@ function fakeApps() {
       calls.push({ wc, name, input, opts });
       return callAnswer(name, input);
     },
-    toolsOf: () => ["add_note"],
+    toolsOf: () => (definedAfter-- > 0 ? [] : ["add_note"]),
     grantOf: (slug: string, name: string) => grants[`${slug}/${name}`] ?? null,
   };
 }
@@ -116,6 +118,7 @@ beforeEach(() => {
   sent.length = 0;
   calls = [];
   callAnswer = () => ({ ok: true });
+  definedAfter = 0;
   grants = { "ada/notes-board": { documents: "none", network: [], bot: false } };
   for (const k of Object.keys(MANIFESTS)) delete MANIFESTS[k];
   MANIFESTS["ada/notes-board"] = { app: app("notes-board"), problems: [] };
@@ -283,6 +286,19 @@ describe("the bot calling an app's tool", () => {
     expect(JSON.parse(text)).toEqual({ name: "add_note", input: { text: "milk" }, rows: [1, 2] });
     expect(windows).toHaveLength(1);
     expect(calls[0]!.opts).toEqual({ timeoutMs: CALL_MS });
+  });
+
+  it("waits for a page that defines its tools a moment after it loads", async () => {
+    definedAfter = 5;
+    const host = createAppHost({ apps: fakeApps(), broadcast, BrowserWindow: FakeWindow, sleep: async () => {} });
+    const text = await host.callTool("ada", "notes-board", "add_note", { text: "tea" });
+    expect(JSON.parse(text)).toEqual({ ok: true });
+  });
+
+  it("says how to fix a page that never defines the tool", async () => {
+    definedAfter = 1000;
+    const host = createAppHost({ apps: fakeApps(), broadcast, BrowserWindow: FakeWindow, sleep: async () => {} });
+    await expect(host.callTool("ada", "notes-board", "add_note", {})).rejects.toThrow('crew.tools.define("add_note"');
   });
 
   it("names the tools the app has when the tool is not one of them", async () => {

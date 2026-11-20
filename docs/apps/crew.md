@@ -233,6 +233,11 @@ Files, on the `crew` server (`apps/crew/src/main/files.cjs`):
   approval card), off until the person turns Projects on for the bot.
   Containers and mounted folders from the person's computer come later.
   2026-11-20
+- Crew ships with a Builder bot next to Fenna (every new crew, and older
+  crews once): it builds apps, tools and small websites on its computer,
+  tests them, keeps them working and uses them. It is the one bot with
+  Projects on by default; its first command in a project still asks the
+  person. Deleting it is final. 2026-11-20
 ## Build summary
 
 (Written by the builders.)

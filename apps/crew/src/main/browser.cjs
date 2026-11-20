@@ -596,6 +596,25 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
         }
       }
     }
+    /**
+     * A tab a page opened (target=_blank, window.open) paints with neither a
+     * GPU texture nor a bitmap, so its frames are captured instead, at most
+     * fps a second; the last change of a burst is captured when its turn comes.
+     */
+    const captured = (kind, fps) => {
+      const wait = 1000 / fps - 5 - (Date.now() - b.lastFrame);
+      if (wait > 0) {
+        if (!b.trailing) {
+          b.trailing = setTimeout(() => {
+            b.trailing = null;
+            captured(kind, fps);
+          }, wait);
+        }
+        return;
+      }
+      b.lastFrame = Date.now();
+      wc.capturePage().then((img) => emit(img, kind), () => {});
+    };
     /** A thumbnail once a second, from the page as it is now. */
     function thumb() {
       const now = Date.now();
@@ -612,13 +631,15 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
       }
       if (mode === "live") {
         if (texture) void sendTexture(texture);
+        else if (image.isEmpty()) captured("live", JPEG_LIVE_FPS);
         else throttled(image, "live", JPEG_LIVE_FPS);
         return;
       }
       if (texture) {
         texture.release();
         thumb();
-      } else throttled(image, "thumb", FPS.thumb);
+      } else if (image.isEmpty()) captured("thumb", FPS.thumb);
+      else throttled(image, "thumb", FPS.thumb);
     });
     wc.on("audio-state-changed", () => tell(b));
     wc.debugger.on("message", (_e, method, params) => {
