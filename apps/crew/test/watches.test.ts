@@ -171,6 +171,44 @@ describe("waking the bot", () => {
   });
 });
 
+describe("title counts", () => {
+  const title = (text: string, origin = SITE) => w.onTitleCount(slug, { origin, title: text, count: 1 });
+
+  it("fires a notification watch for its site when the title gains a count, with the title in the words", async () => {
+    await w.add(slug, { kind: "notification", origin: SITE, note: "Reply to whoever wrote" });
+    title("(1) WhatsApp");
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(enqueued).toEqual([{ slug, trigger: "watch", text: 'Reply to whoever wrote — New activity: the tab\'s title is now "(1) WhatsApp".' }]);
+    expect(store.readWatches(slug)[0]).toMatchObject({ count: 1, fired: "2026-11-19T09:00:00.000Z" });
+  });
+
+  it("fires only when the title has the watch's words, and ignores other origins", async () => {
+    await w.add(slug, { kind: "notification", origin: SITE, match: "Sam", note: "Reply to Sam" });
+    title("(1) Priya - WhatsApp");
+    title("(1) Sam - WhatsApp", "https://mail.example");
+    expect(enqueued).toEqual([]);
+    title("(2) Sam - WhatsApp");
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(enqueued).toHaveLength(1);
+    expect(enqueued[0]!.text).toContain("Reply to Sam — New activity");
+  });
+
+  it("does not fire the same watch again within 10 seconds of its last fire, and fires again after", async () => {
+    await w.add(slug, { kind: "notification", origin: SITE, note: "Messages" });
+    notify(SITE, "Priya", "Hi");
+    await vi.advanceTimersByTimeAsync(4_000);
+    title("(1) WhatsApp");
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(enqueued).toHaveLength(1);
+    expect(enqueued[0]!.text).toBe("Messages — Priya: Hi");
+    expect(store.readWatches(slug)[0]).toMatchObject({ count: 1 });
+    title("(2) WhatsApp");
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(enqueued).toHaveLength(2);
+    expect(enqueued[1]!.text).toContain("New activity");
+  });
+});
+
 describe("page watches", () => {
   it("stores the first text it reads without firing, then fires with the changed lines", async () => {
     browsers.pageText!.mockResolvedValue("Price\nTeam plan $10\nFree plan");

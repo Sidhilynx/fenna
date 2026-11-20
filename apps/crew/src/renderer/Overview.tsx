@@ -56,7 +56,7 @@ function Banner({ w }: { w: Waiting }) {
   const text = w.kind === "ask" ? `${w.botName} asks: ${w.question}` : `${w.botName} needs approval: ${w.action}`;
   return (
     <div className="banner waiting" role="status">
-      <span className="banner-dot" aria-hidden />
+      <PixelIcon name="attention" size={12} />
       <span className="banner-text ell" title={text}>
         {text}
       </span>
@@ -140,7 +140,7 @@ export function Overview() {
         const site = o.origin.replace(/^https?:\/\//, "");
         return (
           <div key={o.id} className="banner waiting" role="status">
-            <span className="banner-dot" aria-hidden />
+            <PixelIcon name="attention" size={12} />
             <span className="banner-text ell" title={`${o.botName} signed in to ${site}`}>
               Save the login for {site}?
             </span>

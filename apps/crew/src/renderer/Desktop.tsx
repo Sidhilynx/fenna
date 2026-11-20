@@ -503,7 +503,12 @@ export function DesktopIcons({
             >
               <span className={`desk-mark${item.kind === "fenna" ? " plain" : ""}`}>
                 <ShortcutArt item={item} size={48} userIcon={info ? userAppIcon(info.icon) : undefined} />
-                {badge && <span className={`desk-badge ${badge}`} aria-hidden />}
+                {badge === "needs" && (
+                  <span className="desk-badge needs" aria-hidden>
+                    <PixelIcon name="attention" size={12} />
+                  </span>
+                )}
+                {badge === "changed" && <span className="desk-badge changed" aria-hidden />}
               </span>
               {isRenaming ? (
                 <input

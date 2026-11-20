@@ -328,6 +328,16 @@ function clipText(v, cap) {
   return typeof v === "string" ? v.slice(0, cap) : "";
 }
 
+/**
+ * The unread count a chat or mail site puts in a tab's title: "(3) WhatsApp",
+ * "Inbox (3) - Gmail", "[2] Slack". null when the title has none. At most
+ * three digits, so a year like "(2024)" is not a count.
+ */
+function unreadCount(title) {
+  const m = /(?:^|\s)[([](\d{1,3})[)\]](?=\s|$)/.exec(String(title ?? ""));
+  return m ? Number(m[1]) : null;
+}
+
 /** The origin of a tab's address, or "" when it has none (blank, or a destroyed tab). */
 function originOf(t) {
   if (t.wc.isDestroyed()) return "";
@@ -355,11 +365,13 @@ function originOf(t) {
  *   the last KEEP_FREE (1 GB) of it
  * @param {(slug: string, n: { origin: string, title: string, body: string, at: string }) => void} [o.onSiteNotification]
  *   a site in the bot's browser showed a notification (at most 30 a minute a bot are passed on)
+ * @param {(slug: string, n: { origin: string, title: string, count: number }) => void} [o.onTitleCount]
+ *   a tab's title gained an unread count (the site shows new activity while it is not in front)
  * @param {(slug: string, id: string, text: string) => void} [o.onElementChange]  a watched element's text changed
  * @param {(slug: string, step: { at: string, action: string, url: string, jpeg: Buffer }) => void} [o.onStep]
  *   a bot action finished: a small JPEG of the active tab after it, for the replay (at most one a bot per 700 ms)
  */
-function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, onCapture = () => {}, controlWaitMs = 15_000, workspaceDir = null, diskFree = null, driveFree = null, onSiteNotification = () => {}, onElementChange = () => {}, onStep = () => {}, onDownload = () => {} }) {
+function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, onCapture = () => {}, controlWaitMs = 15_000, workspaceDir = null, diskFree = null, driveFree = null, onSiteNotification = () => {}, onTitleCount = () => {}, onElementChange = () => {}, onStep = () => {}, onDownload = () => {} }) {
   /** @type {Map<string, object>} slug → the bot's browser */
   const all = new Map();
   /** @type {Map<string, Map<number, "live"|"thumb">>} slug → watcher → mode */
@@ -516,7 +528,7 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
       wc.setZoomFactor(1);
       wc.setVisualZoomLevelLimits(1, 1);
     } catch (_) {}
-    const t = { id: ++b.seq, win, wc, world: null, watchWorld: null, favicon: null, ready: null, latest: null, muted: false, capture: null };
+    const t = { id: ++b.seq, win, wc, world: null, watchWorld: null, favicon: null, ready: null, latest: null, muted: false, capture: null, unread: 0 };
     wc.setWindowOpenHandler(({ url }) => {
       if (!/^https?:/i.test(url)) return { action: "deny" };
       if (b.tabs.length >= MAX_TABS) {
@@ -539,6 +551,7 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
       t.favicon = null;
     });
     for (const ev of ["did-finish-load", "did-navigate-in-page"]) wc.on(ev, () => rearmWatches(b, t));
+    wc.on("page-title-updated", (_e, title) => onTitle(b, t, title));
     wc.on("page-favicon-updated", (_e, urls) => void loadFavicon(b, t, urls));
     const size = () => (win.isDestroyed() ? [b.view.width, b.view.height] : win.getContentSize());
     const emit = (image, kind) => {
@@ -702,6 +715,17 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
     const n = { origin, title: clipText(v.title, NOTIFY_TEXT_CAP), body: clipText(v.body, NOTIFY_TEXT_CAP), at: new Date().toISOString() };
     b.notices = pushCapped(b.notices, n, NOTICES_KEPT);
     onSiteNotification(b.slug, n);
+  }
+
+  /** A tab's title: a count that went up is passed on; the count is kept per tab. */
+  function onTitle(b, t, title) {
+    const count = unreadCount(title);
+    const prev = t.unread ?? 0;
+    t.unread = count ?? 0;
+    if (count === null || count <= prev) return;
+    const origin = originOf(t);
+    if (!origin) return;
+    onTitleCount(b.slug, { origin, title: clipText(title, NOTIFY_TEXT_CAP), count });
   }
 
   /** A watched element's text changed on the tab that watches it. */
@@ -1595,4 +1619,4 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
   };
 }
 
-module.exports = { createBrowsers, parseKey, toElectronInput, viewOf, webAddress, safeDownloadName, uniqueName, overCap, downloadRoom, tooBigText, sizeText, rateLimiter, pushCapped, clipText, KEEP_FREE, MAX_TABS, DEFAULT_VIEW, NOTIFY_PER_MINUTE, NOTICES_KEPT, NOTIFY_TEXT_CAP };
+module.exports = { createBrowsers, unreadCount, parseKey, toElectronInput, viewOf, webAddress, safeDownloadName, uniqueName, overCap, downloadRoom, tooBigText, sizeText, rateLimiter, pushCapped, clipText, KEEP_FREE, MAX_TABS, DEFAULT_VIEW, NOTIFY_PER_MINUTE, NOTICES_KEPT, NOTIFY_TEXT_CAP };

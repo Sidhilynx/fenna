@@ -161,6 +161,7 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
       notices.add(slug, { kind: "site", title: n.title, body: n.body, origin: n.origin });
       watches.onNotification(slug, n);
     },
+    onTitleCount: (slug, n) => watches.onTitleCount(slug, n),
     onDownload: (slug, rec) => notices.add(slug, rec.state === "done" ? { kind: "download", title: rec.name, path: rec.path } : { kind: "download", title: "Download failed", body: `${rec.name}: ${rec.reason}` }),
     onElementChange: (slug, watchId, text) => watches.onElementChange(slug, watchId, text),
     onStep: (slug, step) => replay.onStep(slug, step),

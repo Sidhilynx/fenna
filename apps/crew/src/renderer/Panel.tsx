@@ -10,6 +10,7 @@ import { FENNA_APPS, SCHEDULE_EXAMPLES, type Bot } from "@opendeck/crew";
 import { errorText, invoke, on } from "../shared/api.ts";
 import type { BotDetail, BotSummary, RunSummary } from "../shared/contract.ts";
 import { BrainPicker } from "./BrainPicker.tsx";
+import { DeleteBotDialog } from "./DeleteBot.tsx";
 import { DiskSize } from "./DiskSize.tsx";
 import { FaceButton } from "./FacePicker.tsx";
 import { Grants, LoginGrants } from "./Grants.tsx";
@@ -496,7 +497,6 @@ function Details({ bot, detail, setDetail, loadError }: { bot: BotSummary; detai
 }
 
 function Advanced({ bot, detail, setDetail, loadError }: { bot: BotSummary; detail: BotDetail | null; setDetail(d: BotDetail): void; loadError: string }) {
-  const { go } = useCrew();
   const { save, error, saved } = useSaver(bot, setDetail);
   const [deleting, setDeleting] = useState(false);
 
@@ -579,26 +579,7 @@ function Advanced({ bot, detail, setDetail, loadError }: { bot: BotSummary; deta
         )}
       </div>
 
-      {deleting && (
-        <Dialog title={`Delete ${bot.name}?`} onClose={() => setDeleting(false)} width={420}>
-          <p className="dialog-text">Its folder, files and runs go to the trash. You can restore them from there. Its browser sign-ins are forgotten.</p>
-          <div className="form-acts">
-            <button type="button" className="btn" onClick={() => setDeleting(false)} data-autofocus>
-              Keep it
-            </button>
-            <button
-              type="button"
-              className="btn primary danger-fill"
-              onClick={() => {
-                setDeleting(false);
-                void invoke("crew:delete", bot.slug).then(() => go({ name: "crew" }), (e) => toast(errorText(e)));
-              }}
-            >
-              Delete {bot.name}
-            </button>
-          </div>
-        </Dialog>
-      )}
+      {deleting && <DeleteBotDialog bot={bot} onClose={() => setDeleting(false)} />}
     </div>
   );
 }

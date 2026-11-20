@@ -136,8 +136,8 @@
   box-shadow: var(--px-edge), 6px 6px 0 0 var(--px-drop);
 }
 
-/* Brain notice: the amber dot is the one square that means "needs you". */
-.brain-dot { border-radius: 0; }
+/* Brain notice: the attention mark leads the line when the bot needs you. */
+.brain-notice > .pixel-icon { color: var(--text); }
 
 /* Narrow dock: the same bubbles and tail, tighter. */
 .chat-dock .msg.you { margin-bottom: 4px; }

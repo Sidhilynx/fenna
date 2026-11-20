@@ -545,7 +545,7 @@ function ActivityWindow({ bot, onReplay }: { bot: BotSummary; onReplay(runId: st
         {!lines.length && <p className="hint">Nothing yet. What {bot.name} does shows up here.</p>}
         {waiting.length > 0 && (
           <div className="act-wait">
-            <span className="wait-dot" aria-hidden />
+            <PixelIcon name="attention" size={12} />
             <span className="grow ell">{waiting[0]!.kind === "ask" ? waiting[0]!.question : waiting[0]!.action}</span>
             <button type="button" className="btn primary small" onClick={() => go({ name: "chat", slug: bot.slug })}>
               Respond in chat
@@ -957,15 +957,16 @@ function ComputerDesk({ slug, open, launch }: { slug: string; open?: string; lau
   return (
     <main className="main desk-view">
       <div className="desk-bar">
-        <button type="button" className="btn desk-back" onClick={() => go({ name: "crew" })}>
+        <button type="button" className="btn desk-back" onClick={() => go({ name: "chat", slug: bot.slug })} title={`Back to ${bot.name}'s chat`}>
           <PixelIcon name="chevron-right" size={12} />
-          Crew
+          <span className="desk-back-name ell">{bot.name}</span>
         </button>
         <span className="vr" />
         <Face avatar={bot.avatar} color={bot.color} mood={bot.mood} size={24} />
         <span className="desk-title">
           <span className="desk-name ell">{bot.name}'s computer</span>
           <span className={`desk-status ell${bot.mood === "need" ? " need" : ""}`} title={bot.statusLine}>
+            {bot.mood === "need" && <PixelIcon name="attention" size={12} />}
             {bot.statusLine}
           </span>
         </span>
