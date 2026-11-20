@@ -109,7 +109,6 @@ export interface Settings {
   /** Send an anonymous count once a day (PRIVACY.md). Off when FENNA_NO_USAGE=1. */
   usageCounts: boolean;
   /** The person has answered the first-start notice about the counts. */
-  usageNoticeSeen: boolean;
   /** FENNA_NO_USAGE=1 is set: counts are off and the switch can't change it (read only). */
   usageLocked: boolean;
   /** Where Crew keeps its files (read only). */
@@ -714,7 +713,7 @@ export interface Calls {
   "crew:settings": { args: []; result: Settings };
   "crew:setSettings": { args: [patch: Partial<Settings>]; result: Settings };
   /** The first-start notice about usage counts: OK, Turn off, or open the page that lists what is sent. */
-  "crew:usageNotice": { args: [action: "ok" | "off" | "details"]; result: Settings };
+  "crew:usageDetails": { args: []; result: true };
   /** Send feedback; rejects with what to tell the person when it could not be sent. */
   "crew:feedback": { args: [input: { rating: "up" | "down" | null; text: string }]; result: boolean };
   "crew:libraryText": { args: [slug: string, id: string]; result: LibraryText };

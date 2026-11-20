@@ -6,14 +6,13 @@ const F = require("./format.cjs");
 const MAX_CONCURRENT = { min: 1, max: 4 };
 const MAX_TEXT = 100;
 
-const DEFAULTS = { notifications: true, defaultCli: "claude", defaultModel: "", defaultEffort: "", maxConcurrent: 2, usageCounts: true, usageNoticeSeen: false };
+const DEFAULTS = { notifications: true, defaultCli: "claude", defaultModel: "", defaultEffort: "", maxConcurrent: 2, usageCounts: true };
 
 /** Each setting that can be changed: a check that returns the value or throws what to fix. */
 const CHECKS = {
   openAtLogin: (v) => bool(v, "Open at login"),
   notifications: (v) => bool(v, "Notifications"),
   usageCounts: (v) => bool(v, "Anonymous usage counts"),
-  usageNoticeSeen: (v) => bool(v, "The usage notice"),
   maxConcurrent: (v) => {
     if (!Number.isInteger(v) || v < MAX_CONCURRENT.min || v > MAX_CONCURRENT.max) throw new Error(`Runs at once is a whole number from ${MAX_CONCURRENT.min} to ${MAX_CONCURRENT.max}.`);
     return v;

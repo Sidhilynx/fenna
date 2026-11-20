@@ -218,8 +218,9 @@ Files, on the `crew` server (`apps/crew/src/main/files.cjs`):
   component (`PixelEdges.tsx`). Closing the browser window closes the bot's
   browser unless it is running; Take control needs an open browser.
   Windows and the taskbar use the desktop's colour icons. 2026-11-20
-- No account, still. Crew sends an anonymous daily count (opt-out, a
-  first-start notice, a Settings switch, `FENNA_NO_USAGE=1`) and feedback
+- No account, still. Crew sends an anonymous daily count (opt-out: a
+  Settings switch and `FENNA_NO_USAGE=1`; no notice on Home since
+  2026-11-21, when each ping's id became new and unkept) and feedback
   only when the person presses Send. Fields are exactly those in
   PRIVACY.md#usage-counts; the receiver is `services/usage`. A day Crew is
   open counts as active even with no events. 2026-11-20

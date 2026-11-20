@@ -260,7 +260,6 @@ async function start() {
     dir: app.getPath("userData"),
     version: app.getVersion(),
     enabled: () => !usageLocked() && stored.usageCounts !== false,
-    noticed: () => stored.usageNoticeSeen === true,
     totals: () => ({ bots: crew.store.slugs().length, groups: crew.store.teamSlugs().length, connectors: crew.connectors.list().length, logins: crew.vault.list().length }),
     signedIn: async () => {
       const list = await Promise.all(F.CLI_KINDS.map((k) => assistantCatalog(k).catch(() => null)));

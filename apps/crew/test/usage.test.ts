@@ -10,7 +10,6 @@ const { createUsage, buildPing, buildFeedback, runCounts, localDay, COUNT_KEYS, 
 let dir: string;
 let clock: Date;
 let on: boolean;
-let noticed: boolean;
 let posts: { url: string; body: string }[];
 let reply: { ok: boolean; status: number } | "throw";
 
@@ -19,7 +18,6 @@ function make(env: Record<string, string> = {}) {
     dir,
     version: "0.9.6",
     enabled: () => on,
-    noticed: () => noticed,
     totals: () => ({ bots: 3, groups: 1, connectors: 0, logins: 2 }),
     signedIn: async () => ["codex", "claude"],
     fetch: async (url: string, init: { body: string }) => {
@@ -40,7 +38,6 @@ beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "usage-"));
   clock = at("2026-11-20");
   on = true;
-  noticed = true;
   posts = [];
   reply = { ok: true, status: 204 };
 });
@@ -150,15 +147,25 @@ describe("the counter store", () => {
     await expect(u.sendDue()).resolves.toBe(0);
   });
 
-  it("sends nothing before the notice has been answered", async () => {
-    noticed = false;
+  it("sends each ping with a new random id and keeps none on disk", async () => {
     const u = make();
     u.count("runs");
     clock = at("2026-11-21");
-    expect(await u.sendDue()).toBe(0);
-    expect(posts).toHaveLength(0);
-    noticed = true;
+    u.count("runs");
+    clock = at("2026-11-22");
+    expect(await u.sendDue()).toBe(2);
+    const ids = posts.map((p) => JSON.parse(p.body).id);
+    expect(ids[0]).toMatch(/^[0-9a-f-]{36}$/);
+    expect(ids[0]).not.toBe(ids[1]);
+    expect(JSON.parse(fs.readFileSync(file(), "utf8")).id).toBeUndefined();
+  });
+
+  it("drops an id kept by an older version", async () => {
+    fs.writeFileSync(file(), JSON.stringify({ v: 1, id: "0f8fad5b-d9cb-469f-a165-70867728950e", days: { "2026-11-19": { counts: { runs: 1 }, sent: false } } }));
+    const u = make();
     expect(await u.sendDue()).toBe(1);
+    expect(JSON.parse(posts[0]!.body).id).not.toBe("0f8fad5b-d9cb-469f-a165-70867728950e");
+    expect(JSON.parse(fs.readFileSync(file(), "utf8")).id).toBeUndefined();
   });
 
   it("counts nothing while off, and purging deletes the counters", async () => {

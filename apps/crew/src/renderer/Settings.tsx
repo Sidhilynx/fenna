@@ -117,7 +117,7 @@ export function SettingsDialog({ onClose }: { onClose(): void }) {
                     <input id="set-usage" className="px-switch" type="checkbox" checked={settings.usageCounts} disabled={saving || settings.usageLocked} onChange={(e) => void update({ usageCounts: e.target.checked })} />
                   </Row>
                   <Row name="What Fenna sends" sub="The full list of what Fenna sends over the network, and when.">
-                    <button type="button" className="btn" onClick={() => void invoke("crew:usageNotice", "details").catch((e) => toast(errorText(e)))}>
+                    <button type="button" className="btn" onClick={() => void invoke("crew:usageDetails").catch((e) => toast(errorText(e)))}>
                       What's sent
                     </button>
                   </Row>
