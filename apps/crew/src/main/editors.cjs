@@ -226,9 +226,13 @@ function createEditors({ getWin, libraryDir, userData, crew = null }) {
     /** True for a webview that shows an editor: the shell's own channels accept it too. */
     isEditor: (wc) => !!wc && bound.has(wc.id),
 
-    /** Webviews in Crew's page may only show the editors, with the shell's preload and nothing more. */
-    guard(win, preload) {
+    /**
+     * Webviews in Crew's page may only show the editors, with the shell's preload and nothing more.
+     * `apps` (apps.cjs) owns the webviews of apps: their partitions and sessions are left to it.
+     */
+    guard(win, preload, apps = { ownsPartition: () => false, ownsSession: () => false }) {
       win.webContents.on("will-attach-webview", (e, prefs, params) => {
+        if (apps.ownsPartition(params.partition)) return;
         if (!isEditorUrl(params.src || "about:blank")) {
           e.preventDefault();
           return;
@@ -242,6 +246,7 @@ function createEditors({ getWin, libraryDir, userData, crew = null }) {
         prefs.webSecurity = true;
       });
       win.webContents.on("did-attach-webview", (_e, wc) => {
+        if (apps.ownsSession(wc.session)) return;
         wc.setWindowOpenHandler(() => ({ action: "deny" }));
         wc.on("will-navigate", (e, url) => {
           if (!isEditorUrl(url)) e.preventDefault();

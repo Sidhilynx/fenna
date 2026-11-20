@@ -316,17 +316,77 @@ export interface TextViewerProps {
 }
 
 /** Text with a line-number gutter. One scroller holds both, so the numbers stay level with their lines. */
-function NumberedText({ name, text }: { name: string; text: string }) {
-  const numbers = useMemo(() => {
-    const count = text.split("\n").length;
-    return Array.from({ length: count }, (_, i) => i + 1).join("\n");
-  }, [text]);
+/** Line ranges (1-based, inclusive) as a set of line numbers. */
+export function linesIn(ranges: readonly (readonly [number, number])[]): Set<number> {
+  const out = new Set<number>();
+  for (const [from, to] of ranges) for (let n = from; n <= to; n++) out.add(n);
+  return out;
+}
+
+/** The text with line numbers. Lines in `changed` (1-based numbers) get a quiet bar on the left. */
+export function NumberedText({ name, text, changed }: { name: string; text: string; changed?: Set<number> }) {
+  const lines = useMemo(() => text.split("\n"), [text]);
+  const numbers = useMemo(() => lines.map((_, i) => i + 1).join("\n"), [lines]);
   return (
     <div className="vw-code" tabIndex={0} role="region" aria-label={`${name}, lines`}>
-      <pre className="vw-gutter" aria-hidden="true">{numbers}</pre>
-      <pre className="vw-code-text">{text}</pre>
+      {changed && changed.size > 0 ? (
+        <>
+          <pre className="vw-gutter" aria-hidden="true">
+            {lines.map((_, i) => (
+              <span key={i} className={`vw-line${changed.has(i + 1) ? " is-changed" : ""}`}>{i + 1}</span>
+            ))}
+          </pre>
+          <pre className="vw-code-text">
+            {lines.map((l, i) => (
+              <span key={i} className={`vw-line${changed.has(i + 1) ? " is-changed" : ""}`}>{l || " "}</span>
+            ))}
+          </pre>
+        </>
+      ) : (
+        <>
+          <pre className="vw-gutter" aria-hidden="true">{numbers}</pre>
+          <pre className="vw-code-text">{text}</pre>
+        </>
+      )}
     </div>
   );
+}
+
+/**
+ * A text file's first 1 MB, decoded. Rejects with a reason a person can read: HTTP
+ * errors, and "Not a text file." for a file with NUL bytes.
+ */
+export async function readText(url: string): Promise<{ text: string; truncated: boolean }> {
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  let cut = false;
+  if (res.body) {
+    const reader = res.body.getReader();
+    while (total < TEXT_LIMIT) {
+      const { done, value } = await reader.read();
+      if (done || !value) break;
+      chunks.push(value);
+      total += value.byteLength;
+    }
+    cut = total >= TEXT_LIMIT;
+    if (cut) await reader.cancel();
+  } else {
+    const all = new Uint8Array(await res.arrayBuffer());
+    cut = all.byteLength > TEXT_LIMIT;
+    chunks.push(all);
+    total = all.byteLength;
+  }
+  const joined = new Uint8Array(total);
+  let at = 0;
+  for (const c of chunks) {
+    joined.set(c, at);
+    at += c.byteLength;
+  }
+  const decoded = new TextDecoder("utf-8").decode(joined.subarray(0, Math.min(total, TEXT_LIMIT)));
+  if (decoded.includes("\u0000")) throw new Error("Not a text file.");
+  return { text: decoded, truncated: cut };
 }
 
 /** The first 1 MB of a text or code file, read-only, in monospace, with line numbers. */
@@ -341,46 +401,15 @@ export function TextViewer({ bot, entry }: TextViewerProps) {
     let live = true;
     setText(null);
     setLoadError(null);
-    (async () => {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const chunks: Uint8Array[] = [];
-      let total = 0;
-      let cut = false;
-      if (res.body) {
-        const reader = res.body.getReader();
-        while (total < TEXT_LIMIT) {
-          const { done, value } = await reader.read();
-          if (done || !value) break;
-          chunks.push(value);
-          total += value.byteLength;
-        }
-        cut = total >= TEXT_LIMIT;
-        if (cut) await reader.cancel();
-      } else {
-        const all = new Uint8Array(await res.arrayBuffer());
-        cut = all.byteLength > TEXT_LIMIT;
-        chunks.push(all);
-        total = all.byteLength;
-      }
-      const joined = new Uint8Array(total);
-      let at = 0;
-      for (const c of chunks) {
-        joined.set(c, at);
-        at += c.byteLength;
-      }
-      const bytes = joined.subarray(0, Math.min(total, TEXT_LIMIT));
-      const decoded = new TextDecoder("utf-8").decode(bytes);
-      if (!live) return;
-      if (decoded.includes("\u0000")) {
-        setLoadError("Not a text file.");
-        return;
-      }
-      setTruncated(cut);
-      setText(decoded);
-    })().catch((e) => {
-      if (live) setLoadError(errorText(e));
-    });
+    readText(url)
+      .then((r) => {
+        if (!live) return;
+        setTruncated(r.truncated);
+        setText(r.text);
+      })
+      .catch((e) => {
+        if (live) setLoadError(errorText(e));
+      });
     return () => {
       live = false;
     };

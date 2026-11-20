@@ -97,6 +97,7 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
     browsers.close(slug);
     crew.logins.forget(slug);
     crew.watches.forget(slug);
+    if (crew.appHost) crew.appHost.closeBot(slug);
     await store.deleteBot(slug);
     crew.onChange();
     return true;
@@ -186,8 +187,11 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
   });
   handle("crew:stop", (_e, slug) => {
     browsers.stopMedia(slugArg(slug));
+    crew.projects.stopAll(slugArg(slug));
     return runner.stop(slug);
   });
+  handle("crew:processes", (_e, slug) => crew.projects.list(slugArg(slug)));
+  handle("crew:stopProcess", (_e, slug, id) => crew.projects.stop(slugArg(slug), str(id, "The process's id", 20)));
   handle("crew:answer", (_e, id, answer) => {
     const w = waits.get(id);
     if (!w || w.kind !== "ask") return false;
@@ -302,10 +306,15 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
     return saved;
   });
 
+  // The bot's apps (apps.cjs): what each allows, and the person's answer to its install card.
+  handle("crew:apps", (_e, slug) => crew.apps.list(slugArg(slug)));
+  handle("crew:appGrant", (_e, slug, name, grant) => crew.apps.setGrant(slugArg(slug), String(name), grant));
+
   handle("crew:disk", (_e, slug, dir) => {
     if (dir !== undefined && dir !== null && (typeof dir !== "string" || dir.length > 4096)) throw new Error("That folder isn't a path on the bot's disk.");
     return disk.list(slugArg(slug), dir || "");
   });
+  handle("crew:edits", (_e, slug) => crew.files.recentEdits(slugArg(slug)));
   handle("crew:diskOp", (_e, slug, op) => {
     if (!op || typeof op !== "object" || Array.isArray(op)) throw new Error('Say what to do, like { op: "mkdir", path: "Files/notes" }.');
     return disk.op(slugArg(slug), op);

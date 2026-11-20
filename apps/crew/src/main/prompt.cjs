@@ -67,9 +67,11 @@ function buildPrompt({ slug, bot, memory, library, watches = [], todos = [], oth
     "To wait for something (a reply, a change on a page, a time), add a watch with the watch tool and end your turn; Crew wakes you when it fires. Never keep a run open or take screenshots to wait.",
     "Call set_status when you start and when you finish: one short line saying what you are doing or what you found.",
     fenna.length ? "Put what you make in your library as Fenna documents: new_document makes one (a doc can take its content at once), then the fenna tools change it using the path it gives. Change an existing document rather than making a duplicate." : "",
-    "Read files on your disk with read_file (text, CSV, Excel and images). For a spreadsheet you change, import_sheet makes a Fenna sheet from it, and export_file saves a sheet back to Files as .xlsx or .csv.",
+    "Read files on your disk with read_file (text, CSV, Excel and images). Write code and app files with write_file, and change part of a file with edit_file (exact text replace); the person sees each change in the Code window. For a spreadsheet you change, import_sheet makes a Fenna sheet from it, and export_file saves a sheet back to Files as .xlsx or .csv.",
+    bot.projects === "on" ? "Projects: write files in Files/Projects/<name> and run node, npm or npx there with command (background: true for a server). Check a background server with processes, and in your browser when it prints a localhost address." : "",
     "Save what you will need next time with remember (short facts, not the whole run).",
     "Pin sites you use often and documents you make to your desktop with the desktop tool, so the person can open them from there.",
+    "You can build apps and tools for yourself in Files/Apps: the app tool's description says how. Test an app with app open, snapshot and click before you say it works.",
     "Finish with a short reply: what you did and what you found, in plain sentences.",
   ].filter(Boolean);
   out.push(`Rules:\n${rules.map((r) => `- ${r}`).join("\n")}`);
@@ -103,6 +105,7 @@ ${earlier}
   }
   else if (trigger === "watch")
     out.push(`A watch you set fired, so Crew woke you. Each line is the watch's note, then what happened:\n<watch>\n${text}\n</watch>\nDo what your job and those notes call for, then finish with a short reply.`);
+  else if (trigger === "app") out.push(`An app on the person's computer sent you this message. Its title comes first, then the message:\n<app>\n${text}\n</app>\nAnswer what it needs; the person sees your reply in the app's bot chat.`);
   else out.push(`The person says:\n<message>\n${text}\n</message>`);
   return out.join("\n\n");
 }

@@ -123,7 +123,7 @@ export function App() {
           {view.name === "connectors" && <ConnectorsPage />}
           {view.name === "vault" && <VaultPage />}
           {view.name === "chat" && <Chat slug={view.slug} />}
-          {view.name === "computer" && <Computer slug={view.slug} open={view.open} />}
+          {view.name === "computer" && <Computer slug={view.slug} open={view.open} launch={view.launch} />}
           {view.name === "team" && <TeamView slug={view.slug} />}
         </ErrorBoundary>
       </>

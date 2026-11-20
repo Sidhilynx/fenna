@@ -20,6 +20,7 @@
 //   logins:
 //     - name: example-mail      # a login in this computer's vault
 //       level: ask              # allow: Crew signs in without asking; ask: each time
+//   projects: on              # runs node, npm and npx in Files/Projects (off unless the person turns it on)
 //   askBefore:
 //     - Signing up for trials
 //   wallpaper: clay
@@ -41,6 +42,7 @@ import {
   LOGIN_GRANT_KEYS,
   LOGIN_LEVELS,
   MODEL_RE,
+  PROJECTS_LEVELS,
   TOOL_LEVELS,
   TOOL_NAME_RE,
   URL_CONNECTOR_KEYS,
@@ -51,6 +53,7 @@ import {
   type Diagnostic,
   type FennaAppId,
   type LoginLevel,
+  type ProjectsLevel,
   type ToolLevel,
   type Wallpaper,
 } from "./schema.ts";
@@ -97,6 +100,8 @@ export interface Bot {
   connectors: Connector[];
   /** Vault logins it may use; any other login is invisible to it. */
   logins: LoginGrant[];
+  /** Whether it may run node, npm and npx in its projects. */
+  projects: ProjectsLevel;
   askBefore: string[];
   wallpaper: Wallpaper;
   /** The body: how it works, in the person's words. */
@@ -404,6 +409,13 @@ export function readBotSettings(raw: YamlMap, how: string, keyLines: Record<stri
     });
   }
 
+  let projects: ProjectsLevel = "off";
+  if (raw.projects !== undefined && raw.projects !== "") {
+    const p = typeof raw.projects === "string" ? raw.projects.trim().toLowerCase() : "";
+    if ((PROJECTS_LEVELS as readonly string[]).includes(p)) projects = p as ProjectsLevel;
+    else d.push({ severity: "error", ...(ln("projects") ? { line: ln("projects") } : {}), message: `projects should be on or off${typeof raw.projects === "string" ? `, not "${p.slice(0, 20)}"` : ""}. Write "projects: on" to let the bot run node, npm and npx in its projects, or leave it out.` });
+  }
+
   const logins: LoginGrant[] = [];
   const rawLogins = asList(raw.logins);
   const loginAt = ln("logins") ? { line: ln("logins") } : {};
@@ -445,7 +457,7 @@ export function readBotSettings(raw: YamlMap, how: string, keyLines: Record<stri
   const body = how.trim();
   if (body.length > LIMITS.how) d.push({ severity: "error", message: `How it works is ${body.length} characters; the most is ${LIMITS.how}. Move reference material into memory.md or the library.` });
 
-  return { bot: { name, job, avatar, color, schedule, brain, connectors, logins, askBefore, wallpaper, how: body.slice(0, LIMITS.how) }, diagnostics: d, legacy };
+  return { bot: { name, job, avatar, color, schedule, brain, connectors, logins, projects, askBefore, wallpaper, how: body.slice(0, LIMITS.how) }, diagnostics: d, legacy };
 }
 
 /**
@@ -497,6 +509,8 @@ export function botYaml(bot: Bot): YamlMap {
   // Written only when it has some, so a bot.md without logins stays as it was.
   const logins = bot.logins ?? [];
   if (logins.length) out.logins = logins.map((g) => ({ name: g.name, level: g.level }));
+  // Written only when on, so a bot.md with projects off stays as it was.
+  if (bot.projects === "on") out.projects = "on";
   out.askBefore = [...bot.askBefore];
   out.wallpaper = bot.wallpaper;
   return out;
@@ -525,6 +539,7 @@ export interface NewBotInput {
   effort?: string;
   connectors?: Connector[];
   logins?: LoginGrant[];
+  projects?: ProjectsLevel;
   askBefore?: string[];
   wallpaper?: Wallpaper;
 }
@@ -543,6 +558,7 @@ export function newBot(input: NewBotInput): { bot: Bot; diagnostics: Diagnostic[
     brain: { cli: input.cli ?? "claude", model: input.model ?? "", effort: input.effort ?? "" },
     connectors: input.connectors ?? FENNA_APPS.map((a) => ({ type: "fenna" as const, app: a.id })),
     logins: input.logins ?? [],
+    projects: input.projects ?? "off",
     askBefore: input.askBefore ?? [],
     wallpaper: input.wallpaper ?? WALLPAPERS[0],
     how: String(input.how ?? "").trim(),

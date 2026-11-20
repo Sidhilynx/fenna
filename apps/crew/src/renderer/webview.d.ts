@@ -4,7 +4,7 @@ import "react";
 declare module "react" {
   namespace JSX {
     interface IntrinsicElements {
-      webview: DetailedHTMLProps<HTMLAttributes<WebviewElement>, WebviewElement> & { src?: string };
+      webview: DetailedHTMLProps<HTMLAttributes<WebviewElement>, WebviewElement> & { src?: string; partition?: string };
     }
   }
 }

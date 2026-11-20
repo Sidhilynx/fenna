@@ -15,10 +15,13 @@ import { FaceButton } from "./FacePicker.tsx";
 import { Grants, LoginGrants } from "./Grants.tsx";
 import { Glyph } from "./Glyph.tsx";
 import { PixelIcon } from "./PixelIcon.tsx";
+import { ProjectsSection } from "./ProjectsSection.tsx";
 import { Thumb } from "./Thumb.tsx";
 import { BotWatches } from "./Watches.tsx";
 import { KIND_ICON } from "./pixelIcons.ts";
 import { useBotDetail, useCrew } from "./crew.tsx";
+import { useApps } from "./UserApp.tsx";
+import { grantLine, waitsForYou } from "./userApps.ts";
 import { KIND_LABEL, when, whenNext } from "./util.ts";
 
 const WIDTH_KEY = "fenna:panel-width";
@@ -202,8 +205,56 @@ function Library({ bot, detail, loadError }: { bot: BotSummary; detail: BotDetai
   );
 }
 
-const TRIGGER_LABEL: Record<RunSummary["trigger"], string> = { person: "You asked", schedule: "Schedule", bot: "Another bot", watch: "Watch", welcome: "Welcome", compact: "Compact" };
+const TRIGGER_LABEL: Record<RunSummary["trigger"], string> = { person: "You asked", schedule: "Schedule", bot: "Another bot", watch: "Watch", welcome: "Welcome", compact: "Compact", app: "App" };
 const OUTCOME_LABEL: Record<RunSummary["outcome"], string> = { done: "Done", error: "Failed", stopped: "Stopped", running: "Running" };
+
+/** The bot's apps: open one, review what it asks for, or take back what was allowed. */
+function AppsSection({ bot }: { bot: BotSummary }) {
+  const { go } = useCrew();
+  const { apps, error } = useApps(bot.slug);
+  const showApp = (name: string, review: boolean) => go({ name: "computer", slug: bot.slug, launch: { app: "userapp", props: { name, review }, key: `userapp:${name}` } });
+  const revoke = (name: string) => invoke("crew:appGrant", bot.slug, name, null).catch((e) => toast(errorText(e)));
+  return (
+    <Section title="Apps">
+      {!apps && <p className="hint">{error || "Loading"}</p>}
+      {apps && !apps.length && <p className="hint">Ask {bot.name} to make you an app.</p>}
+      {apps && apps.length > 0 && (
+        <ul className="apps-list">
+          {apps.map((a) => {
+            const tools = a.tools.length ? `${a.tools.length} ${a.tools.length === 1 ? "tool" : "tools"}` : "";
+            const says = a.problems.length ? "app.json needs fixing" : grantLine(a.grant, bot.name);
+            return (
+              <li key={a.name} className="app-row">
+                <span className="app-text">
+                  <span className="app-name ell">
+                    {a.title}
+                    {waitsForYou(a) && <span className="app-wait">Waiting for you</span>}
+                  </span>
+                  <span className="app-sub ell" title={[says, tools].filter(Boolean).join(" · ")}>
+                    {[says, tools].filter(Boolean).join(" · ")}
+                  </span>
+                </span>
+                <span className="app-acts">
+                  <button type="button" className="btn small" onClick={() => showApp(a.name, false)}>
+                    Open
+                  </button>
+                  <button type="button" className="btn small" onClick={() => showApp(a.name, true)}>
+                    Review permissions
+                  </button>
+                  {a.grant && (
+                    <button type="button" className="btn small danger" onClick={() => void revoke(a.name)}>
+                      Revoke
+                    </button>
+                  )}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Section>
+  );
+}
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -388,9 +439,15 @@ function Details({ bot, detail, setDetail, loadError }: { bot: BotSummary; detai
         </div>
       </Section>
 
+      <Section title="Projects">
+        <ProjectsSection bot={bot} enabled={cfg.projects === "on"} onToggle={(on) => void save({ projects: on ? "on" : "off" })} />
+      </Section>
+
       <Section title="Disk">
         <DiskSize slug={bot.slug} />
       </Section>
+
+      <AppsSection bot={bot} />
 
       <BotWatches bot={bot} />
 

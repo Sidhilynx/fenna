@@ -15,6 +15,7 @@ const bundles = [
   ["packages/workspace-mcp/src/cli.ts", "fenna-workspace-mcp.cjs"],
   ["packages/crew/src/index.ts", "crew-format.cjs"],
   ["packages/sheet/src/index.ts", "crew-sheet.cjs"],
+  ["packages/doc/src/index.ts", "crew-doc.cjs"],
   ["packages/crew-mcp/src/client.ts", "crew-client.cjs"],
 ];
 

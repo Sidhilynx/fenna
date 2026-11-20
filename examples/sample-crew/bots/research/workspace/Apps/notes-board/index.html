@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Notes</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Notes</h1>
+      <p class="sub" id="count"></p>
+    </header>
+
+    <form id="form" autocomplete="off">
+      <label class="sr" for="text">New note</label>
+      <input id="text" type="text" maxlength="500" placeholder="Write a note">
+      <button type="submit" id="add">Add</button>
+    </form>
+
+    <p class="error" id="error" role="alert" hidden></p>
+    <p class="empty" id="empty" hidden>No notes yet. Add one above.</p>
+    <ul id="notes" class="notes"></ul>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

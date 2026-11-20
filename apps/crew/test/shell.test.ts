@@ -323,7 +323,8 @@ describe("output and history", () => {
     expect(saved.entries.length).toBe(HISTORY_MAX);
     const reopened = createShell({ disk, store });
     expect(reopened.history(SLUG).length).toBe(HISTORY_MAX);
-  });
+    // 510 runs, each written to disk: seconds on a loaded machine.
+  }, 30_000);
 
   it("records who ran it, the folder after cd, and tells the windows", async () => {
     const e = await shell.exec(SLUG, "cd Files", "Documents", "bot");

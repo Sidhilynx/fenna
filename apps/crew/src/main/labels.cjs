@@ -28,8 +28,12 @@ const CREW = {
   read_file: (p) => `Read ${short(String(p.path || "").split("/").pop(), 60)}`,
   import_sheet: (p) => `Made a sheet from ${short(String(p.path || "").split("/").pop(), 60)}`,
   export_file: (p) => `Saved a ${p.format === "csv" ? "CSV" : "Excel"} copy`,
+  write_file: (p) => `Wrote ${short(String(p.path || "").split("/").pop(), 60)}`,
+  edit_file: (p) => `Edited ${short(String(p.path || "").split("/").pop(), 60)}`,
   watch: (p) => (p.action === "add" ? "Added a watch" : p.action === "remove" ? "Removed a watch" : "Looked at its watches"),
   todo: (p) => (p.action === "list" ? "Looked at its to-do list" : "Updated the to-do list"),
+  command: (p) => `Ran ${short(p.command, 60)}${p.background ? " in the background" : ""}`,
+  processes: (p) => (p.action === "stop" ? "Stopped a command" : p.action === "output" ? "Read a command's output" : "Looked at its commands"),
 };
 
 const BROWSER = {
@@ -65,17 +69,52 @@ const FENNA = {
   edit_slide: () => "Edited a slide",
 };
 
-/** The shell's toolLabel hook: (tool, params, server) → words, or null for the tool's own name. */
-function toolLabel(tool, params, server) {
-  const p = params || {};
-  const table = server === "crew" ? CREW : server === "browser" ? BROWSER : server === "fenna" ? FENNA : null;
-  if (table && Object.prototype.hasOwnProperty.call(table, tool)) return table[tool](p);
-  if (table) return null;
-  if (server === "gateway") {
-    const i = String(tool).indexOf("__");
-    if (i > 0) return `${tool.slice(0, i)}: ${tool.slice(i + 2).replace(/_/g, " ")}`;
-  }
-  return `${server}: ${String(tool).replace(/_/g, " ")}`;
+/**
+ * The shell's toolLabel hook, with the app titles of the bot whose run it is
+ * (appTitle(slug, name) → title or null): (tool, params, server, slug) →
+ * words, or null for the tool's own name.
+ */
+function createToolLabel({ appTitle = () => null } = {}) {
+  return function toolLabel(tool, params, server, slug = "") {
+    const p = params || {};
+    const title = (name) => (name ? appTitle(slug, String(name)) : null) || short(name, 40) || "the app";
+    if (server === "crew" && tool === "app") {
+      switch (p.action) {
+        case "list":
+          return "Looked at its apps";
+        case "open":
+          return `Opened the app ${title(p.name)}`;
+        case "snapshot":
+          return `Read ${title(p.name)}`;
+        case "click":
+          return `Clicked in ${title(p.name)}`;
+        case "type":
+          return `Typed in ${title(p.name)}`;
+        case "press":
+          return `Pressed ${short(p.key, 20)} in ${title(p.name)}`;
+        case "close":
+          return `Closed ${title(p.name)}`;
+        default:
+          return null;
+      }
+    }
+    const table = server === "crew" ? CREW : server === "browser" ? BROWSER : server === "fenna" ? FENNA : null;
+    if (table && Object.prototype.hasOwnProperty.call(table, tool)) return table[tool](p);
+    if (table) return null;
+    if (server === "gateway") {
+      const name = String(tool);
+      if (name.startsWith("app__")) {
+        const rest = name.slice(5);
+        const i = rest.indexOf("__");
+        if (i > 0) return `Used ${title(rest.slice(0, i))}: ${rest.slice(i + 2).replace(/_/g, " ")}`;
+      }
+      const i = name.indexOf("__");
+      if (i > 0) return `${name.slice(0, i)}: ${name.slice(i + 2).replace(/_/g, " ")}`;
+    }
+    return `${server}: ${String(tool).replace(/_/g, " ")}`;
+  };
 }
 
-module.exports = { toolLabel };
+const toolLabel = createToolLabel();
+
+module.exports = { toolLabel, createToolLabel };

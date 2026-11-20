@@ -207,7 +207,7 @@ function createRunner({ store, startRun, serversFor, link, waits, emitLive, onCh
         cwd: store.botDir(run.slug),
         sessionId,
         ...serversFor({ slug: run.slug, bot, token: run.token }),
-        toolLabel,
+        toolLabel: (tool, params, server) => toolLabel(tool, params, server, run.slug),
         onEvent: (ev) => onEvent(run, ev),
       });
     } catch (e) {

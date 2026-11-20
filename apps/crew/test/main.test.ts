@@ -708,6 +708,9 @@ describe("desktop", () => {
       { id: "clock", kind: "app", app: "clock", label: "Clock" },
       { id: "connectors", kind: "app", app: "connectors", label: "Connectors" },
       { id: "trash", kind: "app", app: "trash", label: "Trash" },
+      { id: "code", kind: "app", app: "code", label: "Code" },
+      { id: "processes", kind: "app", app: "processes", label: "Processes" },
+      { id: "console", kind: "app", app: "console", label: "Console" },
       { id: "fenna-docs", kind: "fenna", app: "fenna-docs", label: "Fenna Docs" },
       { id: "fenna-sheets", kind: "fenna", app: "fenna-sheets", label: "Fenna Sheets" },
       { id: "fenna-slides", kind: "fenna", app: "fenna-slides", label: "Fenna Slides" },
@@ -715,14 +718,25 @@ describe("desktop", () => {
       { id: "fenna-design", kind: "fenna", app: "fenna-design", label: "Fenna Design" },
     ]);
     store.createBot({ name: "Quiet", job: "Waits", connectors: [] });
-    expect(store.readDesktop("quiet")).toHaveLength(8);
+    expect(store.readDesktop("quiet")).toHaveLength(11);
   });
 
   it("gives the default desktop when desktop.json is broken or not a list", () => {
     writeFileSync(path.join(store.botDir("inbox"), "desktop.json"), "{ not json");
-    expect(store.readDesktop("inbox")).toHaveLength(13);
+    expect(store.readDesktop("inbox")).toHaveLength(16);
     writeFileSync(path.join(store.botDir("inbox"), "desktop.json"), JSON.stringify([{ id: "x", kind: "web", url: "javascript:alert(1)", label: "X" }]));
-    expect(store.readDesktop("inbox")).toHaveLength(13);
+    expect(store.readDesktop("inbox")).toHaveLength(16);
+  });
+
+  it("adds the built-ins that came later to a desktop saved before them, once", () => {
+    const old = [
+      { id: "browser", kind: "app", app: "browser", label: "Browser" },
+      { id: "files", kind: "app", app: "files", label: "Files" },
+    ];
+    writeFileSync(path.join(store.botDir("inbox"), "desktop.json"), JSON.stringify(old));
+    expect(ids("inbox")).toEqual(["browser", "files", "code", "processes", "console"]);
+    store.writeDesktop("inbox", old);
+    expect(ids("inbox")).toEqual(["browser", "files"]);
   });
 
   it("saves a desktop and reads it back in order, keeping only each shortcut's own fields", () => {
@@ -765,9 +779,9 @@ describe("desktop", () => {
     expect(() => store.writeDesktop("inbox", [{ id: "a", kind: "web", url: "javascript:alert(1)", label: "A" }])).toThrow(/must open an http or https address, not javascript:/);
     expect(() => store.writeDesktop("inbox", [{ id: "a", kind: "doc", path: ".hidden", label: "A" }])).toThrow(/not a library file name/);
     expect(() => store.writeDesktop("inbox", [{ id: "a", kind: "doc", path: "../x", label: "A" }])).toThrow(/not a library file name/);
-    expect(() => store.writeDesktop("inbox", [{ id: "a", kind: "app", app: "mail", label: "A" }])).toThrow(/Use one of: browser, files, library, terminal, activity, clock, connectors, trash/);
+    expect(() => store.writeDesktop("inbox", [{ id: "a", kind: "app", app: "mail", label: "A" }])).toThrow(/Use one of: browser, files, library, terminal, activity, clock, connectors, trash, code, processes, console/);
     expect(() => store.writeDesktop("inbox", [{ id: "a", kind: "fenna", app: "fenna-mail", label: "A" }])).toThrow(/Use one of: fenna-docs, fenna-sheets, fenna-slides, fenna-whiteboard, fenna-design/);
-    expect(() => store.writeDesktop("inbox", [{ id: "a", kind: "clock", label: "A" }])).toThrow(/Kinds are app, fenna, web and doc/);
+    expect(() => store.writeDesktop("inbox", [{ id: "a", kind: "clock", label: "A" }])).toThrow(/Kinds are app, fenna, web, doc and userapp/);
   });
 
   it("refuses a label that is empty or longer than 40 characters, and ids that repeat or are not ids", () => {
@@ -801,6 +815,9 @@ describe("desktop", () => {
           "clock  app  Clock  clock",
           "connectors  app  Connectors  connectors",
           "trash  app  Trash  trash",
+          "code  app  Code  code",
+          "processes  app  Processes  processes",
+          "console  app  Console  console",
           "fenna-docs  fenna  Fenna Docs  fenna-docs",
           "fenna-sheets  fenna  Fenna Sheets  fenna-sheets",
           "fenna-slides  fenna  Fenna Slides  fenna-slides",
@@ -819,7 +836,7 @@ describe("desktop", () => {
   });
 
   it("renames, moves and removes by id, and lists what is there", async () => {
-    expect((await desk("list")).text.split("\n")[0]).toBe("13 shortcuts on the desktop.");
+    expect((await desk("list")).text.split("\n")[0]).toBe("16 shortcuts on the desktop.");
     expect((await desk("rename", { id: "files", label: "Documents" })).text).toMatch(/^Renamed files to "Documents"\./);
     expect(store.readDesktop("inbox")[1]).toMatchObject({ id: "files", label: "Documents" });
     expect((await desk("move", { id: "fenna-docs", to: 1 })).text).toMatch(/^Moved Fenna Docs to position 1\./);
@@ -830,12 +847,12 @@ describe("desktop", () => {
   });
 
   it("says how to fix a shortcut id, a position, a label or an action it does not know", async () => {
-    await expect(desk("remove", { id: "nope" })).rejects.toThrow(/^No shortcut with id nope\. Shortcuts: browser, files, library, terminal, activity, clock, connectors, trash, fenna-docs, fenna-sheets, fenna-slides, fenna-whiteboard, fenna-design\.$/);
-    await expect(desk("move", { id: "files", to: 14 })).rejects.toThrow(/Move to a position from 1 to 13; 1 is the first shortcut\./);
+    await expect(desk("remove", { id: "nope" })).rejects.toThrow(/^No shortcut with id nope\. Shortcuts: browser, files, library, terminal, activity, clock, connectors, trash, code, processes, console, fenna-docs, fenna-sheets, fenna-slides, fenna-whiteboard, fenna-design\.$/);
+    await expect(desk("move", { id: "files", to: 17 })).rejects.toThrow(/Move to a position from 1 to 16; 1 is the first shortcut\./);
     await expect(desk("rename", { id: "files", label: "" })).rejects.toThrow(/needs a label/);
     await expect(desk("sort")).rejects.toThrow(/Use the action list, add, remove, rename or move, not "sort"\./);
     expect(desktopEvents).toHaveLength(0);
-    expect(store.readDesktop("inbox")).toHaveLength(13);
+    expect(store.readDesktop("inbox")).toHaveLength(16);
   });
 });
 

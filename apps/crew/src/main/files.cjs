@@ -1,7 +1,9 @@
 // The bot's files as it works with them. read_file shows a file on the bot's
-// disk (text, code, CSV, TSV, Excel and images, a page at a time); import_sheet
-// makes an .xlsx or .csv on the disk into a Fenna sheet in Documents; and
-// export_file saves a Fenna sheet back to Files as .xlsx or .csv. Every path
+// disk (text, code, CSV, TSV, Excel and images, a page at a time); write_file
+// and edit_file write text files in Files and Downloads and remember the lines
+// they changed (recentEdits, for the Code window); import_sheet makes an .xlsx
+// or .csv on the disk into a Fenna sheet in Documents; and export_file saves a
+// Fenna sheet back to Files as .xlsx or .csv. Every path
 // goes through disk.locate, so the disk's own checks apply: nothing outside
 // the bot's folder, no links. Sheets are read and written with @opendeck/sheet,
 // the same code the sheet app and its MCP server use.
@@ -17,6 +19,10 @@ const packaged = typeof electron === "object" && electron.app && electron.app.is
 const SHEET = packaged ? require(path.join(process.resourcesPath, "mcp", "crew-sheet.cjs")) : require("@opendeck/sheet");
 
 const MB = 1024 ** 2;
+const WRITE_MAX = 2 * MB;
+const BOM = Buffer.from([0xef, 0xbb, 0xbf]);
+const EDIT_WINDOW_MS = 15 * 60_000;
+const EDIT_KEEP = 200;
 const TEXT_LINES = 400;
 const TABLE_ROWS = 200;
 const TABLE_COLS = 40;
@@ -50,6 +56,30 @@ const lstatOrNull = (p) => {
 };
 const cellText = (s) => String(s ?? "").replace(/\s+/g, " ").replace(/\|/g, "/").trim().slice(0, CELL_MAX);
 const pad = (n, w) => String(n).padStart(w, " ");
+const newlines = (s) => s.split("\n").length - 1;
+const lineCount = (s) => (s === "" ? 0 : s.split("\n").length - (s.endsWith("\n") ? 1 : 0));
+const rangeText = (ranges) => ranges.map(([a, b]) => (a === b ? `${a}` : `${a}-${b}`)).join(", ");
+
+/** Where `from` occurs in `text`, each occurrence after the one before it ends. */
+function occurrences(text, from) {
+  const hits = [];
+  for (let i = text.indexOf(from); i !== -1; i = text.indexOf(from, i + from.length)) hits.push(i);
+  return hits;
+}
+
+/** The 1-based line ranges that differ between two texts: the lines from the first difference to the last, from each end. */
+function changedLines(before, after) {
+  if (before === after) return [];
+  const a = before.split("\n");
+  const b = after.split("\n");
+  let head = 0;
+  while (head < a.length && head < b.length && a[head] === b[head]) head++;
+  let tail = 0;
+  while (tail < a.length - head && tail < b.length - head && a[a.length - 1 - tail] === b[b.length - 1 - tail]) tail++;
+  const last = lineCount(after);
+  const from = Math.min(head + 1, Math.max(1, last));
+  return [[from, Math.max(from, Math.min(last, b.length - tail))]];
+}
 
 /** The text of a file's bytes as UTF-8 (a byte order mark dropped), or null when they are not UTF-8. */
 function decodeText(buf) {
@@ -251,11 +281,55 @@ async function loadSheetFolder(dir) {
  * @param {ReturnType<import("./disk.cjs").createDisk>} o.disk  the bots' disks; every path goes through its locate
  * @param {(channel: string, payload: object) => void} [o.broadcast]  tells the windows the disk changed
  * @param {() => { createFromBuffer(b: Buffer): any } | undefined} [o.nativeImage]  Electron's nativeImage, used to shrink images
+ * @param {() => Date} [o.now]
  */
-function createFiles({ disk, broadcast = () => {}, nativeImage = () => electron.nativeImage }) {
+function createFiles({ disk, broadcast = () => {}, nativeImage = () => electron.nativeImage, now = () => new Date() }) {
+  /** slug → the bot's recent edits, { path, ms, seq, lines }, oldest first. */
+  const edits = new Map();
+  let seq = 0;
+
   function assertRoom(slug, bytes) {
     const free = disk.free(slug, true);
     if (bytes > free) throw new Error(`That won't fit in the bot's disk. It needs ${sizeText(bytes)}, and ${sizeText(free)} is free.`);
+  }
+
+  /** Room for a file that goes from `before` bytes to `after`: the old copy's bytes are freed first. */
+  function assertWrite(slug, before, after) {
+    if (after > WRITE_MAX) throw new Error(`That file would be ${sizeText(after)}. write_file takes at most 2 MB per file; split it into several files.`);
+    const free = disk.free(slug, true);
+    const more = after - before;
+    if (more > free) throw new Error(`That won't fit in the bot's disk. It needs ${sizeText(more)} more, and ${sizeText(free)} is free.`);
+  }
+
+  function recentWithin(slug) {
+    const at = now().getTime();
+    const kept = (edits.get(slug) || []).filter((e) => at - e.ms < EDIT_WINDOW_MS);
+    edits.set(slug, kept);
+    return kept;
+  }
+
+  /** Remembers the lines an edit changed, so the Code window can mark them for 15 minutes. */
+  function noteEdit(slug, rel, lines) {
+    if (!lines.length) return;
+    const kept = recentWithin(slug);
+    kept.push({ path: rel, ms: now().getTime(), seq: ++seq, lines });
+    edits.set(slug, kept.slice(-EDIT_KEEP));
+    broadcast("crew:edits", { slug });
+  }
+
+  /** The bot's recent edits by file, newest first: the latest time, and the changed line ranges of every edit in the window. */
+  function recentEdits(slug) {
+    const byPath = new Map();
+    for (const e of recentWithin(slug)) {
+      const r = byPath.get(e.path) || { path: e.path, ms: 0, seq: 0, lines: [] };
+      r.ms = Math.max(r.ms, e.ms);
+      r.seq = Math.max(r.seq, e.seq);
+      r.lines.push(...e.lines);
+      byPath.set(e.path, r);
+    }
+    return [...byPath.values()]
+      .sort((a, b) => b.seq - a.seq)
+      .map((r) => ({ path: r.path, at: new Date(r.ms).toISOString(), lines: r.lines.sort((a, b) => a[0] - b[0]) }));
   }
 
   /** The stats of a file at a disk location. Throws with what to do for a folder or a missing file. */
@@ -447,7 +521,89 @@ function createFiles({ disk, broadcast = () => {}, nativeImage = () => electron.
     return { text: `Exported "${title}" to ${target} (${sizeText(bytes.length)}): ${what}.` };
   }
 
-  return { read, importSheet, exportFile };
+  /** The disk location a write goes to: Files or Downloads, a file (not a folder), with what to use instead otherwise. */
+  function writeTarget(slug, p) {
+    const loc = disk.locate(slug, p);
+    if (loc.root === "Documents") throw new Error(`write_file writes only in Files or Downloads, and ${p} is in Documents. Documents holds Fenna documents: change one with the fenna tools.`);
+    if (loc.root === "Trash") throw new Error(`${p} is in Trash. Restore it first, then write to it in Files or Downloads.`);
+    if (loc.isRoot) throw new Error(`${p} is a folder, not a file. Name a file in it, like ${loc.root}/notes/a.txt.`);
+    if (loc.root === "Files" && loc.segs[1] === "downloads") throw new Error(`Files/downloads is Downloads. Write there as Downloads/…`);
+    if (lstatOrNull(loc.abs)?.isDirectory()) throw new Error(`${p} is a folder. Name a file in it, like ${p}/a.txt.`);
+    return loc;
+  }
+
+  /** write_file: creates a text file (and its folders) or replaces one whole. Keeps CRLF line endings of a file it replaces. */
+  async function writeFile(slug, p) {
+    const loc = writeTarget(slug, p.path);
+    if (typeof p.content !== "string") throw new Error("Say what goes in the file, in content.");
+    const name = loc.segs.at(-1);
+    const prior = lstatOrNull(loc.abs)?.isFile() ? fs.readFileSync(loc.abs) : null;
+    if (prior && !looksText(prior)) throw new Error(`${name} isn't a text file, and write_file only replaces text files. Write it under a new name.`);
+    const before = prior ? decodeText(prior) : "";
+    const next = p.content.replace(/\r\n/g, "\n");
+    const out = prior && before.includes("\r\n") ? next.replace(/\n/g, "\r\n") : p.content;
+    const bytes = Buffer.byteLength(out);
+    assertWrite(slug, prior ? prior.length : 0, bytes);
+    try {
+      fs.mkdirSync(path.dirname(loc.abs), { recursive: true });
+    } catch (e) {
+      if (e.code === "ENOTDIR" || e.code === "EEXIST") throw new Error(`${p.path} can't be written: a file is in the way of its folder. Pick another path.`);
+      throw e;
+    }
+    fs.writeFileSync(loc.abs, out);
+    broadcast("crew:disk", { slug });
+    noteEdit(slug, loc.segs.join("/"), changedLines(prior ? before.replace(/\r\n/g, "\n") : "", next));
+    return { text: `Wrote ${p.path} (${lineCount(next)} lines)` };
+  }
+
+  /** edit_file: replaces the exact text old_string with new_string, once (or every match with replace_all). Keeps CRLF line endings. */
+  async function editFile(slug, p) {
+    const loc = writeTarget(slug, p.path);
+    const st = statFile(loc, p.path);
+    const name = loc.segs.at(-1);
+    if (st.size > WRITE_MAX) throw new Error(`${name} is ${sizeText(st.size)}. edit_file works on files up to 2 MB.`);
+    const raw = fs.readFileSync(loc.abs);
+    const old = looksText(raw) ? decodeText(raw) : null;
+    if (old === null) throw new Error(`${name} isn't a text file, so edit_file can't change it.`);
+    if (typeof p.new_string !== "string") throw new Error("Say the new text in new_string. Leave it empty to delete old_string.");
+    const from = typeof p.old_string === "string" ? p.old_string.replace(/\r\n/g, "\n") : "";
+    const to = p.new_string.replace(/\r\n/g, "\n");
+    if (!from) throw new Error("Say the exact text to change in old_string. Copy it from read_file, line breaks and spaces included.");
+    if (from === to) throw new Error("old_string and new_string are the same, so nothing would change.");
+    const text = old.replace(/\r\n/g, "\n");
+    const hits = occurrences(text, from);
+    if (!hits.length) throw new Error(`old_string not found in ${p.path}. Read the file again with read_file and copy the text exactly.`);
+    if (hits.length > 1 && p.replace_all !== true) {
+      throw new Error(`old_string occurs ${hits.length} times in ${p.path}. Add the lines around it to old_string so it occurs once, or set replace_all: true to change all ${hits.length}.`);
+    }
+    const picked = p.replace_all === true ? hits : hits.slice(0, 1);
+    // Built in order, so each changed range is already a line number in the new text.
+    let out = "";
+    let last = 0;
+    let line = 1;
+    const lines = [];
+    const nl = newlines(to);
+    for (const at of picked) {
+      const between = text.slice(last, at);
+      out += between;
+      line += newlines(between);
+      lines.push([line, line + Math.max(0, nl - (to.endsWith("\n") ? 1 : 0))]);
+      out += to;
+      line += nl;
+      last = at + from.length;
+    }
+    out += text.slice(last);
+    const lineEnds = old.includes("\r\n") ? out.replace(/\n/g, "\r\n") : out;
+    const result = raw.subarray(0, 3).equals(BOM) ? `﻿${lineEnds}` : lineEnds;
+    const bytes = Buffer.byteLength(result);
+    assertWrite(slug, st.size, bytes);
+    fs.writeFileSync(loc.abs, result);
+    broadcast("crew:disk", { slug });
+    noteEdit(slug, loc.segs.join("/"), lines);
+    return { text: `Edited ${p.path}: ${picked.length} ${picked.length === 1 ? "match" : "matches"} replaced. Changed lines ${rangeText(lines)}.` };
+  }
+
+  return { read, importSheet, exportFile, writeFile, editFile, recentEdits };
 }
 
 module.exports = { createFiles };

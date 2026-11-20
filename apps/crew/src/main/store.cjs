@@ -22,11 +22,12 @@ const MAX_RUN_FILES_LISTED = 2000;
 // The desktop's names and limits, restated from apps/crew/src/shared/contract.ts
 // (DESKTOP_APPS, DESKTOP_MAX, SHORTCUT_LABEL_MAX). This file can't import the
 // .ts contract, so keep these in step with it.
-const DESKTOP_APPS = ["browser", "files", "library", "terminal", "activity", "clock", "connectors", "trash"];
+const DESKTOP_APPS = ["browser", "files", "library", "terminal", "activity", "clock", "connectors", "trash", "code", "processes", "console"];
 const DESKTOP_LABELS = { library: "Documents" };
 const DESKTOP_MAX = 48;
 const SHORTCUT_LABEL_MAX = 40;
 const SHORTCUT_ID = /^[a-z0-9-]{1,40}$/;
+const APP_NAME = /^[a-z][a-z0-9-]{0,31}$/;
 const LIBRARY_FILE = /^[\w.-]{1,80}$/;
 
 function writeAtomic(file, text) {
@@ -123,7 +124,7 @@ function chatFileName(name) {
   return `${clean || "Bot"} chat.md`;
 }
 
-const TRIGGER_TITLE = { person: "You asked", schedule: "Schedule", bot: "Another bot", welcome: "Welcome" };
+const TRIGGER_TITLE = { person: "You asked", schedule: "Schedule", bot: "Another bot", welcome: "Welcome", app: "An app" };
 const pad = (n) => String(n).padStart(2, "0");
 const stamp = (iso) => {
   const d = new Date(iso);
@@ -162,6 +163,9 @@ function chatMarkdown(name, runs) {
   }
   return `${out.join("\n").trimEnd()}\n`;
 }
+
+/** Built-in windows added after desktops were first saved; each is put on a saved desktop once, so removing it later sticks. */
+const LATER_APPS = ["code", "processes", "console"];
 
 /** The desktop a bot starts with: its built-in windows, then one shortcut per Fenna app it is given. */
 function defaultDesktop(bot) {
@@ -219,7 +223,13 @@ function checkDesktop(items) {
       }
       return withPos({ id, kind: "doc", path: item.path, label }, item.pos);
     }
-    throw new Error(`${at} has the kind "${String(item.kind).slice(0, 40)}". Kinds are app, fenna, web and doc.`);
+    if (item.kind === "userapp") {
+      if (typeof item.app !== "string" || !APP_NAME.test(item.app)) {
+        throw new Error(`${at} opens the app "${String(item.app).slice(0, 40)}", which is not an app name. App names are lowercase letters, digits and dashes, starting with a letter.`);
+      }
+      return withPos({ id, kind: "userapp", app: item.app, label }, item.pos);
+    }
+    throw new Error(`${at} has the kind "${String(item.kind).slice(0, 40)}". Kinds are app, fenna, web, doc and userapp.`);
   });
 }
 
@@ -244,6 +254,23 @@ function createStore(root, { trash, migrate } = {}) {
   const removeDir = async (dir) => {
     if (trash) await trash(dir);
     else fs.rmSync(dir, { recursive: true, force: true });
+  };
+
+  /** A saved desktop with any LATER_APPS it has never been given, added once (desktop-added.json remembers which). */
+  const withNewApps = (slug, items) => {
+    const addedFile = path.join(botDir(slug), "desktop-added.json");
+    const added = readJson(addedFile);
+    const given = Array.isArray(added) ? added : [];
+    const missing = LATER_APPS.filter((app) => !given.includes(app) && !items.some((i) => i.kind === "app" && i.app === app));
+    if (!LATER_APPS.some((app) => !given.includes(app))) return items;
+    const next = [...items, ...missing.map((app) => ({ id: app, kind: "app", app, label: DESKTOP_LABELS[app] || app[0].toUpperCase() + app.slice(1) }))].slice(0, DESKTOP_MAX);
+    try {
+      writeAtomic(path.join(botDir(slug), "desktop.json"), `${JSON.stringify(next, null, 2)}\n`);
+      writeAtomic(addedFile, `${JSON.stringify(LATER_APPS)}\n`);
+    } catch {
+      /* read-only disk: show them this time, try again next time */
+    }
+    return next;
   };
 
   /** A new bot folder with its bot.md, memory and empty state; returns the slug. */
@@ -490,11 +517,13 @@ function createStore(root, { trash, migrate } = {}) {
     readDesktop(slug) {
       const saved = readJson(path.join(botDir(slug), "desktop.json"));
       if (Array.isArray(saved)) {
+        let items;
         try {
-          return checkDesktop(saved);
+          items = checkDesktop(saved);
         } catch {
           /* broken: the default desktop below */
         }
+        if (items) return withNewApps(slug, items);
       }
       return defaultDesktop(store.readBot(slug)?.bot ?? null);
     },
@@ -504,6 +533,8 @@ function createStore(root, { trash, migrate } = {}) {
       if (!fs.existsSync(path.join(botDir(slug), "bot.md"))) throw new Error(`There is no bot "${slug}".`);
       const next = checkDesktop(items);
       writeAtomic(path.join(botDir(slug), "desktop.json"), `${JSON.stringify(next, null, 2)}\n`);
+      // A desktop saved now already shows the built-ins it wants; later ones are never added back.
+      writeAtomic(path.join(botDir(slug), "desktop-added.json"), `${JSON.stringify(LATER_APPS)}\n`);
       return next;
     },
 

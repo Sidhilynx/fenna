@@ -308,6 +308,36 @@ export function createCrewServer(link: Link, opts: CrewOptions): McpServer {
   );
 
   tool(
+    "write_file",
+    {
+      title: "Write a file",
+      description:
+        'Write a text file in Files or Downloads: code, a web app, notes, CSV. It creates the file and any folders it needs, and replaces the whole file if it exists, so change part of a file with edit_file instead. Not for Fenna documents (make them with new_document and change them with the fenna tools) and not for Trash. At most 2 MB. Example: {path: "Files/Apps/todo/index.html", content: "<!doctype html>\\n<title>Todo</title>\\n<h1>Todo</h1>"}',
+      inputSchema: {
+        path: z.string().min(1).max(4096).describe("a path in Files or Downloads, like Files/notes/a.txt"),
+        content: z.string().max(2 * 1024 * 1024).describe("the whole text of the file"),
+      },
+    },
+    (args) => call("write_file", { ...args }),
+  );
+
+  tool(
+    "edit_file",
+    {
+      title: "Edit a file",
+      description:
+        'Change part of a text file in Files or Downloads by exact replacement, like a code editor\'s find and replace. old_string must match the file exactly (spaces, indentation and line breaks included) and occur once; add the lines around it if it occurs more than once, or set replace_all: true to change every match. Read the file with read_file first. The reply gives the changed line numbers. Example: {path: "Files/Apps/todo/index.html", old_string: "<h1>Todo</h1>", new_string: "<h1>My todos</h1>"}',
+      inputSchema: {
+        path: z.string().min(1).max(4096).describe("a path in Files or Downloads, like Files/Apps/todo/index.html"),
+        old_string: z.string().min(1).max(100_000).describe("the exact text to replace, copied from read_file"),
+        new_string: z.string().max(100_000).describe("the text to put in its place; empty to delete old_string"),
+        replace_all: z.boolean().optional().describe("true to change every match, not only a single one"),
+      },
+    },
+    (args) => call("edit_file", { ...args }),
+  );
+
+  tool(
     "terminal",
     {
       title: "Your terminal",
@@ -319,6 +349,35 @@ export function createCrewServer(link: Link, opts: CrewOptions): McpServer {
       },
     },
     (args) => call("terminal", { line: args.line, cwd: args.cwd ?? null }),
+  );
+
+  tool(
+    "command",
+    {
+      title: "Run a command in a project",
+      description:
+        'Run one node, npm or npx command in a project folder (Files/Projects/<name>, made if missing). Only if the person has turned projects on for you; otherwise it says so. The first command in a project asks the person to approve. You can read and write only that folder and cannot start other programs, but you can reach the internet. Foreground (the default) waits up to 5 minutes and returns the exit code, the time and the end of the output. Use background: true for a server that keeps running; you get an id at once. A background server that prints localhost:<port> opens in your own browser, so check it there with the browser tools. Example: {project: "site", command: "npm init -y"}, then {project: "site", command: "npm install express"}, then {project: "site", command: "node server.js", background: true}',
+      inputSchema: {
+        project: z.string().min(1).max(64).describe("the project folder's name, like site"),
+        command: z.string().min(1).max(2000).describe("one command line: node, npm or npx, with its arguments"),
+        background: z.boolean().optional().describe("true: start it and return at once; it keeps running until stopped"),
+      },
+    },
+    (args) => call("command", { project: args.project, command: args.command, background: !!args.background }),
+  );
+
+  tool(
+    "processes",
+    {
+      title: "Your running commands",
+      description:
+        'List the commands you started in projects, stop one, or read its output (the end of it, 16 KB). Use it to check a background server or stop one before starting another; at most 3 run at once. Example: {action: "list"}, then {action: "output", id: "1a2b3c4d"}, or {action: "stop", id: "1a2b3c4d"}',
+      inputSchema: {
+        action: z.enum(["list", "stop", "output"]),
+        id: z.string().min(1).max(20).optional().describe("stop and output: the process id from list"),
+      },
+    },
+    (args) => call("processes", { action: args.action, id: args.id ?? null }),
   );
 
   tool(
@@ -338,6 +397,24 @@ export function createCrewServer(link: Link, opts: CrewOptions): McpServer {
         await link.call("library_changed", { path: r.path }).catch(() => undefined);
         return text(r.text);
       }),
+  );
+
+  tool(
+    "app",
+    {
+      title: "Your apps",
+      description:
+        'Apps you make on your computer: small web pages in Files/Apps/<name>/ (name: lowercase letters, digits and dashes). Make one with write_file: app.json (the manifest), the entry page (index.html) and any scripts or styles beside it. Manifest: {"name": "notes-board", "title": "Notes board", "icon": "sheet", "entry": "index.html", "description": "Lists notes and adds new ones.", "permissions": {"documents": "none", "network": [], "bot": false}, "tools": [{"name": "add_note", "description": "Adds a note and returns the list.", "input": {"type": "object", "properties": {"text": {"type": "string"}}}}]}. documents is none, read or write (the Documents: sheets and docs); network lists exact https origins; bot lets it message you. The page gets one global, crew: crew.files.read(path), write(path, text), list(dir) in its own folder; crew.docs.list() and read(path) with documents; crew.bot.tell(text) with bot; crew.tools.define(name, async (input) => result) for each tool in the manifest; crew.app {name, title, bot}. The person allows the app\'s permissions from its install card before they apply; until then it runs with none. Each tool is then a gateway tool app__<name>__<tool>, and its result comes back as JSON (10 seconds, 64 KB at most). To test an app, use this tool: open shows the manifest problems, the errors its page logged and a snapshot; then snapshot, click and type (by ref from the snapshot), press, and close. Use it before you say an app works. Example: {action: "open", name: "notes-board"}',
+      inputSchema: {
+        action: z.enum(["list", "open", "snapshot", "click", "type", "press", "close"]).describe("list: your apps, their state and tools; open: start one hidden and return its problems, errors and a snapshot"),
+        name: z.string().min(1).max(40).optional().describe("the app's name, as in Files/Apps/<name>; with one app open it can be left out"),
+        ref: z.string().regex(/^e\d{1,6}$/, "A ref looks like e12; take it from the latest snapshot.").optional().describe("click and type: an element ref from snapshot"),
+        text: z.string().max(10_000).optional().describe("type: the text to put in the field"),
+        key: z.string().min(1).max(40).optional().describe("press: a key, like Enter or Control+A"),
+        submit: z.boolean().optional().describe("type: press Enter after the text"),
+      },
+    },
+    (args) => call("app", { ...args }),
   );
 
   return server;

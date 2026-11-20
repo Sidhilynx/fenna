@@ -1167,6 +1167,31 @@ input[type="checkbox"].pcheck:disabled { opacity: 0.5; cursor: default; }
 .vw-gutter { position: sticky; left: 0; z-index: 1; flex: none; min-width: 3ch; margin: 0; padding: 16px 12px 16px 16px; text-align: right; font: inherit; color: var(--text-3); background: var(--bg); border-right: 1px solid var(--line); user-select: none; }
 .vw-code-text { flex: none; margin: 0; padding: 16px; font: inherit; color: var(--text); white-space: pre; user-select: text; }
 .vw-table { min-height: 0; }
+.vw-line { display: block; }
+.vw-code-text .vw-line.is-changed { box-shadow: inset 2px 0 0 var(--sel); }
+.vw-gutter .vw-line.is-changed { color: var(--text); }
+
+/* The Code window: a folder tree, and the file beside it. */
+.cw { flex: 1; min-height: 0; display: flex; }
+.cw-tree { flex: none; width: 240px; min-height: 0; overflow: auto; padding: 4px 0; border-right: 1px solid var(--line); }
+.cw-row { display: flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px 0 calc(8px + var(--depth) * 16px); font-size: var(--fs-sm); color: var(--text-2); user-select: none; cursor: default; }
+.cw-row:hover { background: var(--hover); color: var(--text); }
+.cw-row[aria-selected="true"] { background: var(--sel-soft); color: var(--text); }
+.cw-row:focus-visible { outline: 2px solid var(--sel); outline-offset: -2px; }
+.cw-caret { flex: none; width: 0; height: 0; border-style: solid; border-width: 4px 0 4px 5px; border-color: transparent transparent transparent var(--text-3); transition: transform 120ms; }
+.cw-caret.is-open { transform: rotate(90deg); }
+.cw-caret.is-spacer { visibility: hidden; }
+.cw-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cw-note { margin: 0; padding: 8px 12px; font-size: var(--fs-sm); color: var(--text-3); }
+.cw-view { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.cw-bar { flex: none; display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.cw-path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); font-size: var(--fs-sm); color: var(--text-2); }
+.cw-follow { flex: none; padding: 2px 8px; font-size: var(--fs-sm); color: var(--text-2); background: transparent; border: 1px solid var(--line); cursor: pointer; }
+.cw-follow[aria-pressed="true"] { background: var(--hover); color: var(--text); }
+.cw-changed { flex: none; margin: 0; padding: 6px 12px; font-size: var(--fs-sm); color: var(--text-2); border-bottom: 1px solid var(--line); }
+@media (prefers-reduced-motion: reduce) {
+  .cw-caret { transition: none; }
+}
 .tv-scroll { flex: 1; min-height: 0; overflow: auto; background: var(--panel); }
 .tv-scroll:focus-visible { outline: 2px solid var(--sel); outline-offset: -2px; }
 .tv-grid { border-collapse: separate; border-spacing: 0; font-size: var(--fs-sm); color: var(--text); }
@@ -1457,3 +1482,28 @@ input[type="checkbox"].pcheck:disabled { opacity: 0.5; cursor: default; }
 .pdt-spin-value:focus-visible { --px-c: var(--sel); outline: none; }
 .pdt-colon { font-size: var(--fs-lg); font-weight: 600; color: var(--text-2); }
 .pdt-foot { display: flex; align-items: center; gap: 6px; }
+
+/* ── A bot's own apps: the install card, the app window, the desktop dot, the Details list ── */
+.userapp-view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.userapp-frame { flex: 1; min-height: 0; display: flex; background: var(--bg); }
+.userapp-web { flex: 1; border: 0; opacity: 0; transition: opacity 160ms ease; }
+.userapp-web.ready { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .userapp-web { transition: none; } }
+.userapp-pad { padding: 16px 20px; }
+.userapp-body-pad { height: 100%; box-sizing: border-box; overflow: auto; padding: 20px; background: var(--bg); }
+.userapp-card { max-width: 520px; padding: 16px 20px; background: var(--panel); }
+.userapp-title { font-size: var(--fs-name); font-weight: 600; color: var(--text); }
+.userapp-desc, .userapp-lead { margin-top: 8px; font-size: var(--fs-sm); line-height: 1.5; color: var(--text-2); }
+.userapp-list { margin: 6px 0 0; padding-left: 16px; font-size: var(--fs-sm); line-height: 1.6; color: var(--text); }
+.userapp-acts { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.userapp-note { font-size: var(--fs-sm); color: var(--text-2); }
+.desk-mark { position: relative; }
+.desk-badge { position: absolute; right: -4px; top: -4px; width: 10px; height: 10px; box-sizing: border-box; border-radius: 0; background: var(--text-2); border: 2px solid var(--bg); }
+.desk-badge.needs { background: var(--warn); }
+.apps-list { list-style: none; margin: 0; padding: 0; }
+.app-row { display: flex; flex-direction: column; align-items: stretch; gap: 8px; min-width: 0; padding: 8px 0; border-top: 1px solid var(--line); }
+.app-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.app-name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; font-size: var(--fs-md); color: var(--text); }
+.app-wait { flex: none; font-size: var(--fs-sm); color: var(--warn); }
+.app-sub { font-size: var(--fs-sm); color: var(--text-2); }
+.app-acts { display: flex; flex-wrap: wrap; gap: 4px; }

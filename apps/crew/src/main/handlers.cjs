@@ -75,11 +75,13 @@ function createApprover({ store, runner, waits, usage = noUsage, now = () => new
  * @param {() => void} o.onChange
  * @param {ReturnType<import("./watches.cjs").createWatches>} o.watches  the bot's watches and to-do list
  * @param {{ search(slug: string, query: string, opts?: object): { entry: object, snippet?: string }[] }} o.search  the bot's disk search (search.cjs)
- * @param {{ read(slug: string, p: object): Promise<object>, importSheet(slug: string, p: object): Promise<object>, exportFile(slug: string, p: object): Promise<object> }} o.files  the bot's files (files.cjs)
+ * @param {{ read(slug: string, p: object): Promise<object>, importSheet(slug: string, p: object): Promise<object>, exportFile(slug: string, p: object): Promise<object>, writeFile(slug: string, p: object): object, editFile(slug: string, p: object): object }} o.files  the bot's files (files.cjs)
  * @param {{ exec(slug: string, line: string, cwd: string|null, who: string): Promise<{ out: string, cwd: string }> }} o.shell  the bot's terminal (shell.cjs)
+ * @param {{ handle(ctx: object, p: object): Promise<{ text: string }> }} o.appHost  the bot's apps: list, open, snapshot, click, type, press, close (appHost.cjs)
+ * @param {{ command(ctx: object, p: object): Promise<{ text: string }>, processes(ctx: object, p: object): { text: string } }} o.projects  node, npm and npx in the bot's projects (projects.cjs)
  * @param {() => Date} [o.now]
  */
-function createHandlers({ store, runner, waits, approve, browsers, gateway, logins = null, onChange, onDesktop, watches, search, files, shell, disk, usage = noUsage, now = () => new Date() }) {
+function createHandlers({ store, runner, waits, approve, browsers, gateway, appHost, logins = null, onChange, onDesktop, watches, search, files, shell, projects, disk, usage = noUsage, now = () => new Date() }) {
   const iso = () => now().toISOString();
   const botName = (slug) => botNameOf(store, slug);
 
@@ -304,6 +306,32 @@ function createHandlers({ store, runner, waits, approve, browsers, gateway, logi
     /** A Fenna sheet from Documents, saved to Files as .xlsx or .csv (files.cjs). */
     export_file(ctx, p) {
       return files.exportFile(ctx.slug, p);
+    },
+
+    /** A text file in Files or Downloads, created or replaced whole (files.cjs). */
+    write_file(ctx, p) {
+      return files.writeFile(ctx.slug, p);
+    },
+
+    /** An exact text replacement in a text file in Files or Downloads (files.cjs). */
+    edit_file(ctx, p) {
+      return files.editFile(ctx.slug, p);
+    },
+
+    /** The bot's apps: test them in a hidden window (appHost.cjs). */
+    app(ctx, p) {
+      if (!appHost) throw new Error("Apps are not available on this computer yet.");
+      return appHost.handle(ctx, p);
+    },
+
+    /** Run node, npm or npx in one of the bot's projects (projects.cjs): one command, foreground or background. */
+    command(ctx, p) {
+      return projects.command(ctx, p);
+    },
+
+    /** The bot's running and recent processes: list, stop one, or read its output. */
+    processes(ctx, p) {
+      return projects.processes(ctx, p);
     },
 
     /** The bot's terminal: one line over its own disk. The output, then the folder it ended in. */

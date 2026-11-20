@@ -22,7 +22,10 @@ const { createConnections } = require("./connections.cjs");
 const { createGateway } = require("./gateway.cjs");
 const { createVault } = require("./vault.cjs");
 const { createLogins } = require("./logins.cjs");
-const { toolLabel } = require("./labels.cjs");
+const { createProjects } = require("./projects.cjs");
+const { createToolLabel } = require("./labels.cjs");
+const { createAppHost } = require("./appHost.cjs");
+const { createApps } = require("./apps.cjs");
 const { createTeamChat } = require("./team-chat.cjs");
 const { createWatches } = require("./watches.cjs");
 const { createDisk, freeOnDrive } = require("./disk.cjs");
@@ -67,7 +70,7 @@ const LEAD = {
  * @param {object} [o.usage]  counts events for the anonymous usage counts (usage.cjs)
  * @param {object | null} [o.sandbox]  runs the bots' scripts (`run` in the terminal); null: scripts aren't available
  */
-function createCrew({ root, userData, packaged, resources, repo, broadcast, liveTarget, secrets, client, openExternal = async () => {}, trash, settings, clipboard = null, waitTimeoutMs, onNeeds = () => {}, sandbox = null, usage = noUsage }) {
+function createCrew({ root, userData, packaged, resources, repo, broadcast, liveTarget, secrets, client, openExternal = async () => {}, trash, settings, clipboard = null, waitTimeoutMs, onNeeds = () => {}, sandbox = null, usage = noUsage, electron = null }) {
   // Connectors belong to this computer, not to a crew folder, so they live under userData always.
   const connectors = createConnectorStore({ dir: path.join(userData, "Crew", "connectors"), secrets });
   const store = createStore(root, { trash, migrate: (slug, legacy) => connectors.migrate(slug, legacy) });
@@ -105,11 +108,17 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
   const offers = new Map();
   const onDesktop = (slug, items) => broadcast("crew:desktop", { slug, items });
   const waits = createWaits({ onChange, ...(waitTimeoutMs ? { timeoutMs: waitTimeoutMs } : {}) });
-  const disk = createDisk({ store, broadcast, settingsFile: path.join(userData, "Crew", "disk-quotas.json") });
+  // A change on a bot's disk may make, change or remove one of its apps (apps is set below, once its runner exists).
+  let apps = null;
+  const diskBroadcast = (channel, payload) => {
+    broadcast(channel, payload);
+    if (channel === "crew:disk" && payload && payload.slug && apps) apps.touched(payload.slug);
+  };
+  const disk = createDisk({ store, broadcast: diskBroadcast, settingsFile: path.join(userData, "Crew", "disk-quotas.json") });
   const shell = createShell({ disk, store, broadcast, sandbox });
   const notices = createNotices({ botDir: (slug) => store.botDir(slug), broadcast, now: () => new Date() });
   const search = createSearch({ disk });
-  const files = createFiles({ disk, broadcast });
+  const files = createFiles({ disk, broadcast: diskBroadcast });
   const browsers = createBrowsers({
     workspaceDir: (slug) => store.workspaceDir(slug),
     diskFree: (slug) => disk.free(slug),
@@ -130,15 +139,24 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
   let handle = null;
   let gateway = null;
   let logins = null;
+  let projects = null;
   const link = createLink({ handle: (ctx, method, params) => handle(ctx, method, params) });
-  const serversFor = createServers({ link, store, connectors, connections, packaged, resources, repo, homes: path.join(userData, "assistant", "agy-crew") });
+  // The bot's apps (apps.cjs). Their sessions and the page's calls need Electron, which main passes in; without it no bot has apps.
+  // The runner is looked up at call time: it is created below, after the apps that its run tools need.
+  apps = electron ? createApps({ disk, store, broadcast, runner: { enqueue: (o) => runner.enqueue(o) }, session: electron.session, ipcMain: electron.ipcMain }) : null;
+  const appHost = apps ? createAppHost({ apps, broadcast }) : null;
+  const appTitle = (slug, name) => {
+    const m = apps && name ? apps.manifest(slug, name) : null;
+    return (m && m.app && m.app.title) || null;
+  };
+  const serversFor = createServers({ link, store, connectors, connections, packaged, resources, repo, homes: path.join(userData, "assistant", "agy-crew"), apps });
   const runner = createRunner({
     store,
     startRun,
     serversFor,
     link,
     waits,
-    toolLabel,
+    toolLabel: createToolLabel({ appTitle }),
     onChange,
     maxConcurrent: Math.max(1, Math.min(4, Number(settings && settings().maxConcurrent) || 2)),
     installed: (name) => connectors.has(name),
@@ -146,6 +164,7 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
     onEnd: (runId) => {
       if (gateway) gateway.endRun(runId);
       if (logins) logins.endRun(runId);
+      if (projects) projects.endRun(runId);
       watches.runEnded();
     },
     emitLive: (slug, runId, event) => {
@@ -155,10 +174,11 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
   });
   const replay = createReplay({ store, runner });
   const approve = createApprover({ store, runner, waits, usage });
-  gateway = createGateway({ store, connectors, connections, approve, runner, onChange });
+  gateway = createGateway({ store, connectors, connections, approve, runner, onChange, apps, appHost });
   logins = createLogins({ store, vault, browsers, approve, runner, onChange });
+  projects = createProjects({ disk, store, runner, approve, browsers, broadcast });
   const watches = createWatches({ store, runner, browsers, broadcast, onFire: (slug, w, what) => notices.add(slug, { kind: w.kind === "timer" ? "reminder" : "watch", title: w.note, body: what }) });
-  handle = createHandlers({ store, runner, waits, approve, browsers, gateway, logins, onChange, onDesktop, watches, search, files, shell, disk, usage });
+  handle = createHandlers({ store, runner, waits, approve, browsers, gateway, appHost, logins, onChange, onDesktop, watches, search, files, shell, projects, disk, usage });
   const scheduler = createScheduler({ store, runner });
   const teamChat = createTeamChat({ store, runner, onChange });
   views = createViews({ store, runner, waits, scheduler, browsers, settings, offers: () => offerViews() });
@@ -255,8 +275,11 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
 
   return {
     notices,
+    appHost,
+    apps,
     store,
     disk,
+    files,
     shell,
     search,
     replay,
@@ -270,6 +293,7 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
     onChange,
     onDesktop,
     watches,
+    projects,
 
     connectors: {
       list: connectorViews,
@@ -506,9 +530,12 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
       offers.clear();
       scheduler.stop();
       watches.stop();
+      if (appHost) appHost.closeAll();
+      if (apps) apps.stop();
       shell.flush();
       notices.flush();
       runner.stopAll();
+      projects.killAll();
       browsers.closeAll();
       link.close();
       void connections.stopAll();

@@ -5,20 +5,24 @@
 
 import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { AgentLogo, modelLogo, toast } from "@opendeck/shell";
-import { errorText, invoke, send } from "../shared/api.ts";
+import { errorText, invoke, on, send } from "../shared/api.ts";
 import { FENNA_APPS, LIMITS } from "@opendeck/crew";
-import { DEFAULT_VIEWPORT, type BotSummary, type BrowserTab, type ControlInput, type DesktopShortcut, type DiskEntry, type FileKind, type LibraryItem, type Modifier, type RunEvent, type SaveOffer } from "../shared/contract.ts";
+import { DEFAULT_VIEWPORT, type AppInfo, type BotSummary, type BrowserTab, type ControlInput, type DesktopShortcut, type DiskEntry, type FileKind, type LibraryItem, type Modifier, type RunEvent, type SaveOffer } from "../shared/contract.ts";
 import { Avatar, Face } from "./Avatar.tsx";
 import { ChatDock } from "./ChatDock.tsx";
 import { ConnectorsWindow } from "./ConnectorsWindow.tsx";
 import { AddShortcutDialog, DesktopIcons, useDesktop } from "./Desktop.tsx";
 import { AppLauncher } from "./AppLauncher.tsx";
 import { ClockApp } from "./ClockApp.tsx";
+import { CodeWindow } from "./CodeWindow.tsx";
 import { EditorWindow } from "./EditorWindow.tsx";
+import { UserApp, useApps } from "./UserApp.tsx";
+import { appTitleOf, syncAppIcons, userAppIcon } from "./userApps.ts";
 import { FileManager } from "./FileManager.tsx";
 import { NotificationBell } from "./NotificationCenter.tsx";
 import { Replay } from "./Replay.tsx";
 import { Terminal } from "./Terminal.tsx";
+import { ConsoleWindow, PortNotices, ProcessesWindow, openLocalPort } from "./Processes.tsx";
 import { FileInfo, ImageViewer, MediaPlayer, PdfViewer, TableViewer, TextViewer } from "./Viewers.tsx";
 import { WallpaperPicker, useCustomWallpaper } from "./WallpaperPicker.tsx";
 import { WindowFrame } from "./WindowFrame.tsx";
@@ -28,7 +32,7 @@ import { appIconFor, fileIconFor, type FileIconName } from "./fileIcons.ts";
 import { botOf, useBotDetail, useCrew, waitingFor } from "./crew.tsx";
 import { useLiveCanvas, useScreen, useWatch } from "./screens.ts";
 import { wallStyle } from "./Thumb.tsx";
-import { loginLine, useRuns, type RunLog } from "./transcript.ts";
+import { appToolLine, commandLine, loginLine, useRuns, type RunLog } from "./transcript.ts";
 import { brainLabel, clock, toUrl, wakeLine, when } from "./util.ts";
 import { initialWindows, readPlacements, stackRank, windowsReducer, writePlacements, type AppSize, type WindowAction, type WindowState } from "./windows.ts";
 import { PixelField } from "./PixelField.tsx";
@@ -60,7 +64,7 @@ function activity(runs: RunLog[], names: (slug: string) => string): Line[] {
       const key = `${run.key}:${i}`;
       switch (e.type) {
         case "start": {
-          const why = e.trigger === "schedule" ? "Schedule" : e.trigger === "person" ? "You asked" : e.trigger === "bot" ? `${e.from ? names(e.from) : "Another bot"} asked` : e.trigger === "watch" ? "Watch" : "Hello";
+          const why = e.trigger === "schedule" ? "Schedule" : e.trigger === "person" ? "You asked" : e.trigger === "bot" ? `${e.from ? names(e.from) : "Another bot"} asked` : e.trigger === "watch" ? "Watch" : e.trigger === "app" ? "An app" : "Hello";
           out.push({ key: `${key}:head`, at: e.at, text: `${dayLabel(e.at)} · ${why}`, head: true, runId: run.runId });
           out.push({
             key,
@@ -74,7 +78,9 @@ function activity(runs: RunLog[], names: (slug: string) => string): Line[] {
                 ? `${e.from ? names(e.from) : "Another bot"} asked for help`
                 : e.trigger === "watch"
                 ? wakeLine(e.text)
-                : "Said hello",
+                : e.trigger === "app"
+                  ? `An app sent: ${e.text}`
+                  : "Said hello",
           });
           break;
         }
@@ -106,6 +112,12 @@ function activity(runs: RunLog[], names: (slug: string) => string): Line[] {
           break;
         case "login":
           out.push({ key, at: e.at, text: loginLine(e) });
+          break;
+        case "app_tool":
+          out.push({ key, at: e.at, text: appToolLine(e) });
+          break;
+        case "command":
+          out.push({ key, at: e.at, text: commandLine(e) });
           break;
         case "end":
           out.push({ key, at: e.at, text: e.outcome === "done" ? "Finished run" : e.outcome === "stopped" ? "Stopped" : `Failed: ${e.message || "error"}` });
@@ -568,6 +580,10 @@ export interface AppEnv {
   open(app: string, props?: AppProps, key?: string, title?: string): void;
   /** Sets the title this window shows (a document's title is set by its editor). */
   retitle(title: string): void;
+  /** The bot's own apps (Files/Apps); null until they have loaded. */
+  apps: AppInfo[] | null;
+  /** Closes this window. */
+  close(): void;
 }
 
 /**
@@ -672,6 +688,12 @@ export const APPS: Record<string, AppDef> = {
     size: { w: 820, h: 520 },
     render: (_p, env) => <Terminal key={env.bot.slug} bot={env.bot} />,
   },
+  code: {
+    title: "Code",
+    icon: "code",
+    size: { w: 980, h: 620 },
+    render: (props, env) => <CodeWindow bot={env.bot} root={typeof props.root === "string" ? props.root : "Files"} />,
+  },
   replay: {
     title: "Replay",
     icon: "activity",
@@ -684,6 +706,24 @@ export const APPS: Record<string, AppDef> = {
     size: { w: 760, h: 560 },
     render: (_p, env) => <ClockApp bot={env.bot} />,
   },
+  processes: {
+    title: "Processes",
+    icon: "activity",
+    size: { w: 680, h: 520 },
+    render: (_p, env) => <ProcessesWindow bot={env.bot} onOpenPort={(port) => openLocalPort(env.bot.slug, port, env.open)} />,
+  },
+  console: {
+    title: "Console",
+    icon: "terminal",
+    size: { w: 820, h: 540 },
+    render: (_p, env) => <ConsoleWindow bot={env.bot} />,
+  },
+  userapp: {
+    title: "App",
+    icon: (props, env) => userAppIcon(env.apps?.find((a) => a.name === String(props.name))?.icon ?? ""),
+    size: { w: 960, h: 640 },
+    render: (props, env) => <UserApp bot={env.bot} name={String(props.name ?? "")} apps={env.apps} review={props.review === true} onClose={env.close} onTitle={env.retitle} />,
+  },
 };
 
 function iconOf(win: WindowState, env: AppEnv): FileIconName {
@@ -694,16 +734,28 @@ function iconOf(win: WindowState, env: AppEnv): FileIconName {
 
 const toggleWindow = (win: WindowState): WindowAction => (win.min ? { type: "restore", id: win.id } : { type: "minimize", id: win.id });
 
-export function Computer({ slug, open }: { slug: string; open?: string }) {
-  // Each bot has its own desk, so its windows start fresh when the bot changes.
-  return <ComputerDesk key={slug} slug={slug} open={open} />;
+/** A built-in window another view asks the desk to open, with its props (the Details panel's "Open in Code"). */
+export interface DeskLaunch {
+  app: string;
+  props?: AppProps;
+  /** The window's key (its place is remembered by it); defaults to the app id. */
+  key?: string;
+  title?: string;
 }
 
-function ComputerDesk({ slug, open }: { slug: string; open?: string }) {
+export function Computer({ slug, open, launch }: { slug: string; open?: string; launch?: DeskLaunch }) {
+  // Each bot has its own desk, so its windows start fresh when the bot changes.
+  return <ComputerDesk key={slug} slug={slug} open={open} launch={launch} />;
+}
+
+function ComputerDesk({ slug, open, launch }: { slug: string; open?: string; launch?: DeskLaunch }) {
   const { overview, go } = useCrew();
   const bot = botOf(overview, slug);
   const screen = useScreen(slug);
   const { detail } = useBotDetail(bot);
+  const { apps } = useApps(slug);
+  const appsRef = useRef(apps);
+  appsRef.current = apps;
 
   const [wins, dispatch] = useReducer(windowsReducer, slug, (s: string) => initialWindows(readPlacements(s)));
   const [picker, setPicker] = useState(false);
@@ -774,6 +826,28 @@ function ComputerDesk({ slug, open }: { slug: string; open?: string }) {
     if (open) openDoc(open);
   }, [open]);
 
+  // A window another view asks for (the Panel's "Open in Code").
+  useEffect(() => {
+    if (launch) openApp(launch.app, launch.props ?? {}, launch.key, launch.title);
+  }, [launch]);
+
+  // An app's window opens from its desktop icon, the Details panel, and when the bot opens its app to test it.
+  const openUserApp = (name: string, review = false) => openApp("userapp", { name, review }, `userapp:${name}`, appTitleOf(appsRef.current ?? [], name));
+  useEffect(
+    () =>
+      on("crew:appOpened", (p) => {
+        if (p.slug === slug) openUserApp(p.name);
+      }),
+    [slug],
+  );
+
+  // Every app the bot has gets an icon on the desktop, once it has loaded both the apps and the desktop.
+  useEffect(() => {
+    if (!desk.ready || !apps) return;
+    const next = syncAppIcons(desk.items, apps);
+    if (next !== desk.items) desk.save(next);
+  }, [desk.ready, apps]);
+
   // The bot's browser is open from the start when it already has tabs.
   useEffect(() => {
     if ((screen.browser ?? bot?.browser)?.tabs?.length) openApp("browser");
@@ -829,6 +903,8 @@ function ComputerDesk({ slug, open }: { slug: string; open?: string }) {
     openFile,
     open: openApp,
     retitle: (title) => dispatch({ type: "retitle", id: win.id, title }),
+    apps,
+    close: () => closeWin(win),
   });
 
   const closeWin = (win: WindowState) => {
@@ -864,7 +940,8 @@ function ComputerDesk({ slug, open }: { slug: string; open?: string }) {
     else if (item.kind === "app") openApp(item.app);
     else if (item.kind === "fenna") openApp("launcher", { app: item.app }, `launcher:${item.app}`, item.label);
     else if (item.kind === "doc") openDoc(item.path);
-    else {
+    else if (item.kind === "userapp") openUserApp(item.app);
+    else if (item.kind === "web") {
       openApp("browser");
       invoke("crew:navigate", slug, item.url).catch(fail);
     }
@@ -932,7 +1009,7 @@ function ComputerDesk({ slug, open }: { slug: string; open?: string }) {
           }}
         >
           <PixelField className="flat" color="--desk-ink" density={2.5} alpha={0.4} cell={3} glitch={0.08} />
-          <DesktopIcons slug={slug} items={desk.items} save={desk.save} onOpen={openShortcut} />
+          <DesktopIcons slug={slug} items={desk.items} apps={apps} save={desk.save} onOpen={openShortcut} />
 
           <div className="win-layer" ref={layer}>
             {wins.windows.map((win) => {
@@ -953,6 +1030,7 @@ function ComputerDesk({ slug, open }: { slug: string; open?: string }) {
                 </div>
               );
             })}
+            <PortNotices bot={bot} open={openApp} />
           </div>
 
           {menu && (
