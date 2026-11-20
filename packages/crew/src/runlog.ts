@@ -20,8 +20,24 @@ export type ConnectorOutcome = "done" | "failed" | "denied" | "timeout" | "stopp
 /** How a use of a vault login ended: filled, refused by Crew (wrong site, not granted, nothing to fill), denied by the person, or no answer. */
 export type LoginOutcome = "done" | "refused" | "failed" | "denied" | "timeout" | "stopped";
 
+/** One file a hand-off copied: its name, its size, and where it came from and went (disk paths on each bot's disk). */
+export interface HandoffFile {
+  name: string;
+  size: number;
+  fromPath: string;
+  toPath: string;
+}
+
+/** A file the person attached to a message: saved at `path` (a disk path, e.g. Files/Inbox/q3.xlsx). */
+export interface RunAttachment {
+  path: string;
+  name: string;
+  kind: string;
+  size: number;
+}
+
 export type RunEvent =
-  | { type: "start"; at: string; runId: string; trigger: RunTrigger; text: string; from: string | null; team: string | null; cli: CliKind; model: string; chat?: string }
+  | { type: "start"; at: string; runId: string; trigger: RunTrigger; text: string; from: string | null; team: string | null; cli: CliKind; model: string; chat?: string; attachments?: RunAttachment[] }
   | { type: "text"; at: string; text: string }
   | { type: "tool"; at: string; id: string; server: string; tool: string; label: string; status: ToolStatus; doc?: string | null }
   | { type: "ask"; at: string; askId: string; question: string; options: string[]; multi: boolean }
@@ -31,12 +47,13 @@ export type RunEvent =
   | { type: "status"; at: string; status: string; mood: Mood }
   | { type: "handoff"; at: string; to: string; text: string }
   | { type: "handback"; at: string; from: string; text: string }
+  | { type: "files"; at: string; from: string; to: string; files: HandoffFile[] }
   | { type: "connector"; at: string; bot: string; connector: string; tool: string; level: "allow" | "ask"; outcome: ConnectorOutcome; ms: number; message: string | null }
   | { type: "login"; at: string; bot: string; login: string; label: string; origin: string; action: "sign_in" | "fill_code"; level: "allow" | "ask" | null; outcome: LoginOutcome; message: string | null }
   | { type: "usage"; at: string; used: number; window: number | null }
   | { type: "end"; at: string; outcome: "done" | "error" | "stopped"; message: string | null };
 
-export const RUN_EVENT_TYPES = ["start", "text", "tool", "ask", "answer", "approval", "decision", "status", "handoff", "handback", "connector", "login", "usage", "end"] as const;
+export const RUN_EVENT_TYPES = ["start", "text", "tool", "ask", "answer", "approval", "decision", "status", "handoff", "handback", "files", "connector", "login", "usage", "end"] as const;
 
 /** A run's file name from its start time: colons are not allowed in Windows file names. */
 export function runFileName(start: Date): string {

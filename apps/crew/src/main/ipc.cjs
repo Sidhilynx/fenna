@@ -9,6 +9,8 @@ const { searchRegistry } = require("./registry.cjs");
 const { chatFileName, chatMarkdown } = require("./store.cjs");
 const { createSiteIcons, originOf } = require("./siteicons.cjs");
 const { noUsage } = require("./usage.cjs");
+const { checkAttachments, forRun } = require("./attachments.cjs");
+const { createTransfer } = require("./transfer.cjs");
 
 const MAX_MESSAGE = 20_000;
 const USAGE_DETAILS_URL = "https://github.com/Sidhilynx/fenna/blob/main/PRIVACY.md#usage-counts";
@@ -161,9 +163,16 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
     return { runId: runner.enqueue({ slug, trigger: "compact", chat: id }).runId };
   });
 
-  handle("crew:send", (_e, slug, text, chat) => {
+  // Attached files are saved to the bot's Files/Inbox first, so a failed save (too big, no room) sends nothing.
+  handle("crew:send", (_e, slug, text, chat, files) => {
     const s = slugArg(slug);
-    const r = runner.enqueue({ slug: s, trigger: "person", text: str(text, "The message", MAX_MESSAGE), chat: chat === undefined ? null : chatArg(s, chat) });
+    const chosen = chat === undefined ? null : chatArg(s, chat);
+    const attached = checkAttachments(files);
+    const body = attached.length ? (typeof text === "string" ? text : "") : str(text, "The message", MAX_MESSAGE);
+    if (body.length > MAX_MESSAGE) throw new Error(`The message is too long (${body.length} characters; the most is ${MAX_MESSAGE}).`);
+    const saved = attached.length ? disk.inbox(s, attached) : [];
+    const sent = forRun(saved, attached);
+    const r = runner.enqueue({ slug: s, trigger: "person", text: body, chat: chosen, attachments: sent.list, images: sent.images });
     usage.count("messages");
     return { runId: r.runId, queued: r.queued };
   });
@@ -303,6 +312,17 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
   });
   handle("crew:diskUrl", (_e, slug, p) => disk.url(slugArg(slug), str(p, "The file", 4096)));
   handle("crew:setQuota", (_e, slug, gb) => disk.setQuota(slugArg(slug), gb));
+  // Files out to the person's computer: a native drag from the window, and a save dialog for a copy.
+  const transfer = createTransfer({ disk, electron: require("electron"), iconFile: path.join(__dirname, "..", "..", "build", "icon.png") });
+  handle("crew:saveCopy", (e, slug, p) => transfer.saveCopy(e.sender, slugArg(slug), str(p, "The file", 4096)));
+  ipcMain.on("crew:dragOut", (e, slug, paths) => {
+    try {
+      assertSender(e);
+      transfer.dragOut(e.sender, slugArg(slug), paths);
+    } catch {
+      // A drag can't say why it didn't start; the page only starts one for files it has already checked.
+    }
+  });
   handle("crew:newDoc", (_e, slug, kind, title) => disk.newDoc(slugArg(slug), kind, typeof title === "string" ? title : ""));
   handle("crew:term", (_e, slug, line, cwd) => {
     if (cwd !== undefined && cwd !== null && (typeof cwd !== "string" || cwd.length > 4096)) throw new Error("That folder isn't a path on the bot's disk.");

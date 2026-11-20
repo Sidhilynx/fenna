@@ -183,10 +183,11 @@ export type DesktopShortcut = (
 
 export const DISK_ROOTS = ["Files", "Documents", "Downloads", "Trash"] as const;
 export type DiskRoot = (typeof DISK_ROOTS)[number];
-export const FILE_KINDS = ["folder", "doc", "sheet", "deck", "board", "design", "image", "video", "audio", "pdf", "text", "code", "archive", "other"] as const;
+/** On a bot's disk: "table" is a spreadsheet or delimited file (csv, tsv, xlsx, xls); "code" includes json. */
+export const FILE_KINDS = ["folder", "doc", "sheet", "deck", "board", "design", "image", "video", "audio", "pdf", "text", "table", "code", "archive", "other"] as const;
 export type FileKind = (typeof FILE_KINDS)[number];
 /** Disk sizes the person can give a bot, in GB. */
-export const DISK_QUOTAS_GB = [1, 2, 5, 10, 20] as const;
+export const DISK_QUOTAS_GB = [1, 2, 5, 10, 20, 50] as const;
 
 export interface DiskEntry {
   /** Disk path, e.g. "Files/notes/a.txt". A Fenna document is one entry (not a folder) under Documents. */
@@ -591,7 +592,7 @@ export interface Calls {
   "crew:create": { args: [input: NewBotInput]; result: { slug: string } };
   "crew:update": { args: [slug: string, patch: Partial<Bot>]; result: BotDetail };
   "crew:delete": { args: [slug: string]; result: true };
-  "crew:send": { args: [slug: string, text: string, chat?: string]; result: { runId: string; queued: boolean } };
+  "crew:send": { args: [slug: string, text: string, chat?: string, files?: { name: string; bytes: ArrayBuffer }[]]; result: { runId: string; queued: boolean } };
   "crew:newChat": { args: [slug: string]; result: string };
   "crew:openChat": { args: [slug: string, chat: string]; result: true };
   "crew:compact": { args: [slug: string, chat: string]; result: { runId: string } };
@@ -652,6 +653,8 @@ export interface Calls {
   /** A URL the page can load a file from (images, video, audio, text): crewfile://<slug>/<disk path>. */
   "crew:diskUrl": { args: [slug: string, path: string]; result: string };
   "crew:setQuota": { args: [slug: string, gb: number]; result: DiskListing };
+  /** Copies a file on the bot's disk to a place the person picks in a save dialog; returns where it went, or null when they cancel. */
+  "crew:saveCopy": { args: [slug: string, path: string]; result: string | null };
   /** A new Fenna document in the bot's Documents; returns its library folder name. */
   "crew:newDoc": { args: [slug: string, kind: LibraryKind, title: string]; result: { path: string } };
   /** The person runs a command in the bot's terminal. */
@@ -702,6 +705,8 @@ export interface Sends {
   "crew:viewport": [slug: string, size: ViewportSize];
   /** The page has this bot's computer open (true) or left it (false). A bot is heard only while it is open. */
   "crew:present": [slug: string, open: boolean];
+  /** A drag from the Crew window out to the desktop or Explorer: the files (disk paths) being dragged. */
+  "crew:dragOut": [slug: string, paths: string[]];
 }
 
 // ── Notices: a bot's notification center ──────────────────────────────

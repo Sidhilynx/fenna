@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
 const { createStore } = require("../src/main/store.cjs");
-const { createDisk, IMPORT_MAX } = require("../src/main/disk.cjs");
+const { createDisk, freeOnDrive, DISK_QUOTAS_GB, IMPORT_MAX } = require("../src/main/disk.cjs");
 
 const GB = 1024 ** 3;
 const MB = 1024 ** 2;
@@ -471,7 +471,8 @@ describe("import and quota", () => {
 
   it("defaults to 5 GB and keeps a size the person picked, only from the offered sizes", () => {
     expect(disk.quota(SLUG)).toBe(5 * GB);
-    expect(() => disk.setQuota(SLUG, 3)).toThrow("A bot's disk is 1, 2, 5, 10, 20 GB.");
+    expect(() => disk.setQuota(SLUG, 3)).toThrow("A bot's disk is 1, 2, 5, 10, 20, 50 GB.");
+    expect(() => disk.setQuota(SLUG, 30)).toThrow("A bot's disk is 1, 2, 5, 10, 20, 50 GB.");
     expect(() => disk.setQuota(SLUG, "10")).toThrow("A bot's disk is");
     const listing = disk.setQuota(SLUG, 10);
     expect(listing.quota).toBe(10 * GB);
@@ -481,11 +482,53 @@ describe("import and quota", () => {
     expect(disk.free(SLUG)).toBeGreaterThan(9 * GB);
   });
 
+  it("offers 50 GB as a disk size", () => {
+    expect(DISK_QUOTAS_GB).toContain(50);
+    expect(disk.setQuota(SLUG, 50).quota).toBe(50 * GB);
+    expect(disk.quota(SLUG)).toBe(50 * GB);
+  });
+
   it("refuses a smaller disk than what is already on it", () => {
     writeWs("filler.bin", "x");
     truncateSync(wsPath("filler.bin"), 2 * GB);
     expect(() => disk.setQuota(SLUG, 1)).toThrow("Empty some space first");
     expect(disk.quota(SLUG)).toBe(5 * GB);
+  });
+});
+
+describe("files that leave the bot's disk", () => {
+  it("gives the file in Files or Downloads, by its folder", () => {
+    writeWs("notes/a.txt", "a");
+    mkdirSync(wsPath("downloads"), { recursive: true });
+    writeFileSync(wsPath("downloads/b.pdf"), "b");
+    expect(disk.exportable(SLUG, "Files/notes/a.txt")).toEqual({ abs: wsPath("notes/a.txt"), name: "a.txt" });
+    expect(disk.exportable(SLUG, "Downloads/b.pdf")).toEqual({ abs: wsPath("downloads/b.pdf"), name: "b.pdf" });
+  });
+
+  it("refuses Fenna documents, Trash, folders, the roots, and anything outside the bot", () => {
+    const made = disk.newDoc(SLUG, "doc", "Q3 report");
+    expect(() => disk.exportable(SLUG, `Documents/${made.path}`)).toThrow("A Fenna document can't be copied to this computer.");
+    expect(() => disk.exportable(SLUG, `Documents/${made.path}/doc.json`)).toThrow("A Fenna document can't be copied to this computer.");
+    expect(() => disk.exportable(SLUG, "Trash/old.txt")).toThrow("Restore it from Trash first.");
+    writeWs("notes/a.txt", "a");
+    expect(() => disk.exportable(SLUG, "Files/notes")).toThrow("Only files can be copied to this computer.");
+    expect(() => disk.exportable(SLUG, "Files")).toThrow("Only files can be copied to this computer.");
+    expect(() => disk.exportable(SLUG, "Files/missing.txt")).toThrow("That file isn't there any more.");
+    expect(() => disk.exportable(SLUG, "../../etc/passwd")).toThrow();
+    expect(() => disk.exportable(SLUG, path.join(outside, "x.txt"))).toThrow();
+  });
+
+  it("refuses a link on the way to the file", () => {
+    writeWs("real/a.txt", "a");
+    symlinkSync(wsPath("real"), wsPath("alias"), "junction");
+    expect(() => disk.exportable(SLUG, "Files/alias/a.txt")).toThrow(LINK_MSG);
+  });
+});
+
+describe("free space on the drive", () => {
+  it("reads the free bytes of a folder's drive, and says zero for a folder it can't read", () => {
+    expect(freeOnDrive(root)).toBeGreaterThan(0);
+    expect(freeOnDrive(path.join(root, "no", "such", "folder"))).toBe(0);
   });
 });
 

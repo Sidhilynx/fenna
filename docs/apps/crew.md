@@ -88,7 +88,7 @@ shown). Faces are the only exception to the no-decorative-icons rule.
 ## MCP (draft, Claude finishes it)
 
 `crew` server, given to every bot: `ask_human` (question, options, multi),
-`request_approval` (action, details), `message_bot`, `create_bot` (needs
+`request_approval` (action, details), `message_bot` (bot, message, files: copies up to 20 files and 500 MB from the sender's disk into the other bot's Files/From <sender>/ or its Documents; never moves them), `create_bot` (needs
 approval), `remember` (append to memory.md), `set_status` (status line and
 mood). `browser` server: `open`, `snapshot` (page as text with element refs),
 `click`, `type`, `press`, `scroll`, `back`, `screenshot`, and tabs: `tabs`,
@@ -97,6 +97,11 @@ mood). `browser` server: `open`, `snapshot` (page as text with element refs),
 password). Results are small;
 errors say how to fix them; while the person has control, browser tools fail
 with "The person has control of the browser. Wait, then call snapshot again."
+
+Files, on the `crew` server (`apps/crew/src/main/files.cjs`):
+- `read_file` (path, offset, limit, sheet): a file on the bot's disk; text and code a page at a time, CSV, TSV and Excel as tables (every sheet, or `sheet`), images as pictures (shrunk over 1568 px or 3.5 MB), PDFs and binaries named only.
+- `import_sheet` (path, title): an .xlsx or .csv in Files or Downloads becomes a Fenna sheet in the bot's Documents, checked by the sheet package.
+- `export_file` (document, format, to): a Fenna sheet from Documents saved to Files/Outbox as .xlsx (all sheets) or .csv (first sheet); never overwrites.
 
 ## What it must not do
 

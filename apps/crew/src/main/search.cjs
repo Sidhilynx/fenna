@@ -9,6 +9,7 @@ const path = require("node:path");
 
 const SEARCH_ROOTS = ["Files", "Documents", "Downloads"];
 const TEXT_KINDS = ["text", "code"];
+const TABLE_TEXT_EXT = [".csv", ".tsv"];
 const DOC_KINDS = ["doc", "sheet", "deck", "board", "design"];
 const TEXT_MAX = 2 * 1024 * 1024;
 const MAX_ENTRIES = 20_000;
@@ -138,7 +139,8 @@ function createSearch({ disk, now = () => Date.now(), maxEntries = MAX_ENTRIES, 
     if (DOC_KINDS.includes(e.kind)) {
       return documentText(e.kind, disk.locate(slug, e.path).abs);
     }
-    if (!TEXT_KINDS.includes(e.kind) || e.size > TEXT_MAX) return null;
+    const textual = TEXT_KINDS.includes(e.kind) || (e.kind === "table" && TABLE_TEXT_EXT.includes(path.extname(e.name).toLowerCase()));
+    if (!textual || e.size > TEXT_MAX) return null;
     const raw = readText(disk.locate(slug, e.path).abs);
     if (raw === null) return null;
     return path.extname(e.name).toLowerCase() === ".html" ? htmlText(raw) : raw;

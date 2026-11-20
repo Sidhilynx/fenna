@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent, type FocusEvent, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
 import { Icon, Menu, MenuButton, readPref, toast, writePref, type MenuEntry } from "@opendeck/shell";
 import { DISK_QUOTAS_GB, DISK_ROOTS, type BotSummary, type DiskEntry, type DiskListing, type DiskOp, type DiskRoot, type SearchHit } from "../shared/contract.ts";
-import { errorText, invoke, on } from "../shared/api.ts";
+import { errorText, invoke, on, send } from "../shared/api.ts";
 import { FileIcon } from "./FileIcon.tsx";
 import { PixelIcon } from "./PixelIcon.tsx";
 import { fileIconFor, rootIconFor } from "./fileIcons.ts";
@@ -433,6 +433,21 @@ export function FileManager({ bot, start = "Files", onOpen }: FileManagerProps) 
     dragRef.current = paths;
     e.dataTransfer.setData(DRAG_TYPE, JSON.stringify(paths));
     e.dataTransfer.effectAllowed = "copyMove";
+    // Files in Files or Downloads also go out to the person's computer (the main process starts the native drag).
+    const out = paths.filter(canLeave);
+    if (out.length) send("crew:dragOut", slug, out);
+  };
+
+  /** A file in Files or Downloads: it can be dragged or saved out to the person's computer. Documents, Trash and folders can't. */
+  const canLeave = (p: string) => {
+    const e = byPath(p);
+    return !!e && e.kind !== "folder" && (rootOf(p) === "Files" || rootOf(p) === "Downloads");
+  };
+
+  const saveCopy = (p: string) => {
+    invoke("crew:saveCopy", slug, p)
+      .then((to) => to && toast("Saved a copy."))
+      .catch((e) => toast(errorText(e)));
   };
 
   const isOsFiles = (e: DragEvent) => Array.from(e.dataTransfer.types).includes("Files");
@@ -492,6 +507,7 @@ export function FileManager({ bot, start = "Files", onOpen }: FileManagerProps) 
       ...(single ? [{ label: "Rename", onSelect: () => setRenaming({ path: single.path, draft: single.name }), shortcut: "F2" }] : []),
       { label: "Copy", onSelect: () => copyOrCut("copy", paths), shortcut: "Ctrl+C" },
       { label: "Cut", onSelect: () => copyOrCut("cut", paths), shortcut: "Ctrl+X" },
+      ...(single && canLeave(single.path) ? [{ label: "Save a copy to…", onSelect: () => saveCopy(single.path) }] : []),
       "separator",
       { label: "Move to trash", onSelect: () => trash(paths), shortcut: "Del", danger: true },
     ];

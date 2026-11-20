@@ -180,6 +180,10 @@ function createWindow({ show }) {
   win.webContents.on("did-start-navigation", (_e, _url, inPlace, isMainFrame) => {
     if (isMainFrame && !inPlace && crew) crew.browsers.dropWatcher(sender);
   });
+  // A file dropped outside a drop target must not replace Crew with that file.
+  win.webContents.on("will-navigate", (e, url) => {
+    if (!(DEV_URL && url.startsWith(DEV_URL))) e.preventDefault();
+  });
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https:\/\//.test(url)) void shell.openExternal(url);
     return { action: "deny" };

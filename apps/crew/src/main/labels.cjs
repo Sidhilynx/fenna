@@ -17,11 +17,17 @@ function host(url) {
 const CREW = {
   ask_human: () => "Asked you a question",
   request_approval: (p) => `Asked you to approve: ${short(p.action, 60)}`,
-  message_bot: (p) => `Handed a task to ${short(p.bot, 30)}`,
+  message_bot: (p) => {
+    const n = Array.isArray(p.files) ? p.files.length : 0;
+    return `Handed a task to ${short(p.bot, 30)}${n ? `, with ${n} ${n === 1 ? "file" : "files"}` : ""}`;
+  },
   create_bot: (p) => `Asked to create ${short(p.name, 30)}`,
   remember: () => "Saved a note to memory",
   set_status: (p) => short(p.status, 80),
   new_document: (p) => `Made the ${p.kind === "deck" ? "deck" : p.kind === "sheet" ? "sheet" : "doc"} “${short(p.title)}”`,
+  read_file: (p) => `Read ${short(String(p.path || "").split("/").pop(), 60)}`,
+  import_sheet: (p) => `Made a sheet from ${short(String(p.path || "").split("/").pop(), 60)}`,
+  export_file: (p) => `Saved a ${p.format === "csv" ? "CSV" : "Excel"} copy`,
   watch: (p) => (p.action === "add" ? "Added a watch" : p.action === "remove" ? "Removed a watch" : "Looked at its watches"),
   todo: (p) => (p.action === "list" ? "Looked at its to-do list" : "Updated the to-do list"),
 };

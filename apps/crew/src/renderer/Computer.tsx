@@ -19,7 +19,7 @@ import { FileManager } from "./FileManager.tsx";
 import { NotificationBell } from "./NotificationCenter.tsx";
 import { Replay } from "./Replay.tsx";
 import { Terminal } from "./Terminal.tsx";
-import { ImageViewer, MediaPlayer, PdfViewer, TextViewer } from "./Viewers.tsx";
+import { FileInfo, ImageViewer, MediaPlayer, PdfViewer, TableViewer, TextViewer } from "./Viewers.tsx";
 import { WallpaperPicker, useCustomWallpaper } from "./WallpaperPicker.tsx";
 import { WindowFrame } from "./WindowFrame.tsx";
 import { PixelIcon, gridRuns } from "./PixelIcon.tsx";
@@ -589,7 +589,6 @@ const hint = (text: string) => <p className="hint">{text}</p>;
 const docOf = (props: AppProps, env: AppEnv): LibraryItem | null => env.library.find((f) => f.path === String(props.path)) ?? null;
 
 const DOC_KINDS = new Set<FileKind>(["doc", "sheet", "deck", "board", "design"]);
-const VIEWABLE = new Set<FileKind>(["image", "video", "audio", "pdf", "text", "code"]);
 
 /** The taskbar clock: the time, which opens the Clock app. */
 function TaskClock({ onOpen }: { onOpen(): void }) {
@@ -662,7 +661,9 @@ export const APPS: Record<string, AppDef> = {
       if (entry.kind === "image") return <ImageViewer key={entry.path} bot={env.bot} entry={entry} onChange={(e) => env.retitle(e.name)} />;
       if (entry.kind === "video" || entry.kind === "audio") return <MediaPlayer key={entry.path} bot={env.bot} entry={entry} />;
       if (entry.kind === "pdf") return <PdfViewer key={entry.path} bot={env.bot} entry={entry} />;
-      return <TextViewer key={entry.path} bot={env.bot} entry={entry} />;
+      if (entry.kind === "table") return <TableViewer key={entry.path} bot={env.bot} entry={entry} />;
+      if (entry.kind === "text" || entry.kind === "code") return <TextViewer key={entry.path} bot={env.bot} entry={entry} />;
+      return <FileInfo key={entry.path} bot={env.bot} entry={entry} />;
     },
   },
   terminal: {
@@ -758,8 +759,7 @@ function ComputerDesk({ slug, open }: { slug: string; open?: string }) {
   const openDoc = (path: string) => openApp("editor", { path }, `editor:${path}`, library.find((f) => f.path === path)?.title ?? path);
   const openFile = (entry: DiskEntry) => {
     if (DOC_KINDS.has(entry.kind)) openDoc(entry.path.split("/").slice(1).join("/"));
-    else if (VIEWABLE.has(entry.kind)) openApp("viewer", { entry }, `viewer:${entry.path}`, entry.name);
-    else toast(`${entry.name} can't be opened here yet.`);
+    else openApp("viewer", { entry }, `viewer:${entry.path}`, entry.name);
   };
 
   // The bot's browser comes to the front when it starts browsing, unless the person is editing a document.

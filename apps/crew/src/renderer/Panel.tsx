@@ -10,6 +10,7 @@ import { FENNA_APPS, SCHEDULE_EXAMPLES, type Bot } from "@opendeck/crew";
 import { errorText, invoke, on } from "../shared/api.ts";
 import type { BotDetail, BotSummary, RunSummary } from "../shared/contract.ts";
 import { BrainPicker } from "./BrainPicker.tsx";
+import { DiskSize } from "./DiskSize.tsx";
 import { FaceButton } from "./FacePicker.tsx";
 import { Grants, LoginGrants } from "./Grants.tsx";
 import { Glyph } from "./Glyph.tsx";
@@ -385,6 +386,10 @@ function Details({ bot, detail, setDetail, loadError }: { bot: BotSummary; detai
             <PixelIcon name="chevron-down" size={12} />
           </MenuButton>
         </div>
+      </Section>
+
+      <Section title="Disk">
+        <DiskSize slug={bot.slug} />
       </Section>
 
       <BotWatches bot={bot} />

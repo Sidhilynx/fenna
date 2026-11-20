@@ -2,13 +2,14 @@
 // questions and approvals inline, and the composer. The panel beside it is
 // Panel.tsx.
 
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { CLI_NAMES, RUNS_CHAT, type Avatar as AvatarId, type AvatarColor } from "@opendeck/crew";
 import { MenuButton, toast, type MenuEntry } from "@opendeck/shell";
 import { errorText, invoke } from "../shared/api.ts";
 import type { BotSummary, ChatSummary, LibraryItem, Waiting } from "../shared/contract.ts";
 import { ApprovalCard, AskCard } from "./Cards.tsx";
 import { Avatar } from "./Avatar.tsx";
+import { PendingFiles, SendingFiles, SentFiles, pickFiles, usePreviews } from "./AttachChips.tsx";
 import { DocCards } from "./DocCard.tsx";
 import { docCardAnchors } from "./docCards.ts";
 import { PixelIcon } from "./PixelIcon.tsx";
@@ -27,7 +28,8 @@ export interface Mentionable {
   color: AvatarColor | null;
 }
 
-export function Composer({ name, running, onSend, onStop, mentions, hint }: { name: string; running: boolean; onSend(text: string): Promise<void>; onStop?(): void; mentions?: Mentionable[]; hint?: string }) {
+/** `attachable`: the composer takes files (Attach, paste, drop), sent with the message. */
+export function Composer({ name, running, onSend, onStop, mentions, hint, attachable = false }: { name: string; running: boolean; onSend(text: string, files: File[]): Promise<void>; onStop?(): void; mentions?: Mentionable[]; hint?: string; attachable?: boolean }) {
   const [text, setText] = useState("");
   const [caret, setCaret] = useState(0);
   const [active, setActive] = useState(0);
@@ -36,6 +38,21 @@ export function Composer({ name, running, onSend, onStop, mentions, hint }: { na
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const ta = useRef<HTMLTextAreaElement>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [dragging, setDragging] = useState(false);
+  const picker = useRef<HTMLInputElement>(null);
+  const previews = usePreviews(files);
+
+  const addFiles = (picked: File[]) => {
+    const room = pickFiles(files.length, picked);
+    setError(room.error);
+    if (room.files.length) setFiles((cur) => [...cur, ...room.files]);
+  };
+  const removeFile = (f: File) => {
+    setFiles((cur) => cur.filter((x) => x !== f));
+    ta.current?.focus();
+  };
+  const dropped = (e: { dataTransfer: DataTransfer | null }) => Array.from(e.dataTransfer?.types ?? []).includes("Files");
 
   const open = mentions ? openMention(text, caret) : null;
   const q = open?.query.toLowerCase() ?? "";
@@ -65,12 +82,13 @@ export function Composer({ name, running, onSend, onStop, mentions, hint }: { na
 
   const submit = async () => {
     const t = text.trim();
-    if (!t || busy) return;
+    if ((!t && !files.length) || busy) return;
     setBusy(true);
     setError("");
     try {
-      await onSend(t);
+      await onSend(t, files);
       setText("");
+      setFiles([]);
     } catch (e) {
       setError(errorText(e));
     } finally {
@@ -78,13 +96,34 @@ export function Composer({ name, running, onSend, onStop, mentions, hint }: { na
     }
   };
 
+  const drop = attachable
+    ? {
+        onDragOver: (e: DragEvent<HTMLDivElement>) => {
+          if (!dropped(e.nativeEvent)) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+          setDragging(true);
+        },
+        onDragLeave: (e: DragEvent<HTMLDivElement>) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false);
+        },
+        onDrop: (e: DragEvent<HTMLDivElement>) => {
+          if (!dropped(e.nativeEvent)) return;
+          e.preventDefault();
+          setDragging(false);
+          addFiles(Array.from(e.dataTransfer.files));
+        },
+      }
+    : {};
+
   return (
-    <div className="composer-wrap">
+    <div className={dragging ? "composer-wrap dropping" : "composer-wrap"} {...drop}>
       {error && (
         <p className="composer-error" role="alert">
           {error}
         </p>
       )}
+      {files.length > 0 && <PendingFiles files={files} previews={previews} onRemove={removeFile} />}
       {shown && (
         <ul className="mention-list" role="listbox" id="crew-mentions" aria-label="Mention">
           {matches.map((m, i) => (
@@ -96,6 +135,24 @@ export function Composer({ name, running, onSend, onStop, mentions, hint }: { na
         </ul>
       )}
       <div className="composer">
+        {attachable && (
+          <>
+            <button type="button" className="btn ghost small att-btn" onClick={() => picker.current?.click()}>
+              Attach
+            </button>
+            <input
+              ref={picker}
+              type="file"
+              multiple
+              hidden
+              tabIndex={-1}
+              onChange={(e) => {
+                addFiles(Array.from(e.currentTarget.files ?? []));
+                e.currentTarget.value = "";
+              }}
+            />
+          </>
+        )}
         <label className="sr" htmlFor="crew-msg">
           Message {name}
         </label>
@@ -111,6 +168,12 @@ export function Composer({ name, running, onSend, onStop, mentions, hint }: { na
             setActive(0);
           }}
           onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
+          onPaste={(e) => {
+            const pasted = attachable ? Array.from(e.clipboardData.files) : [];
+            if (!pasted.length) return;
+            e.preventDefault();
+            addFiles(pasted);
+          }}
           role={mentions ? "combobox" : undefined}
           aria-expanded={mentions ? shown : undefined}
           aria-controls={shown ? "crew-mentions" : undefined}
@@ -145,10 +208,11 @@ export function Composer({ name, running, onSend, onStop, mentions, hint }: { na
             <PixelIcon name="stop" />
           </button>
         )}
-        <button type="button" className="icon-btn send-btn" aria-label="Send" title="Send" disabled={!text.trim() || busy} onClick={() => void submit()}>
+        <button type="button" className="icon-btn send-btn" aria-label="Send" title="Send" disabled={(!text.trim() && !files.length) || busy} onClick={() => void submit()}>
           <PixelIcon name="send" />
         </button>
       </div>
+      {dragging && <p className="composer-hint att-drop">Drop to attach</p>}
       {hint && <p className="composer-hint">{hint}</p>}
     </div>
   );
@@ -212,20 +276,21 @@ function Steps({ steps, last }: { steps: Step[]; last: boolean }) {
   );
 }
 
-export type Pending = { key: number; text: string; queued: boolean; target: number };
+export type Pending = { key: number; text: string; files: { name: string; size: number }[]; queued: boolean; target: number };
 
 /** The person's messages sent this session that the run log doesn't show yet, and the send that adds one. */
 export function usePending(slug: string, runs: RunLog[], chat?: string) {
   const [pending, setPending] = useState<Pending[]>([]);
   const seq = useRef(0);
-  const youCount = runs.reduce((n, r) => n + r.events.filter((e) => e.type === "start" && e.trigger === "person" && e.text).length, 0);
+  const youCount = runs.reduce((n, r) => n + r.events.filter((e) => e.type === "start" && e.trigger === "person" && (e.text || e.attachments?.length)).length, 0);
 
   useEffect(() => setPending([]), [slug, chat]);
 
-  const send = async (text: string) => {
-    const r = await invoke("crew:send", slug, text, chat);
+  const send = async (text: string, picked: File[] = []) => {
+    const files = await Promise.all(picked.map(async (f) => ({ name: f.name, bytes: await f.arrayBuffer() })));
+    const r = await invoke("crew:send", slug, text, chat, files.length ? files : undefined);
     const target = Math.max(youCount, ...pending.map((p) => p.target)) + 1;
-    setPending((p) => [...p, { key: ++seq.current, text, queued: r.queued, target }]);
+    setPending((p) => [...p, { key: ++seq.current, text, files: picked.map((f) => ({ name: f.name, size: f.size })), queued: r.queued, target }]);
   };
   return { pending, send };
 }
@@ -275,6 +340,7 @@ export function Messages({ bot, chat, waiting, pending, runState, library = NO_L
         return (
           <div key={it.key} className="msg you">
             {it.text}
+            {it.attachments.length > 0 && <SentFiles bot={bot} files={it.attachments} at={it.at} />}
           </div>
         );
       case "note":
@@ -342,6 +408,7 @@ export function Messages({ bot, chat, waiting, pending, runState, library = NO_L
         {shownPending.map((p) => (
           <div key={p.key} className="msg you pending">
             {p.text}
+            {p.files.length > 0 && <SendingFiles files={p.files} />}
             {p.queued && <span className="msg-meta">Waiting for a free slot</span>}
           </div>
         ))}
@@ -461,7 +528,7 @@ export function Chat({ slug }: { slug: string }) {
         <ChatHead bot={bot} viewing={viewing} onView={view} onPanel={panel ? undefined : () => setPanel(true)} />
         <Messages bot={bot} chat={viewing} waiting={waitingFor(overview, slug)} pending={pending} runState={runState} library={detail?.library} />
         <BrainNotice bot={bot} />
-        <Composer name={bot.name} running={bot.running || bot.queued} onSend={send} onStop={() => void invoke("crew:stop", slug).catch(() => undefined)} />
+        <Composer name={bot.name} running={bot.running || bot.queued} onSend={send} attachable onStop={() => void invoke("crew:stop", slug).catch(() => undefined)} />
       </main>
       {panel && <Panel bot={bot} onClose={() => setPanel(false)} />}
     </>

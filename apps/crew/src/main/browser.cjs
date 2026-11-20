@@ -43,7 +43,8 @@ const { LIMITS } = require("./format.cjs");
 const DEFAULT_VIEW = { width: 1280, height: 800 };
 /** Downloads are saved in the bot's workspace, under this folder. */
 const DOWNLOAD_DIR = "downloads";
-const DOWNLOAD_CAP = 500 * 1024 * 1024;
+/** The PC's drive keeps this much free: a download may not take it. */
+const KEEP_FREE = 1024 ** 3;
 const DOWNLOAD_NAME_MAX = 120;
 /** Recent downloads kept per bot. */
 const DOWNLOADS_KEPT = 20;
@@ -269,16 +270,33 @@ function uniqueName(name, taken) {
   }
 }
 
-/** True when a download is too big: its total is known and over the cap, or it has received more than the cap. */
-function overCap(received, total, cap = DOWNLOAD_CAP) {
+/** True when a download is too big for `cap` bytes: its total is known and over it, or it has received more than it. */
+function overCap(received, total, cap) {
   return received > cap || (total > 0 && total > cap);
 }
 
-/** Bytes in words for a result line: "512 B", "12 KB", "3.4 MB". */
+/**
+ * What a download may take: the bot's free space, or the PC's drive's free space less KEEP_FREE, whichever is less.
+ * `drive` is true when the drive is the limit.
+ */
+function downloadRoom(botFree, driveFreeBytes) {
+  const onDrive = driveFreeBytes - KEEP_FREE;
+  return { bytes: Math.max(0, Math.min(botFree, onDrive)), drive: onDrive < botFree };
+}
+
+/** The reason a bot gets when a download is too big: its size, the room there is, and what the person can do. */
+function tooBigText(size, room, known, drive) {
+  const what = known ? `it is ${sizeText(size)}` : `it is more than ${sizeText(size)}`;
+  if (drive) return `${what}, and only ${sizeText(room)} can be saved here: the PC keeps 1 GB free. Ask the person to free up space on this computer.`;
+  return `${what}, and ${sizeText(room)} is free on the bot's disk. Ask the person to make this bot's disk larger in its Details (Disk size).`;
+}
+
+/** Bytes in words for a result line: "512 B", "12 KB", "3.4 MB", "1.2 GB". */
 function sizeText(bytes) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes < 1024 ** 3) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
 }
 
 /** The lines for downloads that finished or failed since the bot's last successful browser call. Marks them told. */
@@ -333,13 +351,15 @@ function originOf(t) {
  * @param {(slug: string) => string} [o.workspaceDir]  the bot's workspace folder; downloads go to its downloads/ folder.
  *   Without it every download is refused.
  * @param {(slug: string) => number} [o.diskFree]  bytes left on the bot's disk; a download that won't fit is refused
+ * @param {(dir: string) => number} [o.driveFree]  bytes free on the drive a folder is on; a download may not take
+ *   the last KEEP_FREE (1 GB) of it
  * @param {(slug: string, n: { origin: string, title: string, body: string, at: string }) => void} [o.onSiteNotification]
  *   a site in the bot's browser showed a notification (at most 30 a minute a bot are passed on)
  * @param {(slug: string, id: string, text: string) => void} [o.onElementChange]  a watched element's text changed
  * @param {(slug: string, step: { at: string, action: string, url: string, jpeg: Buffer }) => void} [o.onStep]
  *   a bot action finished: a small JPEG of the active tab after it, for the replay (at most one a bot per 700 ms)
  */
-function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, onCapture = () => {}, controlWaitMs = 15_000, workspaceDir = null, diskFree = null, onSiteNotification = () => {}, onElementChange = () => {}, onStep = () => {}, onDownload = () => {} }) {
+function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, onCapture = () => {}, controlWaitMs = 15_000, workspaceDir = null, diskFree = null, driveFree = null, onSiteNotification = () => {}, onElementChange = () => {}, onStep = () => {}, onDownload = () => {} }) {
   /** @type {Map<string, object>} slug → the bot's browser */
   const all = new Map();
   /** @type {Map<string, Map<number, "live"|"thumb">>} slug → watcher → mode */
@@ -389,10 +409,11 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
     };
     const dir = downloadFolder(b.slug);
     if (!dir) return fail("Crew can't save downloads for this bot.");
-    if (overCap(0, item.getTotalBytes())) return fail(`it is larger than ${DOWNLOAD_CAP / (1024 * 1024)} MB.`);
-    // What the bot's disk has left, less what its other downloads are still taking.
-    const room = diskFree ? diskFree(b.slug) - b.downloads.reduce((n, d) => n + (d.state === "progressing" ? d.bytes : 0), 0) : Infinity;
-    if (item.getTotalBytes() > room) return fail("it won't fit in the bot's disk.");
+    // What the bot's disk has left, or the PC's drive less KEEP_FREE, less what the bot's other downloads are still taking.
+    const limit = downloadRoom(diskFree ? diskFree(b.slug) : Infinity, driveFree ? driveFree(dir) : Infinity);
+    const room = Math.max(0, limit.bytes - b.downloads.reduce((n, d) => n + (d.state === "progressing" ? d.bytes : 0), 0));
+    const total = item.getTotalBytes();
+    if (overCap(0, total, room)) return fail(tooBigText(total, room, true, limit.drive));
     const name = uniqueName(item.getFilename(), (n) => fs.existsSync(path.join(dir, n)) || b.downloadNames.has(n));
     b.downloadNames.add(name);
     item.setSavePath(path.join(dir, name));
@@ -403,9 +424,10 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
     item.on("updated", () => {
       rec.bytes = item.getReceivedBytes();
       if (stopped) return;
-      if (overCap(rec.bytes, item.getTotalBytes())) stopped = `it is larger than ${DOWNLOAD_CAP / (1024 * 1024)} MB.`;
-      else if (rec.bytes > room) stopped = "it won't fit in the bot's disk.";
-      if (stopped) item.cancel();
+      if (overCap(rec.bytes, total, room)) {
+        stopped = tooBigText(Math.max(rec.bytes, total), room, total > 0, limit.drive);
+        item.cancel();
+      }
     });
     item.once("done", (_e, state) => {
       b.downloadNames.delete(name);
@@ -1552,4 +1574,4 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
   };
 }
 
-module.exports = { createBrowsers, parseKey, toElectronInput, viewOf, webAddress, safeDownloadName, uniqueName, overCap, sizeText, rateLimiter, pushCapped, clipText, DOWNLOAD_CAP, MAX_TABS, DEFAULT_VIEW, NOTIFY_PER_MINUTE, NOTICES_KEPT, NOTIFY_TEXT_CAP };
+module.exports = { createBrowsers, parseKey, toElectronInput, viewOf, webAddress, safeDownloadName, uniqueName, overCap, downloadRoom, tooBigText, sizeText, rateLimiter, pushCapped, clipText, KEEP_FREE, MAX_TABS, DEFAULT_VIEW, NOTIFY_PER_MINUTE, NOTICES_KEPT, NOTIFY_TEXT_CAP };

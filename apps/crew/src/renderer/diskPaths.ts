@@ -145,6 +145,7 @@ const KIND_LABEL: Record<FileKind, string> = {
   audio: "Audio",
   pdf: "PDF",
   text: "Text",
+  table: "Spreadsheet",
   code: "Code",
   archive: "Archive",
   other: "File",

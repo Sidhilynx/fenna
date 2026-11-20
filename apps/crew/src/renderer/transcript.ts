@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { errorText, invoke, on } from "../shared/api.ts";
 import type { ApprovalSource, HistoryPage, LiveEvent, RunEvent } from "../shared/contract.ts";
-import { chatOfRun } from "@opendeck/crew";
+import { chatOfRun, type RunAttachment } from "@opendeck/crew";
 import { wakeLine } from "./util.ts";
 
 export interface RunLog {
@@ -20,7 +20,7 @@ export interface Step {
 }
 
 export type Item =
-  | { kind: "you"; key: string; text: string; at: string }
+  | { kind: "you"; key: string; text: string; at: string; attachments: RunAttachment[] }
   | { kind: "note"; key: string; text: string }
   | { kind: "bot"; key: string; runId: string; text: string; at: string }
   | { kind: "steps"; key: string; steps: Step[] }
@@ -72,7 +72,7 @@ export function buildItems(runs: RunLog[], names: (slug: string) => string): Ite
       if (e.type !== "tool") group = null;
       switch (e.type) {
         case "start":
-          if (e.trigger === "person" && e.text) out.push({ kind: "you", key, text: e.text, at: e.at });
+          if (e.trigger === "person" && (e.text || e.attachments?.length)) out.push({ kind: "you", key, text: e.text, at: e.at, attachments: e.attachments ?? [] });
           else if (e.trigger === "schedule") out.push({ kind: "note", key, text: "Woke up on its schedule" });
           else if (e.trigger === "bot") out.push({ kind: "note", key, text: `${e.from ? names(e.from) : "Another bot"} asked: ${e.text}` });
           else if (e.trigger === "watch") out.push({ kind: "note", key, text: wakeLine(e.text) });

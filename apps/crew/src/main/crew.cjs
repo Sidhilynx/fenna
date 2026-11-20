@@ -25,10 +25,11 @@ const { createLogins } = require("./logins.cjs");
 const { toolLabel } = require("./labels.cjs");
 const { createTeamChat } = require("./team-chat.cjs");
 const { createWatches } = require("./watches.cjs");
-const { createDisk } = require("./disk.cjs");
+const { createDisk, freeOnDrive } = require("./disk.cjs");
 const { createNotices } = require("./notices.cjs");
 const { createShell } = require("./shell.cjs");
 const { createSearch } = require("./search.cjs");
+const { createFiles } = require("./files.cjs");
 const { createReplay } = require("./replay.cjs");
 const { noUsage } = require("./usage.cjs");
 const F = require("./format.cjs");
@@ -108,9 +109,11 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
   const shell = createShell({ disk, store, broadcast, sandbox });
   const notices = createNotices({ botDir: (slug) => store.botDir(slug), broadcast, now: () => new Date() });
   const search = createSearch({ disk });
+  const files = createFiles({ disk, broadcast });
   const browsers = createBrowsers({
     workspaceDir: (slug) => store.workspaceDir(slug),
     diskFree: (slug) => disk.free(slug),
+    driveFree: freeOnDrive,
     onFrame: (_slug, frame) => broadcast("crew:frame", frame),
     onCursor: (_slug, c) => broadcast("crew:cursor", c),
     onState: (slug, state) => broadcast("crew:browser", { slug, state }),
@@ -155,7 +158,7 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
   gateway = createGateway({ store, connectors, connections, approve, runner, onChange });
   logins = createLogins({ store, vault, browsers, approve, runner, onChange });
   const watches = createWatches({ store, runner, browsers, broadcast, onFire: (slug, w, what) => notices.add(slug, { kind: w.kind === "timer" ? "reminder" : "watch", title: w.note, body: what }) });
-  handle = createHandlers({ store, runner, waits, approve, browsers, gateway, logins, onChange, onDesktop, watches, search, shell, usage });
+  handle = createHandlers({ store, runner, waits, approve, browsers, gateway, logins, onChange, onDesktop, watches, search, files, shell, disk, usage });
   const scheduler = createScheduler({ store, runner });
   const teamChat = createTeamChat({ store, runner, onChange });
   views = createViews({ store, runner, waits, scheduler, browsers, settings, offers: () => offerViews() });

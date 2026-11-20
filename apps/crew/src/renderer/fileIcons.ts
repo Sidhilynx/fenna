@@ -347,6 +347,7 @@ const BY_KIND: Record<FileKind, FileIconName> = {
   audio: "audio",
   pdf: "pdf",
   text: "text",
+  table: "sheet",
   code: "code",
   archive: "archive",
   other: "other",

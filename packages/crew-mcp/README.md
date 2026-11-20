@@ -33,7 +33,7 @@ tests and manual proofs (`node test/fixtures/oauth-server.mjs --port=8765 --ttl=
 | --- | --- |
 | `ask_human` | A question with 2–8 options (or free text); waits for the person (15 min) |
 | `request_approval` | Approve one action before doing it; denied or no answer means don't |
-| `message_bot` | Give another bot a task and wait for its reply; at most 6 hand-offs per message, no cycles |
+| `message_bot` | Give another bot a task and wait for its reply; `files` copies paths from your disk to it (at most 20 files, 500 MB); at most 6 hand-offs per message, no cycles |
 | `create_bot` | A new bot (name, job, how, schedule, cli, connectors, ask_before), approved by the person first |
 | `remember` | Append a dated line to memory.md |
 | `set_status` | The status line and mood (idle, work, sleep, need) |

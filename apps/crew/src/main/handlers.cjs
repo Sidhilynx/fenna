@@ -68,16 +68,18 @@ function createApprover({ store, runner, waits, usage = noUsage, now = () => new
  * @param {ReturnType<import("./waits.cjs").createWaits>} o.waits
  * @param {ReturnType<typeof createApprover>} o.approve
  * @param {{ act(slug: string, method: string, params: object): Promise<{ text: string, image?: object }> }} o.browsers
+ * @param {{ handOff(from: string, to: string, paths: string[], names: { from: string, to: string }): { files: object[] } }} o.disk  copies a hand-off's files (disk.cjs)
  * @param {{ handle(ctx: object, method: string, params: object): Promise<object> }} o.gateway
  * @param {{ has(method: string): boolean, handle(ctx: object, method: string, params: object): Promise<object>, scrub(slug: string, r: object): object }} [o.logins]
  *   the browser's logins, sign_in and fill_code (the vault)
  * @param {() => void} o.onChange
  * @param {ReturnType<import("./watches.cjs").createWatches>} o.watches  the bot's watches and to-do list
  * @param {{ search(slug: string, query: string, opts?: object): { entry: object, snippet?: string }[] }} o.search  the bot's disk search (search.cjs)
+ * @param {{ read(slug: string, p: object): Promise<object>, importSheet(slug: string, p: object): Promise<object>, exportFile(slug: string, p: object): Promise<object> }} o.files  the bot's files (files.cjs)
  * @param {{ exec(slug: string, line: string, cwd: string|null, who: string): Promise<{ out: string, cwd: string }> }} o.shell  the bot's terminal (shell.cjs)
  * @param {() => Date} [o.now]
  */
-function createHandlers({ store, runner, waits, approve, browsers, gateway, logins = null, onChange, onDesktop, watches, search, shell, usage = noUsage, now = () => new Date() }) {
+function createHandlers({ store, runner, waits, approve, browsers, gateway, logins = null, onChange, onDesktop, watches, search, files, shell, disk, usage = noUsage, now = () => new Date() }) {
   const iso = () => now().toISOString();
   const botName = (slug) => botNameOf(store, slug);
 
@@ -117,25 +119,30 @@ function createHandlers({ store, runner, waits, approve, browsers, gateway, logi
       }
       if (target === ctx.slug) throw new Error("That is you. Do the work yourself, or pick another bot.");
       if (!text) throw new Error("Write the task in message.");
+      const files = Array.isArray(p.files) ? p.files.map((f) => String(f).trim()).filter(Boolean) : [];
       // One count per message from the person (or per scheduled run), shared by every bot it reaches.
       if (!ctx.chain) ctx.chain = { count: { n: 0 }, stack: [ctx.slug] };
       const chain = ctx.chain;
       if (chain.count.n >= MAX_HANDOFFS) throw new Error(`This request has already been handed on ${MAX_HANDOFFS} times, the most allowed. Finish it with what you have.`);
       if (chain.stack.includes(target)) throw new Error(`${botName(target)} is waiting on you for this. Put your answer in your reply instead of messaging it.`);
+      // Files are copied before the hand-off counts: a refusal copies nothing and counts for nothing.
+      const copied = files.length ? disk.handOff(ctx.slug, target, files, { from: botName(ctx.slug), to: botName(target) }).files : [];
       chain.count.n++;
       runner.record(ctx.runId, { type: "handoff", at: iso(), to: target, text });
+      if (copied.length) runner.record(ctx.runId, { type: "files", at: iso(), from: ctx.slug, to: target, files: copied });
       if (ctx.team) store.appendThread(ctx.team, { at: iso(), from: ctx.slug, to: target, text });
-      const sub = runner.enqueue({ slug: target, trigger: "bot", text, from: ctx.slug, team: ctx.team, chain: { count: chain.count, stack: [...chain.stack, target] } });
+      const sub = runner.enqueue({ slug: target, trigger: "bot", text, from: ctx.slug, team: ctx.team, files: copied, chain: { count: chain.count, stack: [...chain.stack, target] } });
+      const sent = copied.length ? `Copied ${countOf(copied.length, "file")} to ${botName(target)}: ${copied.map((f) => f.toPath).join(", ")}. Your files are unchanged.\n\n` : "";
       let timer;
       const timeout = new Promise((r) => (timer = setTimeout(() => r(null), waits.timeoutMs)));
       const r = await Promise.race([sub.done, timeout]);
       clearTimeout(timer);
-      if (!r) return { text: `${botName(target)} hasn't finished after ${minutes(waits.timeoutMs)}. Its reply will be in its own chat; carry on without it.` };
+      if (!r) return { text: `${sent}${botName(target)} hasn't finished after ${minutes(waits.timeoutMs)}. Its reply will be in its own chat; carry on without it.` };
       const reply = r.text || (r.message ? `(no reply: ${r.message})` : "(no reply)");
       runner.record(ctx.runId, { type: "handback", at: iso(), from: target, text: reply });
       if (ctx.team) store.appendThread(ctx.team, { at: iso(), from: target, to: ctx.slug, text: reply });
-      if (r.outcome !== "done") return { text: `${botName(target)} could not finish (${r.outcome}${r.message ? `: ${r.message}` : ""}). What it said: ${reply}` };
-      return { text: `${botName(target)} replied:\n${reply}` };
+      if (r.outcome !== "done") return { text: `${sent}${botName(target)} could not finish (${r.outcome}${r.message ? `: ${r.message}` : ""}). What it said: ${reply}` };
+      return { text: `${sent}${botName(target)} replied:\n${reply}` };
     },
 
     async create_bot(ctx, p) {
@@ -282,6 +289,21 @@ function createHandlers({ store, runner, waits, approve, browsers, gateway, logi
       if (!hits.length) return { text: `Nothing on your disk matches "${query}".` };
       const lines = hits.map((h) => `${h.entry.path}  ${h.entry.kind}${h.snippet ? `  ${h.snippet}` : ""}`);
       return { text: [`${countOf(hits.length, "match")} for "${query}":`, ...lines].join("\n") };
+    },
+
+    /** A file on the bot's disk: text, CSV, Excel or an image, a page at a time (files.cjs). */
+    read_file(ctx, p) {
+      return files.read(ctx.slug, p);
+    },
+
+    /** An .xlsx or .csv on the bot's disk, made into a Fenna sheet in its Documents (files.cjs). */
+    import_sheet(ctx, p) {
+      return files.importSheet(ctx.slug, p);
+    },
+
+    /** A Fenna sheet from Documents, saved to Files as .xlsx or .csv (files.cjs). */
+    export_file(ctx, p) {
+      return files.exportFile(ctx.slug, p);
     },
 
     /** The bot's terminal: one line over its own disk. The output, then the folder it ended in. */

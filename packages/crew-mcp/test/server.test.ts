@@ -49,7 +49,7 @@ describe("crew server", () => {
   it("offers the brief's tools, each described for the model with an example", async () => {
     const c = await connect("crew");
     const { tools } = await c.listTools();
-    expect(tools.map((t) => t.name).sort()).toEqual(["ask_human", "create_bot", "desktop", "message_bot", "new_document", "remember", "request_approval", "search_files", "set_status", "terminal", "todo", "watch"]);
+    expect(tools.map((t) => t.name).sort()).toEqual(["ask_human", "create_bot", "desktop", "export_file", "import_sheet", "message_bot", "new_document", "read_file", "remember", "request_approval", "search_files", "set_status", "terminal", "todo", "watch"]);
     for (const t of tools) expect(t.description, t.name).toMatch(/Example: \{/);
   });
 
@@ -101,6 +101,19 @@ describe("crew server", () => {
     };
     const r = await call(c, "message_bot", { bot: "reserch", message: "hi" });
     expect(r).toMatchObject({ isError: true, text: 'There is no bot "reserch". Bots: research, inbox.' });
+  });
+
+  it("hands files to another bot as paths, and refuses more than the hand-off allows", async () => {
+    const c = await connect("crew");
+    await call(c, "message_bot", { bot: "inbox", message: "Sort these", files: ["Files/notes/a.txt", "Documents/q3-report"] });
+    await call(c, "message_bot", { bot: "inbox", message: "Plain" });
+    expect(calls.map((x) => x.params)).toEqual([
+      { bot: "inbox", message: "Sort these", files: ["Files/notes/a.txt", "Documents/q3-report"] },
+      { bot: "inbox", message: "Plain", files: [] },
+    ]);
+    const tooMany = await call(c, "message_bot", { bot: "inbox", message: "x", files: Array.from({ length: 21 }, (_, i) => `Files/f${i}.txt`) });
+    expect(tooMany.isError).toBe(true);
+    expect(calls).toHaveLength(2);
   });
 
   it("makes a doc with content in the library that the doc format reads cleanly", async () => {

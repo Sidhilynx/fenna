@@ -117,13 +117,18 @@ export function createCrewServer(link: Link, opts: CrewOptions): McpServer {
     {
       title: "Hand work to another bot",
       description:
-        "Give another bot in the crew a task and wait for its reply (it runs, then answers; this can take minutes). Use the bot's folder name from your instructions. Write the message as a complete task: what to do and what to send back. A message can be handed on at most 6 times, so don't pass work around in circles. Example: {bot: \"research\", message: \"Find the Team plan price on competitor-one.example.com/pricing and reply with the price and the date you checked.\"}",
+        `Give another bot in the crew a task and wait for its reply (it runs, then answers; this can take minutes). Use the bot's folder name from your instructions. Write the message as a complete task: what to do and what to send back. A message can be handed on at most 6 times, so don't pass work around in circles. files: paths on your disk to copy to it (Files/..., Downloads/... or Documents/<doc name>, folders with their contents); they are copied into its Files/From <you>/ or its Documents, never moved, and it sees their paths. At most ${LIMITS.handoffFiles} files and ${LIMITS.handoffMB} MB per message. Example: {bot: "research", message: "Find the Team plan price on competitor-one.example.com/pricing and reply with the price and the date you checked.", files: ["Files/competitors/notes.md"]}`,
       inputSchema: {
         bot: z.string().min(1).max(40).describe("the other bot's folder name"),
         message: z.string().min(1).max(8000),
+        files: z
+          .array(z.string().min(1).max(4096))
+          .max(LIMITS.handoffFiles)
+          .optional()
+          .describe("paths on your disk to copy to the other bot, like Files/reports/q3.csv; leave out for none"),
       },
     },
-    (args) => call("message", { bot: args.bot, message: args.message }),
+    (args) => call("message", { bot: args.bot, message: args.message, files: args.files ?? [] }),
   );
 
   tool(
@@ -250,6 +255,56 @@ export function createCrewServer(link: Link, opts: CrewOptions): McpServer {
       },
     },
     (args) => call("search_files", { query: args.query }),
+  );
+
+  tool(
+    "read_file",
+    {
+      title: "Read a file",
+      description:
+        'Read a file on your own disk (Files, Downloads): text, code, CSV, TSV, Excel (.xlsx) or an image (PNG, JPEG, GIF, WebP, BMP), which you see. Text and tables come a page at a time: 400 lines or 200 rows, from offset (the first line or row, 1 is the first) with limit more; the reply says where the next page starts. For a workbook, sheet (a sheet\'s name or its number) reads one sheet. PDFs and other binary files can\'t be read yet. Not for Fenna documents in Documents (use the fenna tools) and not to find a file (search_files). Example: {path: "Files/budget.xlsx", sheet: "Q3", offset: 1, limit: 50}',
+      inputSchema: {
+        path: z.string().min(1).max(4096).describe("a disk path like Files/notes/a.txt"),
+        offset: z.number().int().min(1).optional().describe("the first line or row to show, 1 is the first"),
+        limit: z.number().int().min(1).max(2000).optional().describe("how many lines or rows to show"),
+        sheet: z.union([z.string().min(1).max(200), z.number().int().min(1)]).optional().describe("a workbook's sheet: its name, or its number from 1"),
+      },
+    },
+    (args) => call("read_file", { ...args }),
+  );
+
+  tool(
+    "import_sheet",
+    {
+      title: "Make a sheet from a spreadsheet file",
+      description:
+        'Make a Fenna sheet from an .xlsx or .csv file in Files or Downloads. The sheet is saved in your Documents; change it with the sheet tools (sheet_overview, read_range, write_cells) using the path the reply gives. Use it when a spreadsheet must be changed or calculated in; to only look at a file, use read_file. Save it back with export_file. Example: {path: "Files/budget.xlsx", title: "Budget Q3"}',
+      inputSchema: {
+        path: z.string().min(1).max(4096).describe("the .xlsx or .csv file, like Files/budget.xlsx"),
+        title: z.string().min(1).max(200).optional().describe("the sheet's name; leave out to use the file's name"),
+      },
+    },
+    (args) =>
+      guard(async () => {
+        const r = await link.call("import_sheet", { ...args });
+        await link.call("library_changed", {}).catch(() => undefined);
+        return text(r.text);
+      }),
+  );
+
+  tool(
+    "export_file",
+    {
+      title: "Save a sheet as a file",
+      description:
+        'Save a Fenna sheet from your Documents as a file in Files: .xlsx (every sheet) or .csv (the first sheet only). By default it goes to Files/Outbox/<title>.<format>, under a new name each time; give to to choose the path (it must be in Files). Use it to hand the person a sheet they can open in Excel or Sheets. Example: {document: "Documents/budget-q3", format: "xlsx"}',
+      inputSchema: {
+        document: z.string().min(1).max(200).describe("the sheet's path in Documents, like Documents/budget-q3"),
+        format: z.enum(["xlsx", "csv"]),
+        to: z.string().min(1).max(4096).optional().describe("where to save it in Files, like Files/Outbox/q3.xlsx"),
+      },
+    },
+    (args) => call("export_file", { ...args }),
   );
 
   tool(

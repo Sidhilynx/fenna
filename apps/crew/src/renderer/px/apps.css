@@ -59,8 +59,10 @@
 .fm-filter { --px-c: var(--line-strong); border: 0; margin: 2px; box-shadow: var(--px-edge); }
 .fm-filter:focus { --px-c: var(--sel); }
 
-/* Viewers: the toolbar over a 2px rule. */
+/* Viewers: the toolbar over a 2px rule; a table sits in a 2px frame. */
 .vw-bar { border-bottom: 2px solid var(--line); }
+.tv-scroll { box-shadow: inset 0 0 0 2px var(--line); }
+.tv-tabs { border-top: 2px solid var(--line); }
 
 /* Terminal: a square screen with a 2px inner frame. */
 .term-screen { border-radius: 0; box-shadow: inset 0 0 0 2px var(--line-strong); }

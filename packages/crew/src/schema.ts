@@ -122,6 +122,9 @@ export const LIMITS = {
   browserTabs: 8,
   /** Logins one bot can be granted. */
   logins: 20,
+  /** Files one hand-off between bots may copy (folders count the files inside), and its size in MB. */
+  handoffFiles: 20,
+  handoffMB: 500,
   vaultItems: 500,
   vaultLabel: 80,
   vaultOrigins: 10,

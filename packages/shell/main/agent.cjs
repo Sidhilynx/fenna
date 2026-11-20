@@ -1100,6 +1100,7 @@ const SERVER_NAME = /^[a-z][a-z0-9-]{0,31}$/;
  * @param {string} o.cwd              the working folder (must exist)
  * @param {object} o.servers          { name: { command, args, env } | { url } } (see argsFor)
  * @param {string[]} [o.trusted]      servers whose tools run without asking (default all)
+ * @param {{ name: string, mimeType: string, path: string, base64: string }[]} [o.images]  pictures this turn: sent inline (Claude Code, Antigravity), or as files (Codex)
  * @param {string} [o.permissionTool] Claude Code: "mcp__<server>__<tool>", asked about every other call
  * @param {string} [o.home]           Antigravity: its home folder for this run
  * @param {string|null} [o.sessionId] resume this conversation
@@ -1110,7 +1111,7 @@ const SERVER_NAME = /^[a-z][a-z0-9-]{0,31}$/;
  * @param {(event: object) => void} o.onEvent
  * @returns {{ runId: string, stop: () => void }}
  */
-function startRun({ kind, prompt, cwd, servers, trusted, permissionTool, home, sessionId = null, model = "", effort = "", env = {}, toolLabel, onEvent }) {
+function startRun({ kind, prompt, cwd, servers, trusted, permissionTool, home, sessionId = null, model = "", effort = "", env = {}, images = [], toolLabel, onEvent }) {
   if (!KINDS.includes(kind)) throw new Error(`Unknown assistant "${kind}". Use one of: ${KINDS.join(", ")}.`);
   if (typeof prompt !== "string" || !prompt.trim() || prompt.length > MAX_TEXT) throw new Error("The prompt is empty or too long.");
   const names = Object.keys(servers || {});
@@ -1127,7 +1128,7 @@ function startRun({ kind, prompt, cwd, servers, trusted, permissionTool, home, s
   }
   // Antigravity matches its permission rules against the long form of a path, never a short 8.3 name.
   const agyHomeDir = home ? (fs.mkdirSync(home, { recursive: true }), fs.realpathSync.native(home)) : undefined;
-  const args = argsFor(profile, kind, { sessionId, model, effort, servers, trusted, permissionTool, home: agyHomeDir });
+  const args = argsFor(profile, kind, { sessionId, model, effort, servers, trusted, permissionTool, home: agyHomeDir, images });
   const cfg = kind === "claude" ? args[args.indexOf("--mcp-config") + 1] : null;
   launch({
     profile,
@@ -1138,7 +1139,7 @@ function startRun({ kind, prompt, cwd, servers, trusted, permissionTool, home, s
     cwd,
     raw: true,
     env: { ...envFor(kind, { home: agyHomeDir }), ...env },
-    input: inputFor(kind, prompt, []),
+    input: inputFor(kind, prompt, images),
     cleanup: () => {
       if (cfg) fs.rmSync(cfg, { force: true });
     },
