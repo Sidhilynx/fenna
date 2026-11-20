@@ -9,12 +9,12 @@
 
   /* ── Hero: one bot at a time, built from pixels ───────────────────── */
   var BOTS = [
-    { name: "Builder", face: "crate", color: "ochre", when: "On request", job: "Builds the apps, tools and small websites you ask for, tests them, then uses them for you." },
-    { name: "Inbox", face: "owl", color: "sea", when: "Weekdays 09:00", job: "Sorts new mail and drafts the replies. Sends nothing without asking." },
-    { name: "Research", face: "lantern", color: "slate", when: "Every 2 hours", job: "Watches three pricing pages and tells you when one changes." },
-    { name: "Scout", face: "kite", color: "iris", when: "Weekdays 08:00", job: "Finds new leads each morning and says which ones look strong." },
-    { name: "Standup", face: "sprout", color: "moss", when: "Mondays 10:00", job: "Writes the team update in a Fenna doc from last week's work." },
-    { name: "Fenna", face: "beacon", color: "clay", when: "Leads the crew", job: "Plans the work and hands it to the right bot. Every crew starts with Fenna." }
+    { name: "Builder", face: "crate", color: "ochre", when: "On request", job: "Builds apps and tools, then uses them for you." },
+    { name: "Inbox", face: "owl", color: "sea", when: "Weekdays 09:00", job: "Sorts mail and drafts replies. Sends nothing without asking." },
+    { name: "Research", face: "lantern", color: "slate", when: "Every 2 hours", job: "Watches pricing pages and tells you what changed." },
+    { name: "Scout", face: "kite", color: "iris", when: "Weekdays 08:00", job: "Finds new leads every morning." },
+    { name: "Standup", face: "sprout", color: "moss", when: "Mondays 10:00", job: "Writes the team update from last week's work." },
+    { name: "Fenna", face: "beacon", color: "clay", when: "Leads the crew", job: "Plans the work and hands it out." }
   ];
   var slot = document.querySelector("[data-face-slot]");
   if (slot && window.FennaFace) {
@@ -22,12 +22,10 @@
     var nameEl = document.querySelector("[data-bot-name]");
     var whenEl = document.querySelector("[data-bot-when]");
     var jobEl = document.querySelector("[data-bot-job]");
-    var pager = document.querySelector("[data-bot-pager]");
     var current = 0;
     var heroOn = true;
     var held = false;
     var timer = 0;
-    pager.innerHTML = BOTS.map(function () { return "<i></i>"; }).join("");
 
     var show = function (n, byPerson) {
       current = (n + BOTS.length) % BOTS.length;
@@ -36,7 +34,6 @@
       nameEl.textContent = bot.name;
       whenEl.textContent = bot.when;
       jobEl.textContent = bot.job;
-      pager.querySelectorAll("i").forEach(function (dot, i) { dot.className = i === current ? "on" : ""; });
       window.FennaFace.set(bot.face, bot.color);
     };
     var schedule = function () {
@@ -54,7 +51,6 @@
     slot.addEventListener("blur", function () { held = false; });
     new IntersectionObserver(function (e) { heroOn = e[e.length - 1].isIntersecting; }).observe(slot);
     reduced.addEventListener("change", schedule);
-    pager.querySelectorAll("i")[0].className = "on";
     schedule();
   }
 
@@ -83,7 +79,7 @@
       [453, 232, "Reading bank-export-nov.csv"],
       [561, 232, "Reading matching-rules.md"],
       [180, 318, "Updating the November sheet"],
-      [1318, 537, "Waiting for your OK to send the reconciliation"]
+      [1318, 537, "Waiting for your OK"]
     ];
     var stop = 0;
     var watchOn = false;
@@ -100,7 +96,7 @@
       screen.classList.toggle("held", on);
       watchBtn.setAttribute("aria-pressed", on ? "false" : "true");
       takeBtn.setAttribute("aria-pressed", on ? "true" : "false");
-      status.textContent = on ? "Paused while you are in control" : screen.dataset.answered || STOPS[stop][2];
+      status.textContent = on ? "Paused" : screen.dataset.answered || STOPS[stop][2];
       if (on) giveBtn.focus();
     };
     takeBtn.addEventListener("click", function () { hold(true); });
@@ -131,9 +127,9 @@
   if (card) {
     var result = card.querySelector("[data-result]");
     var ANSWERS = {
-      once: ["Approved once. Books sends it now and asks again next time.", "Sending the November reconciliation"],
-      always: ["Approved for Books from now on. It won't ask about this again.", "Sending the November reconciliation"],
-      deny: ["Denied. Books stops and doesn't send it.", "Stopped: you denied sending"]
+      once: ["Approved once.", "Sending the reconciliation"],
+      always: ["Approved from now on.", "Sending the reconciliation"],
+      deny: ["Denied. Books stops.", "Stopped"]
     };
     card.querySelectorAll("[data-answer]").forEach(function (b) {
       b.addEventListener("click", function () {
@@ -273,7 +269,7 @@
     [6300, function () { click(); trySq.classList.remove("on"); }],
     [6700, function () { point(later); later.classList.add("on"); laterTask.hidden = false; }],
     [7600, rest],
-    [10000, function () { tickSq.classList.add("on"); burst(tickSq); count.textContent = "4"; streak.textContent = "Reading: 4 days in a row"; }],
+    [10000, function () { tickSq.classList.add("on"); burst(tickSq); count.textContent = "4"; streak.textContent = "Reading: 4 days"; }],
     [11200, function () { playing = false; replay.hidden = false; }]
   ];
 
@@ -285,7 +281,7 @@
     tickSq.classList.remove("on");
     trySq.classList.remove("on");
     count.textContent = "3";
-    streak.textContent = "Reading: 3 days in a row";
+    streak.textContent = "Reading: 3 days";
     parts = [];
     bursts = [];
     fired = {};
@@ -301,7 +297,7 @@
     laterTask.hidden = false;
     tickSq.classList.add("on");
     count.textContent = "4";
-    streak.textContent = "Reading: 4 days in a row";
+    streak.textContent = "Reading: 4 days";
     parts = [];
     bursts = [];
     ctx.clearRect(0, 0, canvas.width, canvas.height);

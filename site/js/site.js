@@ -53,8 +53,22 @@
     el.style.setProperty("--fsd", colors[0][1]);
     el.style.setProperty("--fbl", colors[1][0]);
     el.style.setProperty("--fsl", colors[1][1]);
+    if (el.hasAttribute("data-sit")) {
+      /* Stand on the ground: drop the empty rows under the sprite. */
+      var low = 0;
+      sprite.rects.forEach(function (r) { low = Math.max(low, r[1] + r[3]); });
+      el.classList.add("sit");
+      el.style.setProperty("--gap", String(16 - low));
+    }
   }
   document.querySelectorAll(".face[data-face]").forEach(face);
+
+  /* The header compacts once the page has scrolled a little. */
+  var sentinel = document.querySelector(".nav-sentinel");
+  var nav = document.querySelector(".nav");
+  if (sentinel && nav) {
+    new IntersectionObserver(function (e) { nav.classList.toggle("stuck", !e[e.length - 1].isIntersecting); }).observe(sentinel);
+  }
 
   /* The bot's desktop icons, 16 by 16, from the app's fileIcons.ts. Each letter is a palette key. */
   var ICONS = {
