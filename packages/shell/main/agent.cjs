@@ -161,7 +161,8 @@ function computerBinary(kind) {
   // Codex's npm package ships a native binary under vendor/<triple>/codex/.
   const npmRoot = IS_WIN ? path.join(process.env.APPDATA || "", "npm", "node_modules", "@openai", "codex") : null;
   if (npmRoot && fs.existsSync(npmRoot)) {
-    const found = findFile(path.join(npmRoot, "vendor"), "codex" + EXE, 4);
+    // Newer releases put it in a platform package: node_modules/@openai/codex-<platform>/vendor/<triple>/bin/.
+    const found = findFile(path.join(npmRoot, "vendor"), "codex" + EXE, 4) || findFile(path.join(npmRoot, "node_modules", "@openai"), "codex" + EXE, 6);
     if (found) return found;
   }
   return IS_WIN ? null : onPath("codex");
@@ -818,24 +819,10 @@ function argsFor(profile, kind, { sessionId, model, effort, root, images, server
 }
 
 function inputFor(kind, prompt, images) {
+  // Antigravity's stream input takes text blocks only (an "image" block ends the turn with an
+  // error); its pictures reach it as files the prompt names, which it may read.
   if (kind === "antigravity") {
-    const content = [];
-    if (Array.isArray(images) && images.length) {
-      for (const img of images) {
-        if (img && img.base64) {
-          content.push({
-            type: "image",
-            source: {
-              type: "base64",
-              media_type: img.mimeType || "image/png",
-              data: img.base64,
-            },
-          });
-        }
-      }
-    }
-    content.push({ type: "text", text: prompt });
-    return JSON.stringify({ event: "user", message: { role: "user", content } }) + "\n";
+    return JSON.stringify({ event: "user", message: { role: "user", content: [{ type: "text", text: prompt }] } }) + "\n";
   }
   if (kind === "claude") {
     const content = [];
@@ -947,7 +934,8 @@ function makeParser(profile, kind, emit, { raw = false } = {}) {
             if (/^read_file$/.test(u.tool_name)) return; // its own copy of our tool docs
             const status = u.state === "ACTIVE" ? "running" : u.state === "DONE" ? "done" : "failed";
             if (status === "failed" && u.tool_info.error) st.lastError = String(u.tool_info.error.message || "");
-            emit({ type: "tool", id: `${u.conversation_id || ""}-${u.step_index}`, label: label(u.tool_name, u.tool_info.parameters), status, ...named(u.tool_name, u.tool_info.parameters) });
+            const error = status === "failed" && u.tool_info.error ? { error: String(u.tool_info.error.message || "") } : {};
+            emit({ type: "tool", id: `${u.conversation_id || ""}-${u.step_index}`, label: label(u.tool_name, u.tool_info.parameters), status, ...named(u.tool_name, u.tool_info.parameters), ...error });
           }
           return;
         }
@@ -995,7 +983,7 @@ function makeParser(profile, kind, emit, { raw = false } = {}) {
       if (msg.type === "thread.started" && msg.thread_id) emit({ type: "session", sessionId: msg.thread_id });
       else if (msg.type === "item.started" && item.type === "mcp_tool_call") emit({ type: "tool", id: item.id, label: label(item.tool, item.arguments, item.server), status: "running", ...named(item.tool, item.arguments, item.server) });
       else if (msg.type === "item.completed" && item.type === "agent_message" && item.text) say(item.text);
-      else if (msg.type === "item.completed" && item.type === "mcp_tool_call") emit({ type: "tool", id: item.id, label: label(item.tool, item.arguments, item.server), status: item.error ? "failed" : "done", ...named(item.tool, item.arguments, item.server, item.result ?? null) });
+      else if (msg.type === "item.completed" && item.type === "mcp_tool_call") emit({ type: "tool", id: item.id, label: label(item.tool, item.arguments, item.server), status: item.error ? "failed" : "done", ...named(item.tool, item.arguments, item.server, item.result ?? null), ...(item.error ? { error: String(item.error.message || item.error) } : {}) });
       else if (msg.type === "error") st.lastError = String(msg.message || "");
       else if (msg.type === "turn.completed") {
         st.finished = true;
@@ -1100,6 +1088,7 @@ const SERVER_NAME = /^[a-z][a-z0-9-]{0,31}$/;
  * @param {string} o.cwd              the working folder (must exist)
  * @param {object} o.servers          { name: { command, args, env } | { url } } (see argsFor)
  * @param {string[]} [o.trusted]      servers whose tools run without asking (default all)
+ * @param {{ name: string, mimeType: string, path: string, base64: string }[]} [o.images]  pictures this turn: sent inline (Claude Code, Antigravity), or as files (Codex)
  * @param {string} [o.permissionTool] Claude Code: "mcp__<server>__<tool>", asked about every other call
  * @param {string} [o.home]           Antigravity: its home folder for this run
  * @param {string|null} [o.sessionId] resume this conversation
@@ -1110,7 +1099,7 @@ const SERVER_NAME = /^[a-z][a-z0-9-]{0,31}$/;
  * @param {(event: object) => void} o.onEvent
  * @returns {{ runId: string, stop: () => void }}
  */
-function startRun({ kind, prompt, cwd, servers, trusted, permissionTool, home, sessionId = null, model = "", effort = "", env = {}, toolLabel, onEvent }) {
+function startRun({ kind, prompt, cwd, servers, trusted, permissionTool, home, sessionId = null, model = "", effort = "", env = {}, images = [], toolLabel, onEvent }) {
   if (!KINDS.includes(kind)) throw new Error(`Unknown assistant "${kind}". Use one of: ${KINDS.join(", ")}.`);
   if (typeof prompt !== "string" || !prompt.trim() || prompt.length > MAX_TEXT) throw new Error("The prompt is empty or too long.");
   const names = Object.keys(servers || {});
@@ -1127,7 +1116,7 @@ function startRun({ kind, prompt, cwd, servers, trusted, permissionTool, home, s
   }
   // Antigravity matches its permission rules against the long form of a path, never a short 8.3 name.
   const agyHomeDir = home ? (fs.mkdirSync(home, { recursive: true }), fs.realpathSync.native(home)) : undefined;
-  const args = argsFor(profile, kind, { sessionId, model, effort, servers, trusted, permissionTool, home: agyHomeDir });
+  const args = argsFor(profile, kind, { sessionId, model, effort, servers, trusted, permissionTool, home: agyHomeDir, images });
   const cfg = kind === "claude" ? args[args.indexOf("--mcp-config") + 1] : null;
   launch({
     profile,
@@ -1138,7 +1127,7 @@ function startRun({ kind, prompt, cwd, servers, trusted, permissionTool, home, s
     cwd,
     raw: true,
     env: { ...envFor(kind, { home: agyHomeDir }), ...env },
-    input: inputFor(kind, prompt, []),
+    input: inputFor(kind, prompt, images),
     cleanup: () => {
       if (cfg) fs.rmSync(cfg, { force: true });
     },

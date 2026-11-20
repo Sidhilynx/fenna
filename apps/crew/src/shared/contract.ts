@@ -151,8 +151,57 @@ export interface LibraryItem {
   edited: string;
 }
 
+// ── Apps a bot makes (Files/Apps/<name>/, see docs/spec/crew-apps.md) ──
+
+/** What an app asks for, and what a grant gives it. */
+export interface AppGrant {
+  documents: "none" | "read" | "write";
+  /** Exact origins, like https://api.example.com. */
+  network: string[];
+  /** The app may send the bot a message. */
+  bot: boolean;
+}
+
+/** One tool an app defines for the bot; `input` is a JSON Schema object. */
+export interface AppToolDef {
+  name: string;
+  description: string;
+  input: Record<string, unknown>;
+}
+
+/** An app's app.json, as checked. */
+export interface AppManifest {
+  name: string;
+  title: string;
+  icon: string;
+  entry: string;
+  description: string;
+  permissions: AppGrant;
+  tools: AppToolDef[];
+}
+
+/** One app of a bot, for the person's view. */
+export interface AppInfo {
+  name: string;
+  title: string;
+  icon: string;
+  description: string;
+  entry: string;
+  /** What is wrong with app.json; with any problem the app does not run. */
+  problems: string[];
+  /** What the person allowed, or null. */
+  grant: AppGrant | null;
+  /** The manifest asks for more than the grant allows: the app waits for the person. */
+  pending: boolean;
+  /** What the manifest asks for: the grant to allow. */
+  permissions: AppGrant;
+  tools: AppToolDef[];
+  /** ISO time its files last changed. */
+  updatedAt: string;
+}
+
 /** The windows built into a bot's computer that a desktop shortcut can open. */
-export const DESKTOP_APPS = ["browser", "files", "library", "terminal", "activity", "clock", "connectors", "trash"] as const;
+export const DESKTOP_APPS = ["browser", "files", "library", "terminal", "activity", "clock", "connectors", "trash", "processes", "console", "code"] as const;
 export type DesktopApp = (typeof DESKTOP_APPS)[number];
 export const DESKTOP_MAX = 48;
 export const SHORTCUT_LABEL_MAX = 40;
@@ -169,6 +218,7 @@ export type DesktopShortcut = (
   | { id: string; kind: "fenna"; app: FennaAppId; label: string }
   | { id: string; kind: "web"; url: string; label: string }
   | { id: string; kind: "doc"; path: string; label: string }
+  | { id: string; kind: "userapp"; app: string; label: string }
 ) & {
   /** Where the person put it on the desktop grid (0-based column and row); unset icons fill the first free cells. */
   pos?: { col: number; row: number };
@@ -183,10 +233,11 @@ export type DesktopShortcut = (
 
 export const DISK_ROOTS = ["Files", "Documents", "Downloads", "Trash"] as const;
 export type DiskRoot = (typeof DISK_ROOTS)[number];
-export const FILE_KINDS = ["folder", "doc", "sheet", "deck", "board", "design", "image", "video", "audio", "pdf", "text", "code", "archive", "other"] as const;
+/** On a bot's disk: "table" is a spreadsheet or delimited file (csv, tsv, xlsx, xls); "code" includes json. */
+export const FILE_KINDS = ["folder", "doc", "sheet", "deck", "board", "design", "image", "video", "audio", "pdf", "text", "table", "code", "archive", "other"] as const;
 export type FileKind = (typeof FILE_KINDS)[number];
 /** Disk sizes the person can give a bot, in GB. */
-export const DISK_QUOTAS_GB = [1, 2, 5, 10, 20] as const;
+export const DISK_QUOTAS_GB = [1, 2, 5, 10, 20, 50] as const;
 
 export interface DiskEntry {
   /** Disk path, e.g. "Files/notes/a.txt". A Fenna document is one entry (not a folder) under Documents. */
@@ -209,6 +260,16 @@ export interface DiskListing {
   quota: number;
 }
 
+/** A file the bot changed in the last 15 minutes (write_file, edit_file), newest first in the list. */
+export interface RecentEdit {
+  /** Disk path, e.g. "Files/Apps/todo/index.html". */
+  path: string;
+  /** ISO time of the bot's latest change to it. */
+  at: string;
+  /** The changed lines, 1-based and inclusive: [from, to]. */
+  lines: [number, number][];
+}
+
 export type DiskOp =
   | { op: "mkdir"; path: string }
   | { op: "rename"; path: string; name: string }
@@ -227,6 +288,23 @@ export type DiskOp =
 // tools, the person sees and removes them in the bot's Details.
 
 export const WATCH_KINDS = ["notification", "element", "page", "timer"] as const;
+/** A command the bot started in one of its projects (projects.cjs). `tail` is the end of its output. */
+export interface ProcessInfo {
+  id: string;
+  slug: string;
+  /** The project's folder name, under Files/Projects. */
+  project: string;
+  command: string;
+  background: boolean;
+  status: "running" | "exited" | "stopped" | "failed";
+  exitCode: number | null;
+  /** The port it listens on, once its output names one. */
+  port: number | null;
+  startedAt: string;
+  endedAt: string | null;
+  tail: string;
+}
+
 export type WatchKind = (typeof WATCH_KINDS)[number];
 /** The most watches a bot can have, and the shortest page check interval in minutes. */
 export const WATCH_MAX = 20;
@@ -591,7 +669,7 @@ export interface Calls {
   "crew:create": { args: [input: NewBotInput]; result: { slug: string } };
   "crew:update": { args: [slug: string, patch: Partial<Bot>]; result: BotDetail };
   "crew:delete": { args: [slug: string]; result: true };
-  "crew:send": { args: [slug: string, text: string, chat?: string]; result: { runId: string; queued: boolean } };
+  "crew:send": { args: [slug: string, text: string, chat?: string, files?: { name: string; bytes: ArrayBuffer }[]]; result: { runId: string; queued: boolean } };
   "crew:newChat": { args: [slug: string]; result: string };
   "crew:openChat": { args: [slug: string, chat: string]; result: true };
   "crew:compact": { args: [slug: string, chat: string]; result: { runId: string } };
@@ -648,10 +726,16 @@ export interface Calls {
   "crew:desktop": { args: [slug: string]; result: DesktopShortcut[] };
   "crew:watches": { args: [slug: string]; result: { watches: Watch[]; todos: Todo[]; notifications: SiteNotification[] } };
   "crew:disk": { args: [slug: string, dir: string]; result: DiskListing };
+  /** The files the bot changed in the last 15 minutes, with the lines it changed (the Code window marks them). */
+  "crew:edits": { args: [slug: string]; result: RecentEdit[] };
   "crew:diskOp": { args: [slug: string, op: DiskOp]; result: DiskListing };
   /** A URL the page can load a file from (images, video, audio, text): crewfile://<slug>/<disk path>. */
   "crew:diskUrl": { args: [slug: string, path: string]; result: string };
   "crew:setQuota": { args: [slug: string, gb: number]; result: DiskListing };
+  /** Copies a file on the bot's disk to a place the person picks in a save dialog; returns where it went, or null when they cancel. */
+  "crew:saveCopy": { args: [slug: string, path: string]; result: string | null };
+  /** A native drag of these files (disk paths) out of the Crew window, to the desktop or Explorer; resolves when the drag ends. */
+  "crew:dragOut": { args: [slug: string, paths: string[]]; result: void };
   /** A new Fenna document in the bot's Documents; returns its library folder name. */
   "crew:newDoc": { args: [slug: string, kind: LibraryKind, title: string]; result: { path: string } };
   /** The person runs a command in the bot's terminal. */
@@ -666,11 +750,19 @@ export interface Calls {
   "crew:editor": { args: [slug: string, path: string, webContentsId: number]; result: EditorOpen };
   /** A bot's notification center: its notices, newest first, and how many are unread. */
   "crew:notices": { args: [slug: string]; result: NoticeState };
+  /** The apps in a bot's Files/Apps folder, with their grants and problems. */
+  "crew:apps": { args: [slug: string]; result: AppInfo[] };
+  /** Sets (or with null, revokes) the grant of one app; returns the bot's apps after it. */
+  "crew:appGrant": { args: [slug: string, name: string, grant: AppGrant | null]; result: AppInfo[] };
   "crew:clearNotices": { args: [slug: string]; result: NoticeState };
   /** The person opened the notification center: everything is read. */
   "crew:readNotices": { args: [slug: string]; result: NoticeState };
   /** A one-time reminder: a timer watch at `at` (ISO) whose note is the person's words. */
   "crew:addReminder": { args: [slug: string, input: { at: string; note: string }]; result: Watch };
+  /** A bot's commands, newest first. */
+  "crew:processes": { args: [slug: string]; result: ProcessInfo[] };
+  /** Stops a running command; resolves to the bot's commands after it. */
+  "crew:stopProcess": { args: [slug: string, id: string]; result: ProcessInfo[] };
 }
 
 /** Every event channel and its payload. */
@@ -690,10 +782,20 @@ export interface Events {
   "crew:watches": { slug: string };
   /** Something changed on a bot's disk (the person, the bot or a download). */
   "crew:disk": { slug: string };
+  /** The bot wrote or edited a file (the Code window reloads it, and follows the change). */
+  "crew:edits": { slug: string };
   /** A command ran in a bot's terminal (the person's or the bot's). */
   "crew:term": { slug: string; entry: TermEntry };
   /** A bot's notices changed (a new one, cleared, or read). */
   "crew:notices": { slug: string };
+  /** A bot's apps changed (made, edited, granted, revoked). */
+  "crew:apps": { slug: string };
+  /** The bot opened one of its apps in its hidden window: the person's view shows it too. */
+  "crew:appOpened": { slug: string; name: string };
+  /** A command's status changed (started, ended, stopped, or its port is known). */
+  "crew:process": { slug: string; info: ProcessInfo };
+  /** New output of a command, as it is written. */
+  "crew:processOutput": { slug: string; id: string; stream: "out" | "err"; text: string };
 }
 
 /** Fire-and-forget messages from the page. */
@@ -702,6 +804,25 @@ export interface Sends {
   "crew:viewport": [slug: string, size: ViewportSize];
   /** The page has this bot's computer open (true) or left it (false). A bot is heard only while it is open. */
   "crew:present": [slug: string, open: boolean];
+}
+
+// ── Processes: commands a bot runs in its projects ─────────────────────
+
+/** One command a bot ran in a project (Files/Projects/<project>). tail is its last lines of output. */
+export interface ProcessInfo {
+  id: string;
+  slug: string;
+  project: string;
+  command: string;
+  background: boolean;
+  status: "running" | "exited" | "stopped" | "failed";
+  exitCode: number | null;
+  /** The port it listens on (seen in its output), or null. */
+  port: number | null;
+  /** ISO times. */
+  startedAt: string;
+  endedAt: string | null;
+  tail: string;
 }
 
 // ── Notices: a bot's notification center ──────────────────────────────

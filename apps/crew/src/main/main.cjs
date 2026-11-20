@@ -60,7 +60,13 @@ let sandbox = null;
 
 // Electron takes the privileged schemes in one call: the editors' asset schemes and the bots' disks (crewfile).
 const PRIVILEGED = { standard: true, secure: true, supportFetchAPI: true, stream: true };
-protocol.registerSchemesAsPrivileged([...editorSchemes(), "crewfile"].map((scheme) => ({ scheme, privileges: PRIVILEGED })));
+// crewfile is also read with fetch (text and table viewers), which needs CORS on; disk.cjs says which origins may read it.
+// crewapp is an app's own pages (apps.cjs): its own session per app, served from the app's folder.
+protocol.registerSchemesAsPrivileged([
+  ...editorSchemes().map((scheme) => ({ scheme, privileges: PRIVILEGED })),
+  { scheme: "crewfile", privileges: { ...PRIVILEGED, corsEnabled: true } },
+  { scheme: "crewapp", privileges: { ...PRIVILEGED, corsEnabled: true } },
+]);
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -159,7 +165,8 @@ function createWindow({ show }) {
     trafficLightPosition: { x: 14, y: 11 },
     webPreferences: { preload: PRELOAD, contextIsolation: true, sandbox: true, nodeIntegration: false, webviewTag: true },
   });
-  if (editors) editors.guard(win, PRELOAD);
+  if (editors) editors.guard(win, PRELOAD, crew && crew.apps ? crew.apps : undefined);
+  if (crew && crew.apps) crew.apps.guard(win);
   if (process.env.OPENDECK_SHOT_SIZE) {
     const [w, h] = process.env.OPENDECK_SHOT_SIZE.split("x").map(Number);
     if (w && h) win.setContentSize(w, h);
@@ -179,6 +186,10 @@ function createWindow({ show }) {
   win.webContents.on("destroyed", () => crew && crew.browsers.dropWatcher(sender));
   win.webContents.on("did-start-navigation", (_e, _url, inPlace, isMainFrame) => {
     if (isMainFrame && !inPlace && crew) crew.browsers.dropWatcher(sender);
+  });
+  // A file dropped outside a drop target must not replace Crew with that file.
+  win.webContents.on("will-navigate", (e, url) => {
+    if (!(DEV_URL && url.startsWith(DEV_URL))) e.preventDefault();
   });
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https:\/\//.test(url)) void shell.openExternal(url);
@@ -274,6 +285,7 @@ async function start() {
     onNeeds: (waiting, offers) => notifier.check(waiting, offers),
     clipboard: { writeText: (t) => clipboard.writeText(t), readText: () => clipboard.readText() },
     sandbox: { run: (slug, o) => (sandbox ? sandbox.run(slug, o) : Promise.resolve({ out: "Scripts aren't available yet.", ok: false })) },
+    electron: { session, ipcMain },
   });
   sandbox = createSandbox({ disk: crew.disk, BrowserWindow, session, ipcMain, preloadPath: path.join(__dirname, "sandbox-preload.cjs") });
   registerNoticesIpc({ ipcMain, assertSender, store: crew.store, watches: crew.watches, notices: crew.notices });
@@ -304,6 +316,7 @@ async function start() {
     },
   });
   await crew.start();
+  if (crew.apps) crew.apps.sync();
   usage.start();
   createTray();
   createWindow({ show: !process.argv.includes(HIDDEN_ARG) });

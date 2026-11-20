@@ -1,5 +1,10 @@
 # UI rules
 
+## Site
+
+Every letter on the site is a liability. A word stays only if the page is
+worse without it.
+
 For every model and person who changes a Fenna app's UI. AGENTS.md says
 "quiet, precise, monochrome"; this page says exactly what that means, so two
 builders who never met make the same screen. `scripts/check-ui.mjs` checks the

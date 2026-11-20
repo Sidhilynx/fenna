@@ -45,7 +45,7 @@ const Coord = z.number().min(-1_000_000).max(1_000_000);
 
 export function createServer(root: string): McpServer {
   const store = new DesignStore(root);
-  const server = new McpServer({ name: "fenna-design", version: "0.9.6" }, { instructions: INSTRUCTIONS });
+  const server = new McpServer({ name: "fenna-design", version: "0.9.7" }, { instructions: INSTRUCTIONS });
 
   server.registerTool(
     "design_overview",

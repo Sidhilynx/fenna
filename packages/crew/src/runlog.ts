@@ -8,22 +8,38 @@
 
 import type { CliKind, Mood } from "./schema.ts";
 
-/** compact: the app asked the bot to sum up its chat before the chat starts a fresh conversation. */
-export const RUN_TRIGGERS = ["person", "schedule", "bot", "welcome", "watch", "compact"] as const;
+/** app: an app on the bot's computer sent the bot a message (crew.bot.tell). compact: the app asked the bot to sum up its chat before the chat starts a fresh conversation. */
+export const RUN_TRIGGERS = ["person", "schedule", "bot", "welcome", "watch", "compact", "app"] as const;
 export type RunTrigger = (typeof RUN_TRIGGERS)[number];
 export type ToolStatus = "running" | "done" | "failed";
 export type AnsweredBy = "person" | "timeout" | "stopped";
-/** Who asked for an approval: the bot itself (request_approval), a connector tool on "ask", a vault login on "ask", or (older logs) the CLI. */
-export type ApprovalSource = "bot" | "connector" | "login" | "cli";
+/** Who asked for an approval: the bot itself (request_approval), a connector tool on "ask", a vault login on "ask", a bot's first command in a project, or (older logs) the CLI. */
+export type ApprovalSource = "bot" | "connector" | "login" | "project" | "cli";
 /** How a call to a connector's tool through the gateway ended. */
 export type ConnectorOutcome = "done" | "failed" | "denied" | "timeout" | "stopped";
 /** How a use of a vault login ended: filled, refused by Crew (wrong site, not granted, nothing to fill), denied by the person, or no answer. */
 export type LoginOutcome = "done" | "refused" | "failed" | "denied" | "timeout" | "stopped";
 
+/** One file a hand-off copied: its name, its size, and where it came from and went (disk paths on each bot's disk). */
+export interface HandoffFile {
+  name: string;
+  size: number;
+  fromPath: string;
+  toPath: string;
+}
+
+/** A file the person attached to a message: saved at `path` (a disk path, e.g. Files/Inbox/q3.xlsx). */
+export interface RunAttachment {
+  path: string;
+  name: string;
+  kind: string;
+  size: number;
+}
+
 export type RunEvent =
-  | { type: "start"; at: string; runId: string; trigger: RunTrigger; text: string; from: string | null; team: string | null; cli: CliKind; model: string; chat?: string }
+  | { type: "start"; at: string; runId: string; trigger: RunTrigger; text: string; from: string | null; team: string | null; cli: CliKind; model: string; chat?: string; attachments?: RunAttachment[] }
   | { type: "text"; at: string; text: string }
-  | { type: "tool"; at: string; id: string; server: string; tool: string; label: string; status: ToolStatus; doc?: string | null }
+  | { type: "tool"; at: string; id: string; server: string; tool: string; label: string; status: ToolStatus; doc?: string | null; error?: string }
   | { type: "ask"; at: string; askId: string; question: string; options: string[]; multi: boolean }
   | { type: "answer"; at: string; askId: string; answer: string[]; by: AnsweredBy }
   | { type: "approval"; at: string; approvalId: string; action: string; details: string; source: ApprovalSource; tool: string | null }
@@ -31,12 +47,15 @@ export type RunEvent =
   | { type: "status"; at: string; status: string; mood: Mood }
   | { type: "handoff"; at: string; to: string; text: string }
   | { type: "handback"; at: string; from: string; text: string }
+  | { type: "files"; at: string; from: string; to: string; files: HandoffFile[] }
   | { type: "connector"; at: string; bot: string; connector: string; tool: string; level: "allow" | "ask"; outcome: ConnectorOutcome; ms: number; message: string | null }
   | { type: "login"; at: string; bot: string; login: string; label: string; origin: string; action: "sign_in" | "fill_code"; level: "allow" | "ask" | null; outcome: LoginOutcome; message: string | null }
+  | { type: "app_tool"; at: string; app: string; tool: string; ok: boolean; ms: number }
+  | { type: "command"; at: string; project: string; command: string; exitCode: number | null; ms: number; background: boolean; port?: number }
   | { type: "usage"; at: string; used: number; window: number | null }
   | { type: "end"; at: string; outcome: "done" | "error" | "stopped"; message: string | null };
 
-export const RUN_EVENT_TYPES = ["start", "text", "tool", "ask", "answer", "approval", "decision", "status", "handoff", "handback", "connector", "login", "usage", "end"] as const;
+export const RUN_EVENT_TYPES = ["start", "text", "tool", "ask", "answer", "approval", "decision", "status", "handoff", "handback", "files", "connector", "login", "app_tool", "command", "usage", "end"] as const;
 
 /** A run's file name from its start time: colons are not allowed in Windows file names. */
 export function runFileName(start: Date): string {

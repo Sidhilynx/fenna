@@ -1,0 +1,51 @@
+/* Pixel skin: a bot's commands (Processes, Console) and the port notice on the
+   desktop. Loaded after pixel.css. The console is the Terminal's dark screen,
+   so it reuses the .term-* classes; this file only adds what is new. */
+
+.port-note {
+  --px-c: var(--line-strong);
+  --px-edge: 0 -2px 0 0 var(--px-c), 0 2px 0 0 var(--px-c), -2px 0 0 0 var(--px-c), 2px 0 0 0 var(--px-c);
+}
+
+/* Processes: a list of rows, each separated by a hairline. */
+.proc-list { list-style: none; margin: 0; padding: 4px 16px 16px; display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: auto; user-select: text; }
+.proc { display: flex; flex-direction: column; gap: 4px; padding: 8px 2px 12px; border-bottom: 1px solid var(--line); }
+.proc:last-child { border-bottom: 0; }
+.proc:focus-visible { outline: 2px solid var(--sel); outline-offset: -2px; }
+.proc-main { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.proc-cmd { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: var(--fs-md); font-weight: 500; }
+.proc-status { flex: none; font-size: var(--fs-sm); color: var(--text-2); white-space: nowrap; }
+.proc-status.failed { color: var(--danger); }
+.proc-time { flex: none; font-size: var(--fs-sm); color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.proc-port { flex: none; height: 24px; padding: 0 2px; background: transparent; border: 0; border-radius: 0; color: var(--text); font-size: var(--fs-sm); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; white-space: nowrap; }
+.proc-port:hover { color: var(--sel); }
+.proc-port:focus-visible { outline: 2px solid var(--sel); outline-offset: 2px; }
+.proc-sub { font-size: var(--fs-sm); color: var(--text-3); }
+.proc-tail { margin: 2px 0 0; font-family: var(--font-mono); font-size: var(--fs-sm); line-height: 1.5; color: var(--text-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Console: one tab per command, newest first; the selected one is marked in --sel. */
+.con { min-height: 0; }
+.con-tabs { display: flex; gap: 2px; flex: none; padding: 8px 16px 0; overflow-x: auto; border-bottom: 1px solid var(--line); }
+.con-tab { flex: none; max-width: 240px; height: 30px; padding: 0 12px; background: transparent; border: 0; border-bottom: 2px solid transparent; border-radius: 0; color: var(--text-2); font-family: var(--font-mono); font-size: var(--fs-sm); cursor: pointer; }
+.con-tab:hover { color: var(--text); }
+.con-tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--sel); }
+.con-tab:focus-visible { outline: 2px solid var(--sel); outline-offset: -2px; }
+.con-screen { flex: 1; min-height: 0; margin: 12px 16px 16px; }
+.con-log:focus-visible { outline: 2px solid var(--sel); outline-offset: -2px; }
+.con-head { font-family: var(--font-mono); font-size: var(--fs-sm); line-height: 1.5; color: var(--term-dim); white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+.con-cut { margin: 0; font-size: var(--fs-sm); color: var(--term-dim); }
+.con-out { margin: 0; font: inherit; color: var(--term-ink); white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+.con-err { color: var(--danger); }
+
+/* The port notice: a quiet framed line over the desktop, above the taskbar (the window layer ends above it). */
+.port-notes { position: absolute; right: 12px; bottom: 12px; z-index: 5; pointer-events: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; max-width: calc(100% - 24px); }
+.port-note { display: flex; align-items: center; gap: 8px; min-width: 0; margin: 2px; padding: 4px 4px 4px 12px; background: var(--raised); box-shadow: var(--px-edge); font-size: var(--fs-sm); color: var(--text); }
+.port-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Details, Projects: the switch row, then the projects with what runs in each. */
+.proj-toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 28px; }
+.proj-toggle-name { font-size: var(--fs-md); cursor: pointer; }
+.proj-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.proj-row { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 6px 0; border-top: 1px solid var(--line); }
+.proj-name { flex: 1; min-width: 0; font-size: var(--fs-md); font-weight: 500; }
+.proj-run { flex: none; font-size: var(--fs-sm); color: var(--text-3); white-space: nowrap; }

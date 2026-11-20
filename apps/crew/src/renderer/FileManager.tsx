@@ -433,12 +433,44 @@ export function FileManager({ bot, start = "Files", onOpen }: FileManagerProps) 
     dragRef.current = paths;
     e.dataTransfer.setData(DRAG_TYPE, JSON.stringify(paths));
     e.dataTransfer.effectAllowed = "copyMove";
+    // Files that can leave are dragged natively, so they can be dropped on the desktop or in Explorer.
+    // Crew's own folders then see that drag as files from the computer; ownDrop tells them apart.
+    if (!paths.every(canLeave)) return;
+    e.preventDefault();
+    const started = paths;
+    invoke("crew:dragOut", slug, paths)
+      .catch((err) => toast(errorText(err)))
+      .finally(() => {
+        // The drop reaches the page before the drag's end does; give it a moment, then forget this drag.
+        window.setTimeout(() => {
+          if (dragRef.current === started) dragRef.current = [];
+        }, 1000);
+      });
+  };
+
+  /** A drop of computer files that is really this window's own native drag coming back: the same file names. */
+  const ownDrop = (e: DragEvent) => {
+    const own = dragRef.current.map((p) => p.slice(p.lastIndexOf("/") + 1)).sort();
+    const names = Array.from(e.dataTransfer.files, (f) => f.name).sort();
+    return own.length > 0 && own.length === names.length && own.every((n, i) => n === names[i]);
+  };
+
+  /** A file in Files or Downloads: it can be dragged or saved out to the person's computer. Documents, Trash and folders can't. */
+  const canLeave = (p: string) => {
+    const e = byPath(p);
+    return !!e && e.kind !== "folder" && (rootOf(p) === "Files" || rootOf(p) === "Downloads");
+  };
+
+  const saveCopy = (p: string) => {
+    invoke("crew:saveCopy", slug, p)
+      .then((to) => to && toast("Saved a copy."))
+      .catch((e) => toast(errorText(e)));
   };
 
   const isOsFiles = (e: DragEvent) => Array.from(e.dataTransfer.types).includes("Files");
 
   const onTargetOver = (e: DragEvent, target: string) => {
-    if (isOsFiles(e)) {
+    if (isOsFiles(e) && !dragRef.current.length) {
       if (rootOf(target) === TRASH) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = "copy";
@@ -457,7 +489,8 @@ export function FileManager({ bot, start = "Files", onOpen }: FileManagerProps) 
     e.stopPropagation();
     setDropping(false);
     dragDepth.current = 0;
-    if (isOsFiles(e)) {
+    if (isOsFiles(e) && !ownDrop(e)) {
+      dragRef.current = [];
       void importFiles(e.dataTransfer.files, target);
       return;
     }
@@ -467,7 +500,7 @@ export function FileManager({ bot, start = "Files", onOpen }: FileManagerProps) 
   };
 
   const onMainDragEnter = (e: DragEvent) => {
-    if (!isOsFiles(e) || inTrash) return;
+    if (!isOsFiles(e) || inTrash || dragRef.current.length) return;
     dragDepth.current++;
     setDropping(true);
   };
@@ -492,6 +525,7 @@ export function FileManager({ bot, start = "Files", onOpen }: FileManagerProps) 
       ...(single ? [{ label: "Rename", onSelect: () => setRenaming({ path: single.path, draft: single.name }), shortcut: "F2" }] : []),
       { label: "Copy", onSelect: () => copyOrCut("copy", paths), shortcut: "Ctrl+C" },
       { label: "Cut", onSelect: () => copyOrCut("cut", paths), shortcut: "Ctrl+X" },
+      ...(single && canLeave(single.path) ? [{ label: "Save a copy to…", onSelect: () => saveCopy(single.path) }] : []),
       "separator",
       { label: "Move to trash", onSelect: () => trash(paths), shortcut: "Del", danger: true },
     ];
@@ -745,7 +779,7 @@ export function FileManager({ bot, start = "Files", onOpen }: FileManagerProps) 
           onDragEnter={onMainDragEnter}
           onDragLeave={onMainDragLeave}
           onDragOver={(e) => {
-            if (isOsFiles(e) && !inTrash) {
+            if (isOsFiles(e) && !inTrash && !dragRef.current.length) {
               e.preventDefault();
               e.dataTransfer.dropEffect = "copy";
             }
@@ -755,6 +789,10 @@ export function FileManager({ bot, start = "Files", onOpen }: FileManagerProps) 
             e.preventDefault();
             setDropping(false);
             dragDepth.current = 0;
+            if (ownDrop(e)) {
+              dragRef.current = [];
+              return;
+            }
             void importFiles(e.dataTransfer.files, dir);
           }}
         >

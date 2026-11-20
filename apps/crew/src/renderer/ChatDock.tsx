@@ -27,7 +27,7 @@ export function ChatDock({ slug, onClose }: { slug: string; onClose(): void }) {
       </header>
       <Messages bot={bot} waiting={waitingFor(overview, slug)} pending={pending} runState={runState} library={detail?.library} compact />
       <BrainNotice bot={bot} />
-      <Composer name={bot.name} running={bot.running || bot.queued} onSend={send} onStop={() => void invoke("crew:stop", slug).catch(() => undefined)} />
+      <Composer name={bot.name} running={bot.running || bot.queued} onSend={send} attachable onStop={() => void invoke("crew:stop", slug).catch(() => undefined)} />
     </aside>
   );
 }

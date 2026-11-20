@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { errorText, invoke, on } from "../shared/api.ts";
 import type { ApprovalSource, HistoryPage, LiveEvent, RunEvent } from "../shared/contract.ts";
-import { chatOfRun } from "@opendeck/crew";
+import { chatOfRun, type RunAttachment } from "@opendeck/crew";
 import { wakeLine } from "./util.ts";
 
 export interface RunLog {
@@ -20,7 +20,7 @@ export interface Step {
 }
 
 export type Item =
-  | { kind: "you"; key: string; text: string; at: string }
+  | { kind: "you"; key: string; text: string; at: string; attachments: RunAttachment[] }
   | { kind: "note"; key: string; text: string }
   | { kind: "bot"; key: string; runId: string; text: string; at: string }
   | { kind: "steps"; key: string; steps: Step[] }
@@ -39,6 +39,17 @@ export function loginLine(e: Extract<RunEvent, { type: "login" }>): string {
   if (e.outcome === "timeout") return `No answer for ${step} ${what}`;
   if (e.outcome === "stopped") return `Stopped before ${step} ${what}`;
   return `Crew couldn't fill ${step} ${what}`;
+}
+
+/** A call of one of the bot's apps, in plain words. */
+export function appToolLine(e: Extract<RunEvent, { type: "app_tool" }>): string {
+  return `App ${e.app}: ${e.tool}${e.ok ? "" : " (failed)"}`;
+}
+
+/** A command run in a project: started for a background process, ran (with its exit code) for a foreground one. */
+export function commandLine(e: Extract<RunEvent, { type: "command" }>): string {
+  if (e.background) return `Started ${e.command} in ${e.project}${e.port ? `, on port ${e.port}` : ""}`;
+  return `Ran ${e.command} in ${e.project}${e.exitCode === 0 ? "" : ` (exit ${e.exitCode ?? "?"})`}`;
 }
 
 const same = (a: RunEvent, b: RunEvent) => a.type === b.type && a.at === b.at && JSON.stringify(a) === JSON.stringify(b);
@@ -72,10 +83,11 @@ export function buildItems(runs: RunLog[], names: (slug: string) => string): Ite
       if (e.type !== "tool") group = null;
       switch (e.type) {
         case "start":
-          if (e.trigger === "person" && e.text) out.push({ kind: "you", key, text: e.text, at: e.at });
+          if (e.trigger === "person" && (e.text || e.attachments?.length)) out.push({ kind: "you", key, text: e.text, at: e.at, attachments: e.attachments ?? [] });
           else if (e.trigger === "schedule") out.push({ kind: "note", key, text: "Woke up on its schedule" });
           else if (e.trigger === "bot") out.push({ kind: "note", key, text: `${e.from ? names(e.from) : "Another bot"} asked: ${e.text}` });
           else if (e.trigger === "watch") out.push({ kind: "note", key, text: wakeLine(e.text) });
+          else if (e.trigger === "app") out.push({ kind: "note", key, text: `An app sent: ${e.text}` });
           break;
         case "text":
           if (e.text.trim()) out.push({ kind: "bot", key, runId: run.runId, text: e.text.trim(), at: e.at });
@@ -112,6 +124,12 @@ export function buildItems(runs: RunLog[], names: (slug: string) => string): Ite
         case "login":
           // A fill shows as its step line; a refusal or denial is said once, quietly.
           if (e.outcome !== "done") out.push({ kind: "note", key, text: loginLine(e) });
+          break;
+        case "app_tool":
+          out.push({ kind: "steps", key, steps: [{ id: key, label: appToolLine(e), status: e.ok ? "done" : "failed" }] });
+          break;
+        case "command":
+          out.push({ kind: "steps", key, steps: [{ id: key, label: commandLine(e), status: e.exitCode === 0 || e.background ? "done" : "failed" }] });
           break;
         case "end":
           if (e.outcome !== "done") out.push({ kind: "end", key, outcome: e.outcome, message: e.message ?? "" });

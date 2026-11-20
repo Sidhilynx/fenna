@@ -23,8 +23,9 @@ const CREW_TOOL_TIMEOUT_SEC = 1000;
  * @param {string} o.resources  process.resourcesPath
  * @param {string} o.repo       the repository root (development)
  * @param {string} o.homes      where each bot's Antigravity home lives
+ * @param {{ list(slug: string): { grant: object | null }[] } | null} [o.apps]  the bot's apps: granted ones need the gateway too
  */
-function createServers({ link, store, connectors, connections, packaged, resources, repo, homes }) {
+function createServers({ link, store, connectors, connections, packaged, resources, repo, homes, apps = null }) {
   const node = process.execPath;
   const script = (bundle, source) => (packaged ? [path.join(resources, "mcp", bundle)] : ["--experimental-strip-types", path.join(repo, source)]);
   const crewArgs = (which) => [...script("fenna-crew-mcp.cjs", "packages/crew-mcp/src/cli.ts"), `--server=${which}`];
@@ -42,7 +43,8 @@ function createServers({ link, store, connectors, connections, packaged, resourc
       servers.fenna = { command: node, args: [...script("fenna-workspace-mcp.cjs", "packages/workspace-mcp/src/cli.ts"), `--workspace=${library}`], env: { ELECTRON_RUN_AS_NODE: "1" } };
     }
     const granted = bot.connectors.filter((c) => c.type === "grant" && connectors.has(c.name));
-    if (granted.length) {
+    const appsGranted = !!apps && apps.list(slug).some((a) => a.grant);
+    if (granted.length || appsGranted) {
       servers.gateway = { command: node, args: crewArgs("gateway"), env: linkEnv, timeoutSec: CREW_TOOL_TIMEOUT_SEC };
       // Start them now, while the CLI starts, so the gateway's first list doesn't wait.
       for (const g of granted) connections.ensure(g.name).catch(() => undefined);

@@ -11,8 +11,14 @@ and works on its own computer: a real browser, its own files, and Fenna's
 slides, docs, sheets, whiteboard and design editors. You watch it work and
 can take control at any moment.
 
+- **Builder makes the apps it needs.** Every crew comes with Builder: ask
+  for an app or a tool and it builds it on its computer, tests it, and then
+  uses it for you. Apps run sealed, with only what you allow. It also builds
+  and runs small Node websites.
 - **Its own computer.** Each bot has a desktop with a browser (up to 8 tabs,
   sign-ins kept), a file library and the Fenna editors as windows.
+- **Files in and out.** Drop files and images into a chat; bots read Excel,
+  CSV and pictures, hand files to each other, and you drag files back out.
 - **Many chats per bot.** Start a new chat, compact a long one, see how full
   the context is; scheduled runs keep their own Runs chat.
 - **Group chats.** Put bots in a team and @mention who should answer.

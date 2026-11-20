@@ -87,6 +87,13 @@ describe("content matches", () => {
     expect(names(search(SLUG, "gamma alpha"))).toEqual(["a.md"]);
   });
 
+  it("searches csv and tsv text, but not spreadsheets", () => {
+    put(wsPath("sales.csv"), "region,total\nnorth,needle\n");
+    put(wsPath("sales.tsv"), "region\ttotal\nsouth\tneedle\n");
+    put(wsPath("sales.xlsx"), "needle");
+    expect(names(search(SLUG, "needle")).sort()).toEqual(["sales.csv", "sales.tsv"]);
+  });
+
   it("does not search files that are not text, or text over 2 MB", () => {
     put(wsPath("photo.png"), "needle");
     put(wsPath("big.txt"), `${"x".repeat(2 * 1024 * 1024 + 10)} needle`);

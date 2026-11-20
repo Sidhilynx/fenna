@@ -24,8 +24,8 @@
       var body = typeof marked !== "undefined" ? marked.parse(rel.body || "") : "<pre>" + esc(rel.body || "") + "</pre>";
       return '<article class="release" id="' + tag + '">' +
         '<div class="release-meta"><span class="release-tag"><a href="#' + tag + '">' + tag + '</a></span>' +
-        (i === 0 ? '<span class="chip latest">Latest</span>' : "") +
-        '<span class="release-date mono">' + esc(date(rel.published_at || rel.created_at)) + "</span></div>" +
+        (i === 0 ? '<span class="chip px-label latest">Latest</span>' : "") +
+        '<span class="release-date px-label">' + esc(date(rel.published_at || rel.created_at)) + "</span></div>" +
         '<div class="release-body">' + body + "</div></article>";
     }).join("");
     if (location.hash) {

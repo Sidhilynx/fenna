@@ -12,6 +12,7 @@ const { createWaits } = require("../src/main/waits.cjs");
 const { createLink } = require("../src/main/link.cjs");
 const { createRunner } = require("../src/main/runner.cjs");
 const { createApprover, createHandlers, MAX_HANDOFFS } = require("../src/main/handlers.cjs");
+const { createDisk } = require("../src/main/disk.cjs");
 const { createConnectorStore } = require("../src/main/connectors.cjs");
 const { createConnections } = require("../src/main/connections.cjs");
 const { createGateway } = require("../src/main/gateway.cjs");
@@ -20,7 +21,7 @@ const { createScheduler } = require("../src/main/scheduler.cjs");
 const { createViews, shortTime } = require("../src/main/views.cjs");
 const { buildPrompt } = require("../src/main/prompt.cjs");
 const { toEntry } = require("../src/main/registry.cjs");
-const { parseKey, toElectronInput, viewOf, webAddress, safeDownloadName, uniqueName, overCap, sizeText, DOWNLOAD_CAP } = require("../src/main/browser.cjs");
+const { parseKey, toElectronInput, viewOf, webAddress, safeDownloadName, uniqueName, overCap, downloadRoom, tooBigText, sizeText, KEEP_FREE } = require("../src/main/browser.cjs");
 const { toolLabel } = require("../src/main/labels.cjs");
 const { createNotifier } = require("../src/main/notify.cjs");
 const { checkSettingsPatch, readStored } = require("../src/main/settings.cjs");
@@ -154,6 +155,7 @@ beforeEach(async () => {
     browsers: { act: async (_slug: string, m: string) => ({ text: `browser ${m}` }) },
     onChange: () => {},
     onDesktop: (slug: string, items: object[]) => desktopEvents.push({ slug, items }),
+    disk: createDisk({ store, settingsFile: path.join(root, "disk-quotas.json") }),
     now: () => clock,
   });
 });
@@ -383,6 +385,43 @@ describe("tools reaching the app over the pipe", () => {
     await expect(handle(ctx, "message", { bot: "reserch", message: "x" })).rejects.toThrow(/no bot "reserch". Did you mean "research"\?/);
     const full = { ...ctx, chain: { count: { n: MAX_HANDOFFS }, stack: ["research"] } };
     await expect(handle(full, "message", { bot: "inbox", message: "x" })).rejects.toThrow(/handed on 6 times/);
+  });
+
+  it("copies a hand-off's files, tells the receiver where they are, and logs them on both runs", async () => {
+    mkdirSync(path.join(store.botDir("research"), "workspace", "notes"), { recursive: true });
+    writeFileSync(path.join(store.botDir("research"), "workspace", "notes", "brief.md"), "Notes");
+    const r = runner.enqueue({ slug: "research", trigger: "person", text: "Go" });
+    const ctx = { slug: "research", runId: r.runId, team: null, chain: null };
+    const p = handle(ctx, "message", { bot: "inbox", message: "Sort these notes.", files: ["Files/notes"] });
+    await until(() => started.length === 2);
+    const member = started[1]!;
+    expect(member.o.prompt).toMatch(/Research \(research\) handed you this task[\s\S]*They copied these files onto your disk for the task \(their originals stay with them\):\n- Files\/From Research\/notes\/brief\.md$/);
+    member.emit({ type: "text", text: "Sorted." });
+    member.emit({ type: "done" });
+    expect((await p).text).toBe("Copied 1 file to Inbox: Files/From Research/notes/brief.md. Your files are unchanged.\n\nInbox replied:\nSorted.");
+    const copied = { name: "brief.md", size: 5, fromPath: "Files/notes/brief.md", toPath: "Files/From Research/notes/brief.md" };
+    expect(runEvents("research").filter((e) => e.type === "files")).toEqual([expect.objectContaining({ type: "files", from: "research", to: "inbox", files: [copied] })]);
+    expect(runEvents("inbox").filter((e) => e.type === "files")).toEqual([expect.objectContaining({ type: "files", from: "research", to: "inbox", files: [copied] })]);
+    expect(readFileSync(path.join(store.botDir("inbox"), "workspace", "From Research", "notes", "brief.md"), "utf8")).toBe("Notes");
+    expect(readFileSync(path.join(store.botDir("research"), "workspace", "notes", "brief.md"), "utf8")).toBe("Notes");
+    started[0]!.emit({ type: "done" });
+    await r.done;
+  });
+
+  it("refuses a hand-off to an unknown bot before copying anything", async () => {
+    mkdirSync(path.join(store.botDir("research"), "workspace"), { recursive: true });
+    writeFileSync(path.join(store.botDir("research"), "workspace", "a.txt"), "a");
+    const ctx = { slug: "research", runId: "x", team: null, chain: null };
+    await expect(handle(ctx, "message", { bot: "reserch", message: "x", files: ["Files/a.txt"] })).rejects.toThrow('Did you mean "research"?');
+    await expect(handle(ctx, "message", { bot: "reserch", message: "x", files: ["Files/a.txt"] })).rejects.toThrow("Bots: fenna, inbox.");
+    expect(existsSync(path.join(store.botDir("inbox"), "workspace", "From Research"))).toBe(false);
+    expect(runEvents("research").filter((e) => e.type === "files")).toEqual([]);
+  });
+
+  it("says in the step line how many files a hand-off carries", () => {
+    expect(toolLabel("message_bot", { bot: "inbox", message: "x" }, "crew")).toBe("Handed a task to inbox");
+    expect(toolLabel("message_bot", { bot: "inbox", message: "x", files: ["Files/a.txt"] }, "crew")).toBe("Handed a task to inbox, with 1 file");
+    expect(toolLabel("message_bot", { bot: "inbox", message: "x", files: ["Files/a", "Files/b"] }, "crew")).toBe("Handed a task to inbox, with 2 files");
   });
 
   /** Install the notes connector and grant it to a bot: list_notes allow, add_note ask, clear_notes off. */
@@ -669,6 +708,9 @@ describe("desktop", () => {
       { id: "clock", kind: "app", app: "clock", label: "Clock" },
       { id: "connectors", kind: "app", app: "connectors", label: "Connectors" },
       { id: "trash", kind: "app", app: "trash", label: "Trash" },
+      { id: "code", kind: "app", app: "code", label: "Code" },
+      { id: "processes", kind: "app", app: "processes", label: "Processes" },
+      { id: "console", kind: "app", app: "console", label: "Console" },
       { id: "fenna-docs", kind: "fenna", app: "fenna-docs", label: "Fenna Docs" },
       { id: "fenna-sheets", kind: "fenna", app: "fenna-sheets", label: "Fenna Sheets" },
       { id: "fenna-slides", kind: "fenna", app: "fenna-slides", label: "Fenna Slides" },
@@ -676,14 +718,25 @@ describe("desktop", () => {
       { id: "fenna-design", kind: "fenna", app: "fenna-design", label: "Fenna Design" },
     ]);
     store.createBot({ name: "Quiet", job: "Waits", connectors: [] });
-    expect(store.readDesktop("quiet")).toHaveLength(8);
+    expect(store.readDesktop("quiet")).toHaveLength(11);
   });
 
   it("gives the default desktop when desktop.json is broken or not a list", () => {
     writeFileSync(path.join(store.botDir("inbox"), "desktop.json"), "{ not json");
-    expect(store.readDesktop("inbox")).toHaveLength(13);
+    expect(store.readDesktop("inbox")).toHaveLength(16);
     writeFileSync(path.join(store.botDir("inbox"), "desktop.json"), JSON.stringify([{ id: "x", kind: "web", url: "javascript:alert(1)", label: "X" }]));
-    expect(store.readDesktop("inbox")).toHaveLength(13);
+    expect(store.readDesktop("inbox")).toHaveLength(16);
+  });
+
+  it("adds the built-ins that came later to a desktop saved before them, once", () => {
+    const old = [
+      { id: "browser", kind: "app", app: "browser", label: "Browser" },
+      { id: "files", kind: "app", app: "files", label: "Files" },
+    ];
+    writeFileSync(path.join(store.botDir("inbox"), "desktop.json"), JSON.stringify(old));
+    expect(ids("inbox")).toEqual(["browser", "files", "code", "processes", "console"]);
+    store.writeDesktop("inbox", old);
+    expect(ids("inbox")).toEqual(["browser", "files"]);
   });
 
   it("saves a desktop and reads it back in order, keeping only each shortcut's own fields", () => {
@@ -726,9 +779,9 @@ describe("desktop", () => {
     expect(() => store.writeDesktop("inbox", [{ id: "a", kind: "web", url: "javascript:alert(1)", label: "A" }])).toThrow(/must open an http or https address, not javascript:/);
     expect(() => store.writeDesktop("inbox", [{ id: "a", kind: "doc", path: ".hidden", label: "A" }])).toThrow(/not a library file name/);
     expect(() => store.writeDesktop("inbox", [{ id: "a", kind: "doc", path: "../x", label: "A" }])).toThrow(/not a library file name/);
-    expect(() => store.writeDesktop("inbox", [{ id: "a", kind: "app", app: "mail", label: "A" }])).toThrow(/Use one of: browser, files, library, terminal, activity, clock, connectors, trash/);
+    expect(() => store.writeDesktop("inbox", [{ id: "a", kind: "app", app: "mail", label: "A" }])).toThrow(/Use one of: browser, files, library, terminal, activity, clock, connectors, trash, code, processes, console/);
     expect(() => store.writeDesktop("inbox", [{ id: "a", kind: "fenna", app: "fenna-mail", label: "A" }])).toThrow(/Use one of: fenna-docs, fenna-sheets, fenna-slides, fenna-whiteboard, fenna-design/);
-    expect(() => store.writeDesktop("inbox", [{ id: "a", kind: "clock", label: "A" }])).toThrow(/Kinds are app, fenna, web and doc/);
+    expect(() => store.writeDesktop("inbox", [{ id: "a", kind: "clock", label: "A" }])).toThrow(/Kinds are app, fenna, web, doc and userapp/);
   });
 
   it("refuses a label that is empty or longer than 40 characters, and ids that repeat or are not ids", () => {
@@ -762,6 +815,9 @@ describe("desktop", () => {
           "clock  app  Clock  clock",
           "connectors  app  Connectors  connectors",
           "trash  app  Trash  trash",
+          "code  app  Code  code",
+          "processes  app  Processes  processes",
+          "console  app  Console  console",
           "fenna-docs  fenna  Fenna Docs  fenna-docs",
           "fenna-sheets  fenna  Fenna Sheets  fenna-sheets",
           "fenna-slides  fenna  Fenna Slides  fenna-slides",
@@ -780,7 +836,7 @@ describe("desktop", () => {
   });
 
   it("renames, moves and removes by id, and lists what is there", async () => {
-    expect((await desk("list")).text.split("\n")[0]).toBe("13 shortcuts on the desktop.");
+    expect((await desk("list")).text.split("\n")[0]).toBe("16 shortcuts on the desktop.");
     expect((await desk("rename", { id: "files", label: "Documents" })).text).toMatch(/^Renamed files to "Documents"\./);
     expect(store.readDesktop("inbox")[1]).toMatchObject({ id: "files", label: "Documents" });
     expect((await desk("move", { id: "fenna-docs", to: 1 })).text).toMatch(/^Moved Fenna Docs to position 1\./);
@@ -791,12 +847,12 @@ describe("desktop", () => {
   });
 
   it("says how to fix a shortcut id, a position, a label or an action it does not know", async () => {
-    await expect(desk("remove", { id: "nope" })).rejects.toThrow(/^No shortcut with id nope\. Shortcuts: browser, files, library, terminal, activity, clock, connectors, trash, fenna-docs, fenna-sheets, fenna-slides, fenna-whiteboard, fenna-design\.$/);
-    await expect(desk("move", { id: "files", to: 14 })).rejects.toThrow(/Move to a position from 1 to 13; 1 is the first shortcut\./);
+    await expect(desk("remove", { id: "nope" })).rejects.toThrow(/^No shortcut with id nope\. Shortcuts: browser, files, library, terminal, activity, clock, connectors, trash, code, processes, console, fenna-docs, fenna-sheets, fenna-slides, fenna-whiteboard, fenna-design\.$/);
+    await expect(desk("move", { id: "files", to: 17 })).rejects.toThrow(/Move to a position from 1 to 16; 1 is the first shortcut\./);
     await expect(desk("rename", { id: "files", label: "" })).rejects.toThrow(/needs a label/);
     await expect(desk("sort")).rejects.toThrow(/Use the action list, add, remove, rename or move, not "sort"\./);
     expect(desktopEvents).toHaveLength(0);
-    expect(store.readDesktop("inbox")).toHaveLength(13);
+    expect(store.readDesktop("inbox")).toHaveLength(16);
   });
 });
 
@@ -1169,21 +1225,46 @@ describe("downloads from the bot's browser", () => {
     expect(uniqueName("x".repeat(500), () => false).length).toBe(120);
   });
 
-  it("caps a download at 500 MB: a known total over the cap, or more received than the cap", () => {
+  it("refuses a download over its room: a known total over it, or more received than it", () => {
     const mb = 1024 * 1024;
-    expect(DOWNLOAD_CAP).toBe(500 * mb);
-    expect(overCap(0, 500 * mb)).toBe(false);
-    expect(overCap(0, 500 * mb + 1)).toBe(true);
-    expect(overCap(100 * mb, 0)).toBe(false);
-    expect(overCap(500 * mb + 1, 0)).toBe(true);
+    expect(overCap(0, 500 * mb, 500 * mb)).toBe(false);
+    expect(overCap(0, 500 * mb + 1, 500 * mb)).toBe(true);
+    expect(overCap(100 * mb, 0, 500 * mb)).toBe(false);
+    expect(overCap(500 * mb + 1, 0, 500 * mb)).toBe(true);
     expect(overCap(10, 0, 5)).toBe(true);
     expect(overCap(5, 0, 5)).toBe(false);
+    expect(overCap(0, 0, 0)).toBe(false);
+  });
+
+  it("gives a download the bot's free space, or the PC's drive less 1 GB, whichever is less", () => {
+    const gb = 1024 ** 3;
+    expect(KEEP_FREE).toBe(gb);
+    expect(downloadRoom(2 * gb, 100 * gb)).toEqual({ bytes: 2 * gb, drive: false });
+    expect(downloadRoom(50 * gb, 3 * gb)).toEqual({ bytes: 2 * gb, drive: true });
+    expect(downloadRoom(50 * gb, 0.5 * gb)).toEqual({ bytes: 0, drive: true });
+    expect(downloadRoom(0, 100 * gb)).toEqual({ bytes: 0, drive: false });
+    expect(downloadRoom(Infinity, Infinity)).toEqual({ bytes: Infinity, drive: false });
+  });
+
+  it("says the size, the free space and what the person can do when a download is too big", () => {
+    const gb = 1024 ** 3;
+    const mb = 1024 * 1024;
+    expect(tooBigText(1.5 * gb, 300 * mb, true, false)).toBe(
+      "it is 1.5 GB, and 300.0 MB is free on the bot's disk. Ask the person to make this bot's disk larger in its Details (Disk size).",
+    );
+    expect(tooBigText(600 * mb, 10 * mb, false, false)).toBe(
+      "it is more than 600.0 MB, and 10.0 MB is free on the bot's disk. Ask the person to make this bot's disk larger in its Details (Disk size).",
+    );
+    expect(tooBigText(3 * gb, 2 * gb, true, true)).toBe(
+      "it is 3.0 GB, and only 2.0 GB can be saved here: the PC keeps 1 GB free. Ask the person to free up space on this computer.",
+    );
   });
 
   it("says a size in words", () => {
     expect(sizeText(512)).toBe("512 B");
     expect(sizeText(12 * 1024)).toBe("12 KB");
     expect(sizeText(3.4 * 1024 * 1024)).toBe("3.4 MB");
+    expect(sizeText(1.5 * 1024 ** 3)).toBe("1.5 GB");
   });
 });
 

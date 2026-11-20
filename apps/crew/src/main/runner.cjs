@@ -8,6 +8,7 @@ const crypto = require("node:crypto");
 const F = require("./format.cjs");
 const { buildPrompt } = require("./prompt.cjs");
 const { noUsage } = require("./usage.cjs");
+const { messageWith } = require("./attachments.cjs");
 
 const RUN_TIMEOUT_MS = 30 * 60_000;
 /** A chat this full after a person's run is compacted before the next one. */
@@ -34,7 +35,7 @@ function folderFromResult(text) {
 }
 
 /** Calls that make or change a library document: the fenna tools, and new_document. */
-const isLibraryCall = (server, tool) => server === "fenna" || tool === "new_document";
+const isLibraryCall = (server, tool) => server === "fenna" || tool === "new_document" || tool === "import_sheet";
 
 /**
  * @param {object} o
@@ -84,14 +85,15 @@ function createRunner({ store, startRun, serversFor, link, waits, emitLive, onCh
    * Queue a run. trigger: person | schedule | bot | welcome | watch | compact. A hand-off
    * (trigger "bot") carries the chain it belongs to. `manual`: the person pressed Run (counted apart from the schedule). `chat` picks the chat; by default the
    * person's own messages go to their current chat and everything else to the runs chat.
+   * `attachments` (saved in Files/Inbox, see attachments.cjs) are listed in the message and logged with the run; `images` go to the CLI on this turn.
    * @returns {{ runId: string, queued: boolean, done: Promise<{ outcome: string, text: string, message: string|null }> }}
    */
-  function enqueue({ slug, trigger, text = "", from = null, team = null, chain = null, chat = null, manual = false }) {
+  function enqueue({ slug, trigger, text = "", from = null, team = null, chain = null, chat = null, manual = false, attachments = [], images = [], files = [] }) {
     if (!store.readBot(slug)) throw new Error(`There is no bot "${slug}".`);
     const runId = crypto.randomUUID();
     let resolve;
     const done = new Promise((r) => (resolve = r));
-    const item = { runId, slug, trigger, text: trigger === "compact" ? COMPACT_ASK : text, from, team, chain, chat, manual, resolve, handoff: trigger === "bot" };
+    const item = { runId, slug, trigger, text: trigger === "compact" ? COMPACT_ASK : text, from, team, chain, chat, manual, attachments, images, files, resolve, handoff: trigger === "bot" };
     queue.push(item);
     pump();
     onChange();
@@ -145,11 +147,12 @@ function createRunner({ store, startRun, serversFor, link, waits, emitLive, onCh
     if (item.trigger === "person" && run.chat !== F.RUNS_CHAT) {
       store.patchState(item.slug, (s) => {
         const c = F.chatIn(s, run.chat);
-        if (!c.title) c.title = firstLine(item.text).slice(0, 80);
+        if (!c.title) c.title = (firstLine(item.text) || (item.attachments[0] ? item.attachments[0].name : "")).slice(0, 80);
         if (!c.startedAt) c.startedAt = at.toISOString();
       });
     }
-    record(run, { type: "start", at: at.toISOString(), runId: run.runId, trigger: item.trigger, text: item.text, from: item.from, team: item.team, cli: run.cli, model: bot ? bot.brain.model : "", chat: run.chat });
+    record(run, { type: "start", at: at.toISOString(), runId: run.runId, trigger: item.trigger, text: item.text, from: item.from, team: item.team, cli: run.cli, model: bot ? bot.brain.model : "", chat: run.chat, ...(item.attachments.length ? { attachments: item.attachments } : {}) });
+    if (item.files.length) record(run, { type: "files", at: at.toISOString(), from: item.from, to: item.slug, files: item.files });
     const errors = loaded ? loaded.diagnostics.filter((d) => d.severity === "error") : [];
     if (!bot || errors.length) {
       finish(run, "error", `bot.md has problems, so it can't run: ${errors.map((d) => d.message).join(" ") || "it could not be read."}`);
@@ -186,9 +189,10 @@ function createRunner({ store, startRun, serversFor, link, waits, emitLive, onCh
       others: others(run.slug),
       team: teamInfo(run.team),
       trigger: run.trigger,
-      text: run.text,
+      text: messageWith(run.text, run.attachments),
       earlier,
       from: from && from.bot ? { slug: run.from, name: from.bot.name } : null,
+      files: run.files.map((f) => f.toPath),
       now: now(),
       installed,
     });
@@ -199,10 +203,11 @@ function createRunner({ store, startRun, serversFor, link, waits, emitLive, onCh
         model: bot.brain.model,
         effort: bot.brain.effort,
         prompt,
+        images: run.images,
         cwd: store.botDir(run.slug),
         sessionId,
         ...serversFor({ slug: run.slug, bot, token: run.token }),
-        toolLabel,
+        toolLabel: (tool, params, server) => toolLabel(tool, params, server, run.slug),
         onEvent: (ev) => onEvent(run, ev),
       });
     } catch (e) {
@@ -234,7 +239,7 @@ function createRunner({ store, startRun, serversFor, link, waits, emitLive, onCh
       const path = ev.path ?? known.path;
       if (isLibraryCall(merged.server, merged.tool)) merged.doc = known.doc || libraryFolder(path) || folderFromResult(ev.result) || null;
       prev.set(ev.id, { ...merged, path });
-      record(run, { type: "tool", at: iso(), id: String(ev.id), ...merged, status: ev.status });
+      record(run, { type: "tool", at: iso(), id: String(ev.id), ...merged, status: ev.status, ...(ev.status === "failed" && ev.error ? { error: String(ev.error).slice(0, 500) } : {}) });
       if (ev.status === "running") onChange();
     } else if (ev.type === "done") {
       // A CLI that ends "successfully" having done and said nothing was stopped by something it didn't report.

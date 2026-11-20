@@ -37,7 +37,7 @@ Teams are shown to people as group chats; the data stays `team`. A message to on
 | `store.cjs` | The crew on disk, `<userData>/Crew/bots/<slug>/…` and `teams/<slug>/…`; atomic writes |
 | `runner.cjs` | Runs: one per bot, at most 2 at once (hand-offs from a running bot don't count), a queue, run logs, sessions resumed, a lost session retried fresh once, 30-minute limit |
 | `prompt.cjs` | What a bot is told each run (job, how, rules, ask-before list, memory, library, the crew, team, why it woke) |
-| `handlers.cjs` | What the crew MCP server asks for: questions, approvals, hand-offs (max 6 per message, no cycles), create_bot (approved first), memory, status; browser and gateway requests passed on |
+| `handlers.cjs` | What the crew MCP server asks for: questions, approvals, hand-offs (max 6 per message, no cycles; files copied for a hand-off, all or nothing), create_bot (approved first), memory, status; browser and gateway requests passed on |
 | `waits.cjs` | Questions and approvals waiting on the person; 15-minute timeout; cancelled when a run stops |
 | `link.cjs` | The local named pipe / unix socket the MCP servers reach the app on; a secret token per run |
 | `servers.cjs` | Each run's MCP servers: `crew`, `browser`, `fenna` (workspace-mcp in the bot's library), and `gateway` when the bot is granted installed connectors. Every server is trusted; connectors are never handed to the CLI |

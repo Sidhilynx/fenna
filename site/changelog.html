@@ -15,55 +15,56 @@
   <link rel="apple-touch-icon" href="assets/icon/apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Silkscreen&display=swap">
   <link rel="stylesheet" href="css/style.css">
   <script>try{var t=localStorage.getItem("fenna-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
+  <span class="nav-sentinel" aria-hidden="true"></span>
   <header class="nav">
     <div class="wrap nav-in">
-      <a class="brand" href="./"><img class="brand-icon" src="assets/icon/icon-64.png" width="32" height="32" alt="">Fenna Crew</a>
+      <a class="brand" href="./"><img class="brand-icon" src="assets/icon/icon-64.png" width="40" height="40" alt=""><span class="brand-word">Fenna Crew</span></a>
       <nav class="nav-links" aria-label="Main">
-        <a href="download.html">Download</a>
+        <a href="./#builder">Builder</a>
         <a href="changelog.html" aria-current="page">Changelog</a>
         <a href="https://github.com/Sidhilynx/fenna">GitHub</a>
       </nav>
       <button class="theme" type="button" aria-label="Switch theme"><i></i></button>
-      <a class="btn primary small" href="download.html">Download</a>
+      <a class="btn primary nav-dl" href="download.html">Download</a>
     </div>
   </header>
 
-  
   <main id="main">
-    <section class="log-head">
+    <section class="page-head field-host" data-field="glow">
+      <canvas class="field" aria-hidden="true"></canvas>
       <div class="wrap">
-        <p class="eyebrow mono">Release notes</p>
         <h1>Changelog</h1>
-        <p class="lede">Every release, as published on <a class="link" href="https://github.com/Sidhilynx/fenna/releases">GitHub Releases</a>.</p>
+        <p class="lede">From <a class="link" href="https://github.com/Sidhilynx/fenna/releases">GitHub Releases</a>.</p>
       </div>
     </section>
-    <section class="wrap releases" id="releases-container">
+    <section class="wrap releases" id="releases-container" aria-live="polite">
       <p class="state">Loading releases from GitHub.</p>
     </section>
   </main>
 
   <footer class="foot">
     <div class="wrap foot-in">
-      <span>Fenna Crew by <a href="https://sidhilynx.com">Sidhilynx</a></span>
-      <nav aria-label="Footer">
-        <a href="https://github.com/Sidhilynx/fenna">GitHub</a>
-        <a href="changelog.html">Changelog</a>
-        <a href="https://github.com/Sidhilynx/fenna/blob/main/PRIVACY.md">Privacy</a>
-        <a href="https://github.com/Sidhilynx/fenna/issues">Issues</a>
-        <a href="https://github.com/Sidhilynx/fenna/blob/main/LICENSE">License AGPL-3.0</a>
+      <div class="foot-brand">
+        <p class="wordmark">Fenna Crew</p>
+        <p class="foot-by">Free and open source.</p>
+      </div>
+      <nav class="foot-links" aria-label="Footer">
+        <div><p class="px-label">Product</p><a href="download.html">Download</a><a href="changelog.html">Changelog</a><a href="https://github.com/Sidhilynx/fenna/blob/main/PRIVACY.md">Privacy</a></div>
+        <div><p class="px-label">Source</p><a href="https://github.com/Sidhilynx/fenna">GitHub</a><a href="https://github.com/Sidhilynx/fenna/issues">Issues</a><a href="https://github.com/Sidhilynx/fenna/blob/main/LICENSE">AGPL-3.0</a></div>
       </nav>
-      <span class="copy">© 2026 Sidhilynx</span>
     </div>
+    <p class="wrap foot-copy">© 2026 <a href="https://sidhilynx.com">Sidhilynx</a></p>
   </footer>
 
   <script src="js/faces.js"></script>
   <script src="js/site.js"></script>
+  <script src="js/field.js"></script>
   <script src="js/vendor/marked.min.js"></script>
   <script src="js/changelog.js"></script>
 </body>

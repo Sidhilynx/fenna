@@ -1,0 +1,25 @@
+{
+  "name": "notes-board",
+  "title": "Notes",
+  "icon": "doc",
+  "entry": "index.html",
+  "description": "Short notes, saved in this app's folder. The bot can add one with add_note.",
+  "permissions": {
+    "documents": "none",
+    "network": [],
+    "bot": false
+  },
+  "tools": [
+    {
+      "name": "add_note",
+      "description": "Adds a note to the board and returns how many notes it has now.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "text": { "type": "string", "description": "The note, one or two sentences." }
+        },
+        "required": ["text"]
+      }
+    }
+  ]
+}

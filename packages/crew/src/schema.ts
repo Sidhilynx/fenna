@@ -65,7 +65,7 @@ export type FennaAppId = (typeof FENNA_APPS)[number]["id"];
 export type LibraryKind = (typeof FENNA_APPS)[number]["kind"];
 
 /** bot.md settings, in the order they are written. */
-export const BOT_KEYS = ["name", "job", "avatar", "color", "schedule", "brain", "connectors", "logins", "askBefore", "wallpaper"] as const;
+export const BOT_KEYS = ["name", "job", "avatar", "color", "schedule", "brain", "connectors", "logins", "projects", "askBefore", "wallpaper"] as const;
 export const BRAIN_KEYS = ["cli", "model", "effort"] as const;
 /** A bot's grant of a connector installed on this computer: its name, then tool names under allow, ask or off. */
 export const GRANT_KEYS = ["name", "allow", "ask", "off", "default"] as const;
@@ -97,6 +97,9 @@ export const LOGIN_LEVEL_NOTES: Record<LoginLevel, string> = {
   allow: "Fills it in without asking.",
   ask: "Waits for your approval each time.",
 };
+/** Whether a bot may run node, npm and npx in its projects (off unless the person turns it on). */
+export const PROJECTS_LEVELS = ["on", "off"] as const;
+export type ProjectsLevel = (typeof PROJECTS_LEVELS)[number];
 /** The hash a sign-in code (TOTP, RFC 6238) is made with. */
 export const TOTP_ALGORITHMS = ["SHA1", "SHA256", "SHA512"] as const;
 export type TotpAlgorithm = (typeof TOTP_ALGORITHMS)[number];
@@ -122,6 +125,9 @@ export const LIMITS = {
   browserTabs: 8,
   /** Logins one bot can be granted. */
   logins: 20,
+  /** Files one hand-off between bots may copy (folders count the files inside), and its size in MB. */
+  handoffFiles: 20,
+  handoffMB: 500,
   vaultItems: 500,
   vaultLabel: 80,
   vaultOrigins: 10,

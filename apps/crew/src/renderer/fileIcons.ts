@@ -347,6 +347,7 @@ const BY_KIND: Record<FileKind, FileIconName> = {
   audio: "audio",
   pdf: "pdf",
   text: "text",
+  table: "sheet",
   code: "code",
   archive: "archive",
   other: "other",
@@ -370,6 +371,7 @@ export function rootIconFor(root: DiskRoot): FileIconName {
 }
 
 const APP: Record<DesktopApp | FennaAppId, FileIconName> = {
+  code: "code",
   browser: "browser",
   files: "files",
   library: "documents",
@@ -378,6 +380,8 @@ const APP: Record<DesktopApp | FennaAppId, FileIconName> = {
   clock: "clock",
   connectors: "connectors",
   trash: "trash",
+  processes: "activity",
+  console: "terminal",
   "fenna-docs": "fenna-docs",
   "fenna-sheets": "fenna-sheets",
   "fenna-slides": "fenna-slides",

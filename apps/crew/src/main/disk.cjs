@@ -18,7 +18,7 @@ const { Readable } = require("node:stream");
 const F = require("./format.cjs");
 
 const DISK_ROOTS = ["Files", "Documents", "Downloads", "Trash"];
-const DISK_QUOTAS_GB = [1, 2, 5, 10, 20];
+const DISK_QUOTAS_GB = [1, 2, 5, 10, 20, 50];
 const DEFAULT_QUOTA_GB = 5;
 const GB = 1024 ** 3;
 const MB = 1024 ** 2;
@@ -28,6 +28,8 @@ const USED_TTL_MS = 10_000;
 const MAX_PATHS = 500;
 const DOC_KINDS = ["doc", "sheet", "deck", "board", "design"];
 const TRASH_INDEX = ".index.json";
+/** Where files the person attaches to a message are saved: a folder in Files. */
+const INBOX = "Files/Inbox";
 const OUTSIDE = "That file is outside this bot's disk.";
 const WINDOWS_RESERVED = /^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?$/i;
 
@@ -36,8 +38,9 @@ const KIND_OF_EXT = {
   mp4: "video", webm: "video", mov: "video", mkv: "video",
   mp3: "audio", wav: "audio", ogg: "audio", m4a: "audio", flac: "audio",
   pdf: "pdf",
-  txt: "text", md: "text", csv: "text", log: "text", json: "text",
-  js: "code", ts: "code", py: "code", html: "code", css: "code",
+  txt: "text", md: "text", log: "text",
+  csv: "table", tsv: "table", xlsx: "table", xls: "table",
+  js: "code", ts: "code", py: "code", html: "code", css: "code", json: "code",
   zip: "archive", "7z": "archive", tar: "archive", gz: "archive",
 };
 
@@ -48,6 +51,8 @@ const TYPE_OF_EXT = {
   mp3: "audio/mpeg", wav: "audio/wav", ogg: "audio/ogg", m4a: "audio/mp4", flac: "audio/flac",
   pdf: "application/pdf",
   txt: "text/plain; charset=utf-8", md: "text/markdown; charset=utf-8", csv: "text/csv; charset=utf-8",
+  tsv: "text/tab-separated-values; charset=utf-8", xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  xls: "application/vnd.ms-excel",
   log: "text/plain; charset=utf-8", json: "application/json; charset=utf-8",
   js: "text/javascript; charset=utf-8", ts: "text/plain; charset=utf-8", py: "text/plain; charset=utf-8",
   html: "text/html; charset=utf-8", css: "text/css; charset=utf-8",
@@ -561,11 +566,8 @@ function createDisk({ store, broadcast = () => {}, starterFiles = require("./edi
     return "Trash";
   }
 
-  function importFiles(slug, to, files) {
-    const dest = locate(slug, to);
-    if (dest.root === "Documents") throw new Error("Documents holds documents only. Drop files into Files or Downloads.");
-    if (dest.root === "Trash") throw new Error("Drop files into Files or Downloads, not Trash.");
-    if (!isDir(dest.abs)) throw new Error("That folder isn't there.");
+  /** Writes files into a checked folder of the bot's disk: names made unique, the quota and the size limit checked first. Returns each saved name and size. */
+  function writeImports(slug, dest, files) {
     if (!Array.isArray(files) || !files.length) throw new Error("Pick files to import.");
     if (files.length > MAX_PATHS) throw new Error(`Import at most ${MAX_PATHS} files at once.`);
     const prepared = files.map((f) => {
@@ -576,12 +578,32 @@ function createDisk({ store, broadcast = () => {}, starterFiles = require("./edi
       return { name, bytes: f.bytes, size };
     });
     assertRoom(slug, prepared.reduce((n, f) => n + f.size, 0));
-    for (const f of prepared) {
+    return prepared.map((f) => {
       const name = freeName(dest.abs, f.name, false);
       fs.writeFileSync(path.join(dest.abs, name), toBuffer(f.bytes), { flag: "wx" });
-    }
+      return { name, size: f.size };
+    });
+  }
+
+  function importFiles(slug, to, files) {
+    const dest = locate(slug, to);
+    if (dest.root === "Documents") throw new Error("Documents holds documents only. Drop files into Files or Downloads.");
+    if (dest.root === "Trash") throw new Error("Drop files into Files or Downloads, not Trash.");
+    if (!isDir(dest.abs)) throw new Error("That folder isn't there.");
+    writeImports(slug, dest, files);
     usedCache.delete(slug);
     return dest.segs.join("/");
+  }
+
+  /** Saves files a person attached to a message into Files/Inbox (made if missing), before the bot's run starts. Returns each file's disk path, name, size and absolute path. */
+  function inbox(slug, files) {
+    prepare(slug);
+    const dest = locate(slug, INBOX);
+    fs.mkdirSync(dest.abs, { recursive: true });
+    const saved = writeImports(slug, dest, files);
+    usedCache.delete(slug);
+    broadcast("crew:disk", { slug });
+    return saved.map((f) => ({ path: `${INBOX}/${f.name}`, name: f.name, size: f.size, abs: path.join(dest.abs, f.name) }));
   }
 
   /** Runs one operation on the bot's disk. Returns the listing of the folder it affected; tells the windows. */
@@ -645,6 +667,127 @@ function createDisk({ store, broadcast = () => {}, starterFiles = require("./edi
     return list(slug, "");
   }
 
+  /** A file on the bot's disk that may be copied to the person's computer: a file in Files or Downloads. Throws with what to do otherwise. */
+  function exportable(slug, p) {
+    const loc = locate(slug, p);
+    if (loc.root === "Documents") throw new Error("A Fenna document can't be copied to this computer.");
+    if (loc.root === "Trash") throw new Error("Restore it from Trash first.");
+    const st = lstatOrNull(loc.abs);
+    if (!st) throw new Error("That file isn't there any more.");
+    if (loc.isRoot || !st.isFile()) throw new Error("Only files can be copied to this computer.");
+    return { abs: loc.abs, name: path.basename(loc.abs) };
+  }
+
+  /** A name in `dir` that is free on disk and not claimed by this hand-off yet, and claims it: "a.txt", then "a (2).txt"; a slug for documents. */
+  function claimName(dir, name, slugStyle, claimed) {
+    const takenAt = (n) => !!lstatOrNull(path.join(dir, n)) || claimed.has(path.join(dir, n));
+    let n = name;
+    if (slugStyle) {
+      const claimedHere = [...claimed].filter((c) => path.dirname(c) === dir).map((c) => path.basename(c));
+      n = F.uniqueSlug(name, [...readdirSafe(dir), ...claimedHere]);
+    } else {
+      const dot = name.lastIndexOf(".");
+      const ext = dot > 0 ? name.slice(dot) : "";
+      const stem = ext ? name.slice(0, dot) : name;
+      for (let i = 2; takenAt(n); i++) {
+        const tail = ` (${i})${ext}`;
+        n = `${stem.slice(0, NAME_MAX - tail.length)}${tail}`;
+      }
+    }
+    claimed.add(path.join(dir, n));
+    return n;
+  }
+
+  /**
+   * Walks a file or folder for a hand-off, in order (a folder before what is in it): the files and folders to make,
+   * counted against the file limit as it goes so a huge folder stops early. Links are refused; names hidden on
+   * the disk are skipped.
+   */
+  function gather(abs, to, fromPath, toPath, entries, tally) {
+    const st = fs.lstatSync(abs);
+    if (st.isSymbolicLink()) throw link();
+    if (st.isDirectory()) {
+      entries.push({ dir: to });
+      for (const name of readdirSafe(abs)) {
+        if (nameOk(name)) gather(path.join(abs, name), path.join(to, name), `${fromPath}/${name}`, `${toPath}/${name}`, entries, tally);
+      }
+      return;
+    }
+    if (!st.isFile()) return;
+    tally.files++;
+    tally.bytes += st.size;
+    if (tally.files > F.LIMITS.handoffFiles) throw new Error(`These come to more than ${F.LIMITS.handoffFiles} files. A hand-off carries at most ${F.LIMITS.handoffFiles} files; send fewer.`);
+    entries.push({ abs, to, fromPath, toPath, size: st.size });
+  }
+
+  /**
+   * Copies files, folders and Fenna documents from one bot's disk to another's, for a hand-off. Files and folders
+   * go to the receiver's Files/From <sender>/ (a clash gets " (2)"); a Fenna document goes to its Documents as a
+   * copy under a free slug. Nothing is moved, and every path is checked on the sender's disk. All or nothing: the
+   * file count, the bytes and the receiver's room are checked before anything is written, and a copy that fails
+   * part way is taken back. names: { from, to }, the bots' names for the folder and the messages.
+   * @returns {{ files: { name: string, size: number, fromPath: string, toPath: string }[] }}
+   */
+  function handOff(fromSlug, toSlug, paths, names) {
+    const picked = pathList(paths);
+    prepare(fromSlug);
+    const toBase = prepare(toSlug);
+    const folder = `From ${cleanName(names.from)}`;
+    const filesDir = path.join(toBase, ...ROOT_PATH.Files, folder);
+    const libDir = path.join(toBase, ...ROOT_PATH.Documents);
+    const claimed = new Set();
+    const tally = { files: 0, bytes: 0 };
+    const entries = [];
+    let toFiles = false;
+    for (const p of picked) {
+      const src = locate(fromSlug, p);
+      const label = src.segs.at(-1);
+      if (src.isRoot) throw new Error("Files, Documents, Downloads and Trash can't be handed over. Pick the files or folders in them.");
+      if (src.root === "Trash") throw new Error(`"${label}" is in Trash. Restore it first, then hand it over.`);
+      if (!lstatOrNull(src.abs)) throw new Error(`"${label}" isn't there any more.`);
+      if (src.root === "Documents") {
+        if (src.rest.length !== 1 || !docInfo(src.abs, label)) throw new Error(`"${label}" isn't a document. Documents hands over whole documents only.`);
+        const name = claimName(libDir, label, true, claimed);
+        gather(src.abs, path.join(libDir, name), p, `Documents/${name}`, entries, tally);
+      } else {
+        toFiles = true;
+        const name = claimName(filesDir, label, false, claimed);
+        gather(src.abs, path.join(filesDir, name), p, `Files/${folder}/${name}`, entries, tally);
+      }
+    }
+    const maxBytes = F.LIMITS.handoffMB * MB;
+    if (tally.bytes > maxBytes) throw new Error(`These files come to ${sizeText(tally.bytes)}. A hand-off carries at most ${F.LIMITS.handoffMB} MB; send fewer or smaller files.`);
+    const free = Math.max(0, quota(toSlug) - used(toSlug, true));
+    if (tally.bytes > free) throw new Error(`${names.to}'s disk has ${sizeText(free)} free, and these files need ${sizeText(tally.bytes)}. Nothing was copied; send less, or free some space on its disk.`);
+    if (toFiles && lstatOrNull(filesDir) && !isDir(filesDir)) throw new Error(`There is already a file called "${folder}" in ${names.to}'s Files. Ask the person to rename it.`);
+    const made = [];
+    try {
+      if (toFiles && !lstatOrNull(filesDir)) {
+        fs.mkdirSync(filesDir, { recursive: true });
+        made.push(filesDir);
+      }
+      for (const e of entries) {
+        if (e.dir !== undefined) {
+          if (!lstatOrNull(e.dir)) {
+            fs.mkdirSync(e.dir);
+            made.push(e.dir);
+          }
+        } else {
+          fs.copyFileSync(e.abs, e.to, fs.constants.COPYFILE_EXCL);
+          made.push(e.to);
+        }
+      }
+    } catch (err) {
+      for (const p of made.reverse()) fs.rmSync(p, { recursive: true, force: true });
+      usedCache.delete(toSlug);
+      throw err;
+    }
+    usedCache.delete(toSlug);
+    broadcast("crew:disk", { slug: toSlug });
+    const files = entries.filter((e) => e.abs !== undefined);
+    return { files: files.map((e) => ({ name: e.toPath.split("/").pop(), size: e.size, fromPath: e.fromPath, toPath: e.toPath })) };
+  }
+
   /** A new Fenna document in the bot's Documents. Its folder is named from the title. */
   function newDoc(slug, kind, title) {
     const base = prepare(slug);
@@ -677,9 +820,15 @@ function createDisk({ store, broadcast = () => {}, starterFiles = require("./edi
     protocol.registerSchemesAsPrivileged([{ scheme: "crewfile", privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } }]);
   }
 
-  /** Serves a file with Range support (video and audio seek). Sandboxed, so a page a bot made can't run script from it. */
+  /**
+   * Serves a file with Range support (video and audio seek). Sandboxed, so a page a bot made can't run script from it.
+   * Readable by fetch only from Crew's own page (the built page's origin is file:// or "null"; the dev server is on localhost).
+   */
   function serve(request, file, size, type) {
+    const origin = request.headers.get("origin");
+    const readable = origin === "null" || origin === "file://" || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin || "");
     const headers = {
+      ...(readable ? { "access-control-allow-origin": origin, vary: "origin" } : {}),
       "content-type": type,
       "accept-ranges": "bytes",
       "content-security-policy": "sandbox",
@@ -736,15 +885,28 @@ function createDisk({ store, broadcast = () => {}, starterFiles = require("./edi
     },
     list,
     op,
+    inbox,
     url,
     setQuota,
     quota,
+    exportable,
     used: (slug) => used(slug),
-    free: (slug) => Math.max(0, quota(slug) - used(slug)),
+    free: (slug, fresh = false) => Math.max(0, quota(slug) - used(slug, fresh)),
     newDoc,
+    handOff,
     registerScheme,
     handleScheme,
   };
 }
 
-module.exports = { createDisk, DISK_ROOTS, DISK_QUOTAS_GB, IMPORT_MAX };
+/** Bytes free on the drive a folder is on. 0 when it can't be read, so nothing is saved there. */
+function freeOnDrive(dir) {
+  try {
+    const s = fs.statfsSync(dir);
+    return Number(s.bavail) * Number(s.bsize);
+  } catch {
+    return 0;
+  }
+}
+
+module.exports = { createDisk, freeOnDrive, DISK_ROOTS, DISK_QUOTAS_GB, IMPORT_MAX, INBOX, kindOf, sizeText };

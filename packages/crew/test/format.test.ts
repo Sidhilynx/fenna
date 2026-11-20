@@ -102,6 +102,7 @@ describe("bot.md", () => {
         { type: "grant", name: "tracker", tools: { "find.issue": "allow", "-odd/name": "allow" }, default: "off" },
       ],
       logins: [],
+      projects: "off",
       askBefore: ["Signing up for trials", "Sending: anything"],
       wallpaper: "clay",
       how: "Visit each pricing page.\n\nReport only real changes.",

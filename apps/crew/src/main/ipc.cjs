@@ -9,6 +9,8 @@ const { searchRegistry } = require("./registry.cjs");
 const { chatFileName, chatMarkdown } = require("./store.cjs");
 const { createSiteIcons, originOf } = require("./siteicons.cjs");
 const { noUsage } = require("./usage.cjs");
+const { checkAttachments, forRun } = require("./attachments.cjs");
+const { createTransfer } = require("./transfer.cjs");
 
 const MAX_MESSAGE = 20_000;
 const USAGE_DETAILS_URL = "https://github.com/Sidhilynx/fenna/blob/main/PRIVACY.md#usage-counts";
@@ -95,6 +97,7 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
     browsers.close(slug);
     crew.logins.forget(slug);
     crew.watches.forget(slug);
+    if (crew.appHost) crew.appHost.closeBot(slug);
     await store.deleteBot(slug);
     crew.onChange();
     return true;
@@ -161,9 +164,16 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
     return { runId: runner.enqueue({ slug, trigger: "compact", chat: id }).runId };
   });
 
-  handle("crew:send", (_e, slug, text, chat) => {
+  // Attached files are saved to the bot's Files/Inbox first, so a failed save (too big, no room) sends nothing.
+  handle("crew:send", (_e, slug, text, chat, files) => {
     const s = slugArg(slug);
-    const r = runner.enqueue({ slug: s, trigger: "person", text: str(text, "The message", MAX_MESSAGE), chat: chat === undefined ? null : chatArg(s, chat) });
+    const chosen = chat === undefined ? null : chatArg(s, chat);
+    const attached = checkAttachments(files);
+    const body = attached.length ? (typeof text === "string" ? text : "") : str(text, "The message", MAX_MESSAGE);
+    if (body.length > MAX_MESSAGE) throw new Error(`The message is too long (${body.length} characters; the most is ${MAX_MESSAGE}).`);
+    const saved = attached.length ? disk.inbox(s, attached) : [];
+    const sent = forRun(saved, attached);
+    const r = runner.enqueue({ slug: s, trigger: "person", text: body, chat: chosen, attachments: sent.list, images: sent.images });
     usage.count("messages");
     return { runId: r.runId, queued: r.queued };
   });
@@ -177,8 +187,11 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
   });
   handle("crew:stop", (_e, slug) => {
     browsers.stopMedia(slugArg(slug));
+    crew.projects.stopAll(slugArg(slug));
     return runner.stop(slug);
   });
+  handle("crew:processes", (_e, slug) => crew.projects.list(slugArg(slug)));
+  handle("crew:stopProcess", (_e, slug, id) => crew.projects.stop(slugArg(slug), str(id, "The process's id", 20)));
   handle("crew:answer", (_e, id, answer) => {
     const w = waits.get(id);
     if (!w || w.kind !== "ask") return false;
@@ -188,7 +201,7 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
   handle("crew:decide", (_e, id, allowed, always) => {
     const w = waits.get(id);
     if (!w || w.kind !== "approval") return false;
-    return waits.answer(id, { allowed: allowed === true, always: always === true && (w.source === "connector" || w.source === "login") });
+    return waits.answer(id, { allowed: allowed === true, always: always === true && (w.source === "connector" || w.source === "login" || w.source === "project") });
   });
 
   handle("crew:teamCreate", (_e, team) => {
@@ -293,16 +306,26 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
     return saved;
   });
 
+  // The bot's apps (apps.cjs): what each allows, and the person's answer to its install card.
+  handle("crew:apps", (_e, slug) => crew.apps.list(slugArg(slug)));
+  handle("crew:appGrant", (_e, slug, name, grant) => crew.apps.setGrant(slugArg(slug), String(name), grant));
+
   handle("crew:disk", (_e, slug, dir) => {
     if (dir !== undefined && dir !== null && (typeof dir !== "string" || dir.length > 4096)) throw new Error("That folder isn't a path on the bot's disk.");
     return disk.list(slugArg(slug), dir || "");
   });
+  handle("crew:edits", (_e, slug) => crew.files.recentEdits(slugArg(slug)));
   handle("crew:diskOp", (_e, slug, op) => {
     if (!op || typeof op !== "object" || Array.isArray(op)) throw new Error('Say what to do, like { op: "mkdir", path: "Files/notes" }.');
     return disk.op(slugArg(slug), op);
   });
   handle("crew:diskUrl", (_e, slug, p) => disk.url(slugArg(slug), str(p, "The file", 4096)));
   handle("crew:setQuota", (_e, slug, gb) => disk.setQuota(slugArg(slug), gb));
+  // Files out to the person's computer: a native drag from the window, and a save dialog for a copy.
+  const transfer = createTransfer({ disk, electron: require("electron"), iconFile: path.join(__dirname, "..", "..", "build", "icon.png") });
+  handle("crew:saveCopy", (e, slug, p) => transfer.saveCopy(e.sender, slugArg(slug), str(p, "The file", 4096)));
+  // Resolves when the native drag ends (on Windows startDrag returns only after the drop).
+  handle("crew:dragOut", (e, slug, paths) => transfer.dragOut(e.sender, slugArg(slug), paths));
   handle("crew:newDoc", (_e, slug, kind, title) => disk.newDoc(slugArg(slug), kind, typeof title === "string" ? title : ""));
   handle("crew:term", (_e, slug, line, cwd) => {
     if (cwd !== undefined && cwd !== null && (typeof cwd !== "string" || cwd.length > 4096)) throw new Error("That folder isn't a path on the bot's disk.");

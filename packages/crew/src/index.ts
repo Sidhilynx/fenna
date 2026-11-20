@@ -7,4 +7,5 @@ export * from "./vault.ts";
 export * from "./team.ts";
 export * from "./state.ts";
 export * from "./runlog.ts";
+export * from "./app.ts";
 export { parseYaml, stringifyYaml, splitFrontMatter, closest, type YamlMap, type YamlValue, type YamlProblem } from "./yaml.ts";

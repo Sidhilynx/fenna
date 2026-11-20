@@ -117,13 +117,18 @@ export function createCrewServer(link: Link, opts: CrewOptions): McpServer {
     {
       title: "Hand work to another bot",
       description:
-        "Give another bot in the crew a task and wait for its reply (it runs, then answers; this can take minutes). Use the bot's folder name from your instructions. Write the message as a complete task: what to do and what to send back. A message can be handed on at most 6 times, so don't pass work around in circles. Example: {bot: \"research\", message: \"Find the Team plan price on competitor-one.example.com/pricing and reply with the price and the date you checked.\"}",
+        `Give another bot in the crew a task and wait for its reply (it runs, then answers; this can take minutes). Use the bot's folder name from your instructions. Write the message as a complete task: what to do and what to send back. A message can be handed on at most 6 times, so don't pass work around in circles. files: paths on your disk to copy to it (Files/..., Downloads/... or Documents/<doc name>, folders with their contents); they are copied into its Files/From <you>/ or its Documents, never moved, and it sees their paths. At most ${LIMITS.handoffFiles} files and ${LIMITS.handoffMB} MB per message. Example: {bot: "research", message: "Find the Team plan price on competitor-one.example.com/pricing and reply with the price and the date you checked.", files: ["Files/competitors/notes.md"]}`,
       inputSchema: {
         bot: z.string().min(1).max(40).describe("the other bot's folder name"),
         message: z.string().min(1).max(8000),
+        files: z
+          .array(z.string().min(1).max(4096))
+          .max(LIMITS.handoffFiles)
+          .optional()
+          .describe("paths on your disk to copy to the other bot, like Files/reports/q3.csv; leave out for none"),
       },
     },
-    (args) => call("message", { bot: args.bot, message: args.message }),
+    (args) => call("message", { bot: args.bot, message: args.message, files: args.files ?? [] }),
   );
 
   tool(
@@ -253,6 +258,86 @@ export function createCrewServer(link: Link, opts: CrewOptions): McpServer {
   );
 
   tool(
+    "read_file",
+    {
+      title: "Read a file",
+      description:
+        'Read a file on your own disk (Files, Downloads): text, code, CSV, TSV, Excel (.xlsx) or an image (PNG, JPEG, GIF, WebP, BMP), which you see. Text and tables come a page at a time: 400 lines or 200 rows, from offset (the first line or row, 1 is the first) with limit more; the reply says where the next page starts. For a workbook, sheet (a sheet\'s name or its number) reads one sheet. PDFs and other binary files can\'t be read yet. Not for Fenna documents in Documents (use the fenna tools) and not to find a file (search_files). Example: {path: "Files/budget.xlsx", sheet: "Q3", offset: 1, limit: 50}',
+      inputSchema: {
+        path: z.string().min(1).max(4096).describe("a disk path like Files/notes/a.txt"),
+        offset: z.number().int().min(1).optional().describe("the first line or row to show, 1 is the first"),
+        limit: z.number().int().min(1).max(2000).optional().describe("how many lines or rows to show"),
+        sheet: z.union([z.string().min(1).max(200), z.number().int().min(1)]).optional().describe("a workbook's sheet: its name, or its number from 1"),
+      },
+    },
+    (args) => call("read_file", { ...args }),
+  );
+
+  tool(
+    "import_sheet",
+    {
+      title: "Make a sheet from a spreadsheet file",
+      description:
+        'Make a Fenna sheet from an .xlsx or .csv file in Files or Downloads. The sheet is saved in your Documents; change it with the sheet tools (sheet_overview, read_range, write_cells) using the path the reply gives. Use it when a spreadsheet must be changed or calculated in; to only look at a file, use read_file. Save it back with export_file. Example: {path: "Files/budget.xlsx", title: "Budget Q3"}',
+      inputSchema: {
+        path: z.string().min(1).max(4096).describe("the .xlsx or .csv file, like Files/budget.xlsx"),
+        title: z.string().min(1).max(200).optional().describe("the sheet's name; leave out to use the file's name"),
+      },
+    },
+    (args) =>
+      guard(async () => {
+        const r = await link.call("import_sheet", { ...args });
+        await link.call("library_changed", {}).catch(() => undefined);
+        return text(r.text);
+      }),
+  );
+
+  tool(
+    "export_file",
+    {
+      title: "Save a sheet as a file",
+      description:
+        'Save a Fenna sheet from your Documents as a file in Files: .xlsx (every sheet) or .csv (the first sheet only). By default it goes to Files/Outbox/<title>.<format>, under a new name each time; give to to choose the path (it must be in Files). Use it to hand the person a sheet they can open in Excel or Sheets. Example: {document: "Documents/budget-q3", format: "xlsx"}',
+      inputSchema: {
+        document: z.string().min(1).max(200).describe("the sheet's path in Documents, like Documents/budget-q3"),
+        format: z.enum(["xlsx", "csv"]),
+        to: z.string().min(1).max(4096).optional().describe("where to save it in Files, like Files/Outbox/q3.xlsx"),
+      },
+    },
+    (args) => call("export_file", { ...args }),
+  );
+
+  tool(
+    "write_file",
+    {
+      title: "Write a file",
+      description:
+        'Write a text file in Files or Downloads: code, a web app, notes, CSV. It creates the file and any folders it needs, and replaces the whole file if it exists, so change part of a file with edit_file instead. Not for Fenna documents (make them with new_document and change them with the fenna tools) and not for Trash. At most 2 MB. Example: {path: "Files/Apps/todo/index.html", content: "<!doctype html>\\n<title>Todo</title>\\n<h1>Todo</h1>"}',
+      inputSchema: {
+        path: z.string().min(1).max(4096).describe("a path in Files or Downloads, like Files/notes/a.txt"),
+        content: z.string().max(2 * 1024 * 1024).describe("the whole text of the file"),
+      },
+    },
+    (args) => call("write_file", { ...args }),
+  );
+
+  tool(
+    "edit_file",
+    {
+      title: "Edit a file",
+      description:
+        'Change part of a text file in Files or Downloads by exact replacement, like a code editor\'s find and replace. old_string must match the file exactly (spaces, indentation and line breaks included) and occur once; add the lines around it if it occurs more than once, or set replace_all: true to change every match. Read the file with read_file first. The reply gives the changed line numbers. Example: {path: "Files/Apps/todo/index.html", old_string: "<h1>Todo</h1>", new_string: "<h1>My todos</h1>"}',
+      inputSchema: {
+        path: z.string().min(1).max(4096).describe("a path in Files or Downloads, like Files/Apps/todo/index.html"),
+        old_string: z.string().min(1).max(100_000).describe("the exact text to replace, copied from read_file"),
+        new_string: z.string().max(100_000).describe("the text to put in its place; empty to delete old_string"),
+        replace_all: z.boolean().optional().describe("true to change every match, not only a single one"),
+      },
+    },
+    (args) => call("edit_file", { ...args }),
+  );
+
+  tool(
     "terminal",
     {
       title: "Your terminal",
@@ -264,6 +349,35 @@ export function createCrewServer(link: Link, opts: CrewOptions): McpServer {
       },
     },
     (args) => call("terminal", { line: args.line, cwd: args.cwd ?? null }),
+  );
+
+  tool(
+    "command",
+    {
+      title: "Run a command in a project",
+      description:
+        'Run one node, npm or npx command in a project folder (Files/Projects/<name>, made if missing). Only if the person has turned projects on for you; otherwise it says so. The first command in a project asks the person to approve. You can read and write only that folder and cannot start other programs, but you can reach the internet. Foreground (the default) waits up to 5 minutes and returns the exit code, the time and the end of the output. Use background: true for a server that keeps running; you get an id at once. A background server that prints localhost:<port> opens in your own browser, so check it there with the browser tools. Example: {project: "site", command: "npm init -y"}, then {project: "site", command: "npm install express"}, then {project: "site", command: "node server.js", background: true}',
+      inputSchema: {
+        project: z.string().min(1).max(64).describe("the project folder's name, like site"),
+        command: z.string().min(1).max(2000).describe("one command line: node, npm or npx, with its arguments"),
+        background: z.boolean().optional().describe("true: start it and return at once; it keeps running until stopped"),
+      },
+    },
+    (args) => call("command", { project: args.project, command: args.command, background: !!args.background }),
+  );
+
+  tool(
+    "processes",
+    {
+      title: "Your running commands",
+      description:
+        'List the commands you started in projects, stop one, or read its output (the end of it, 16 KB). Use it to check a background server or stop one before starting another; at most 3 run at once. Example: {action: "list"}, then {action: "output", id: "1a2b3c4d"}, or {action: "stop", id: "1a2b3c4d"}',
+      inputSchema: {
+        action: z.enum(["list", "stop", "output"]),
+        id: z.string().min(1).max(20).optional().describe("stop and output: the process id from list"),
+      },
+    },
+    (args) => call("processes", { action: args.action, id: args.id ?? null }),
   );
 
   tool(
@@ -283,6 +397,24 @@ export function createCrewServer(link: Link, opts: CrewOptions): McpServer {
         await link.call("library_changed", { path: r.path }).catch(() => undefined);
         return text(r.text);
       }),
+  );
+
+  tool(
+    "app",
+    {
+      title: "Your apps",
+      description:
+        'Apps you make on your computer: small web pages in Files/Apps/<name>/ (name: lowercase letters, digits and dashes). Make one with write_file: app.json (the manifest), the entry page (index.html) and any scripts or styles beside it. Manifest: {"name": "notes-board", "title": "Notes board", "icon": "sheet", "entry": "index.html", "description": "Lists notes and adds new ones.", "permissions": {"documents": "none", "network": [], "bot": false}, "tools": [{"name": "add_note", "description": "Adds a note and returns the list.", "input": {"type": "object", "properties": {"text": {"type": "string"}}}}]}. documents is none, read or write (the Documents: sheets and docs); network lists exact https origins; bot lets it message you. The page gets one global, crew: crew.files.read(path), write(path, text), list(dir) in its own folder; crew.docs.list() and read(path) with documents; crew.bot.tell(text) with bot; crew.tools.define(name, async (input) => result) for each tool in the manifest; crew.app {name, title, bot}. The person allows the app\'s permissions from its install card before they apply; until then it runs with none. Each tool is then a gateway tool app__<name>__<tool>, and its result comes back as JSON (10 seconds, 64 KB at most). To test an app, use this tool: open shows the manifest problems, the errors its page logged and a snapshot; then snapshot, click and type (by ref from the snapshot), press, and close. Use it before you say an app works. Example: {action: "open", name: "notes-board"}',
+      inputSchema: {
+        action: z.enum(["list", "open", "snapshot", "click", "type", "press", "close"]).describe("list: your apps, their state and tools; open: start one hidden and return its problems, errors and a snapshot"),
+        name: z.string().min(1).max(40).optional().describe("the app's name, as in Files/Apps/<name>; with one app open it can be left out"),
+        ref: z.string().regex(/^e\d{1,6}$/, "A ref looks like e12; take it from the latest snapshot.").optional().describe("click and type: an element ref from snapshot"),
+        text: z.string().max(10_000).optional().describe("type: the text to put in the field"),
+        key: z.string().min(1).max(40).optional().describe("press: a key, like Enter or Control+A"),
+        submit: z.boolean().optional().describe("type: press Enter after the text"),
+      },
+    },
+    (args) => call("app", { ...args }),
   );
 
   return server;

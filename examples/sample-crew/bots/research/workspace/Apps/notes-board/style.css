@@ -1,0 +1,173 @@
+:root {
+  color-scheme: light dark;
+  --bg: #f6f6f4;
+  --fg: #1d1d1b;
+  --muted: #6e6e69;
+  --line: #dcdcd7;
+  --field: #ffffff;
+  --accent: #35587f;
+  --danger: #8a3b32;
+  --radius: 6px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141414;
+    --fg: #ececea;
+    --muted: #9a9a95;
+    --line: #2f2f2d;
+    --field: #1e1e1d;
+    --accent: #9bbbe0;
+    --danger: #e0968b;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #141414;
+  --fg: #ececea;
+  --muted: #9a9a95;
+  --line: #2f2f2d;
+  --field: #1e1e1d;
+  --accent: #9bbbe0;
+  --danger: #e0968b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+main {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 24px 16px 32px;
+}
+
+header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.sub {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+form {
+  display: flex;
+  gap: 8px;
+}
+
+input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--field);
+  color: var(--fg);
+  font: inherit;
+}
+
+button {
+  padding: 8px 14px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--bg);
+  font: inherit;
+  cursor: pointer;
+}
+
+button.ghost {
+  padding: 4px 8px;
+  border-color: var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+button.ghost:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+input:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.error {
+  margin: 12px 0 0;
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.empty {
+  margin: 24px 0 0;
+  color: var(--muted);
+}
+
+.notes {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+}
+
+.notes li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+
+.notes li:last-child {
+  border-bottom: 1px solid var(--line);
+}
+
+.note-body {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.note-time {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

@@ -14,6 +14,9 @@ const ASK_NOTE = "The person approves each call of this tool before it runs; the
 
 const words = (tool) => String(tool).replace(/[_.\/-]+/g, " ").trim();
 
+/** An app's tool's gateway name: app__<app>__<tool>, short enough for every CLI. */
+const appToolName = (app, tool) => F.gatewayToolName(`app__${app}`, tool);
+
 function within(p, ms) {
   let timer;
   return Promise.race([p, new Promise((_, reject) => (timer = setTimeout(() => reject(new Error("not ready")), ms)))]).finally(() => clearTimeout(timer));
@@ -29,8 +32,10 @@ function within(p, ms) {
  * @param {() => void} o.onChange
  * @param {() => Date} [o.now]
  * @param {number} [o.listWaitMs]
+ * @param {ReturnType<import("./apps.cjs").createApps>} [o.apps]  the bot's apps; their tools on a granted app are listed as app__<app>__<tool>
+ * @param {ReturnType<import("./appHost.cjs").createAppHost>} [o.appHost]  runs an app's tool in its hidden window
  */
-function createGateway({ store, connectors, connections, approve, runner, onChange, now = () => new Date(), listWaitMs = LIST_WAIT_MS }) {
+function createGateway({ store, connectors, connections, approve, runner, onChange, now = () => new Date(), listWaitMs = LIST_WAIT_MS, apps = null, appHost = null }) {
   /** runId → (gateway name → { connector, tool, title }) as last listed. */
   const runs = new Map();
   /** runId → calls in flight, to stop when the run ends. */
@@ -64,8 +69,36 @@ function createGateway({ store, connectors, connections, approve, runner, onChan
       const description = [t.description, level === "ask" ? ASK_NOTE : ""].filter(Boolean).join("\n\n");
       tools.push({ name, ...(t.title ? { title: t.title } : {}), description, inputSchema: t.inputSchema, annotations: t.annotations });
     }
+    if (apps && appHost) {
+      for (const a of apps.list(ctx.slug)) {
+        if (!a.grant) continue;
+        for (const t of a.tools) {
+          const name = appToolName(a.name, t.name);
+          map.set(name, { app: a.name, tool: t.name, title: a.title || a.name });
+          tools.push({ name, title: `${a.title || a.name}: ${words(t.name)}`, description: t.description, inputSchema: t.input });
+        }
+      }
+    }
     runs.set(ctx.runId, map);
     return tools;
+  }
+
+  /** An app's tool: no approval card (it runs sealed in the app's own window), logged as an app_tool event. */
+  async function callApp(ctx, hit, args) {
+    const started = Date.now();
+    const log = (ok) => runner.record(ctx.runId, { type: "app_tool", at: now().toISOString(), app: hit.app, tool: hit.tool, ok, ms: Date.now() - started });
+    if (!apps.grantOf(ctx.slug, hit.app)) {
+      log(false);
+      throw new Error(`The person has not allowed ${hit.app}'s permissions, or has taken them back, so its tool ${hit.tool} can't run. Don't try it again; say in your reply that the app needs its permissions allowed.`);
+    }
+    try {
+      const json = await appHost.callTool(ctx.slug, hit.app, hit.tool, args);
+      log(true);
+      return { text: "", data: { content: [{ type: "text", text: json }], isError: false } };
+    } catch (e) {
+      log(false);
+      throw e;
+    }
   }
 
   function setAlways(slug, connector, tool) {
@@ -89,6 +122,7 @@ function createGateway({ store, connectors, connections, approve, runner, onChan
       const near = F.closest(name, [...map.keys()]);
       throw new Error(`There is no connector tool "${name.slice(0, 80)}" for you.${near ? ` Did you mean "${near}"?` : ""} Yours: ${[...map.keys()].join(", ") || "none"}.`);
     }
+    if (hit.app) return callApp(ctx, hit, args);
     // The level now, not when listed: the person may have changed it during the run.
     const grant = grantsOf(ctx.slug).find((g) => g.name === hit.connector);
     const level = grant && connectors.has(hit.connector) ? F.levelOf(grant, hit.tool) : "off";

@@ -1,20 +1,24 @@
-// Viewers for files on the bot's disk: images, video and audio, text, and PDF.
+// Viewers for files on the bot's disk: images, video and audio, text and code,
+// tables (spreadsheets, csv, tsv), PDF, and an info view for the rest.
 // Body only: the window frame (title bar, close) is drawn by the desktop, so
 // nothing here draws one. Every file is loaded from its crewfile URL, which the
 // main process hands out for a disk path (crew:diskUrl).
 
-import { useEffect, useRef, useState, type KeyboardEvent, type SyntheticEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type SyntheticEvent } from "react";
+import { toast } from "@opendeck/shell";
 import type { BotSummary, DiskEntry } from "../shared/contract.ts";
 import { errorText, invoke } from "../shared/api.ts";
 import { FileIcon } from "./FileIcon.tsx";
 import { fileIconFor } from "./fileIcons.ts";
+import { formatSize, kindLabel } from "./diskPaths.ts";
+import { TABLE_BYTES_LIMIT, columnLetters, isNumeric, limitNote, readTables, tableFormatOf, type Table } from "./tableModel.ts";
 
 const TEXT_LIMIT = 1024 * 1024;
 const ZOOM_MIN = 0.1;
 const ZOOM_MAX = 8;
 
 /** The crewfile URL of a disk entry, or the reason it has none. */
-function useDiskUrl(slug: string, path: string): { url: string | null; error: string | null } {
+export function useDiskUrl(slug: string, path: string): { url: string | null; error: string | null } {
   const [state, setState] = useState<{ key: string; url: string | null; error: string | null }>({ key: "", url: null, error: null });
   const key = `${slug}\n${path}`;
   useEffect(() => {
@@ -311,7 +315,81 @@ export interface TextViewerProps {
   entry: DiskEntry;
 }
 
-/** The first 1 MB of a text file, read-only, in monospace. */
+/** Text with a line-number gutter. One scroller holds both, so the numbers stay level with their lines. */
+/** Line ranges (1-based, inclusive) as a set of line numbers. */
+export function linesIn(ranges: readonly (readonly [number, number])[]): Set<number> {
+  const out = new Set<number>();
+  for (const [from, to] of ranges) for (let n = from; n <= to; n++) out.add(n);
+  return out;
+}
+
+/** The text with line numbers. Lines in `changed` (1-based numbers) get a quiet bar on the left. */
+export function NumberedText({ name, text, changed }: { name: string; text: string; changed?: Set<number> }) {
+  const lines = useMemo(() => text.split("\n"), [text]);
+  const numbers = useMemo(() => lines.map((_, i) => i + 1).join("\n"), [lines]);
+  return (
+    <div className="vw-code" tabIndex={0} role="region" aria-label={`${name}, lines`}>
+      {changed && changed.size > 0 ? (
+        <>
+          <pre className="vw-gutter" aria-hidden="true">
+            {lines.map((_, i) => (
+              <span key={i} className={`vw-line${changed.has(i + 1) ? " is-changed" : ""}`}>{i + 1}</span>
+            ))}
+          </pre>
+          <pre className="vw-code-text">
+            {lines.map((l, i) => (
+              <span key={i} className={`vw-line${changed.has(i + 1) ? " is-changed" : ""}`}>{l || " "}</span>
+            ))}
+          </pre>
+        </>
+      ) : (
+        <>
+          <pre className="vw-gutter" aria-hidden="true">{numbers}</pre>
+          <pre className="vw-code-text">{text}</pre>
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A text file's first 1 MB, decoded. Rejects with a reason a person can read: HTTP
+ * errors, and "Not a text file." for a file with NUL bytes.
+ */
+export async function readText(url: string): Promise<{ text: string; truncated: boolean }> {
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  let cut = false;
+  if (res.body) {
+    const reader = res.body.getReader();
+    while (total < TEXT_LIMIT) {
+      const { done, value } = await reader.read();
+      if (done || !value) break;
+      chunks.push(value);
+      total += value.byteLength;
+    }
+    cut = total >= TEXT_LIMIT;
+    if (cut) await reader.cancel();
+  } else {
+    const all = new Uint8Array(await res.arrayBuffer());
+    cut = all.byteLength > TEXT_LIMIT;
+    chunks.push(all);
+    total = all.byteLength;
+  }
+  const joined = new Uint8Array(total);
+  let at = 0;
+  for (const c of chunks) {
+    joined.set(c, at);
+    at += c.byteLength;
+  }
+  const decoded = new TextDecoder("utf-8").decode(joined.subarray(0, Math.min(total, TEXT_LIMIT)));
+  if (decoded.includes("\u0000")) throw new Error("Not a text file.");
+  return { text: decoded, truncated: cut };
+}
+
+/** The first 1 MB of a text or code file, read-only, in monospace, with line numbers. */
 export function TextViewer({ bot, entry }: TextViewerProps) {
   const { url, error } = useDiskUrl(bot.slug, entry.path);
   const [text, setText] = useState<string | null>(null);
@@ -323,46 +401,15 @@ export function TextViewer({ bot, entry }: TextViewerProps) {
     let live = true;
     setText(null);
     setLoadError(null);
-    (async () => {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const chunks: Uint8Array[] = [];
-      let total = 0;
-      let cut = false;
-      if (res.body) {
-        const reader = res.body.getReader();
-        while (total < TEXT_LIMIT) {
-          const { done, value } = await reader.read();
-          if (done || !value) break;
-          chunks.push(value);
-          total += value.byteLength;
-        }
-        cut = total >= TEXT_LIMIT;
-        if (cut) await reader.cancel();
-      } else {
-        const all = new Uint8Array(await res.arrayBuffer());
-        cut = all.byteLength > TEXT_LIMIT;
-        chunks.push(all);
-        total = all.byteLength;
-      }
-      const joined = new Uint8Array(total);
-      let at = 0;
-      for (const c of chunks) {
-        joined.set(c, at);
-        at += c.byteLength;
-      }
-      const bytes = joined.subarray(0, Math.min(total, TEXT_LIMIT));
-      const decoded = new TextDecoder("utf-8").decode(bytes);
-      if (!live) return;
-      if (decoded.includes("\u0000")) {
-        setLoadError("Not a text file.");
-        return;
-      }
-      setTruncated(cut);
-      setText(decoded);
-    })().catch((e) => {
-      if (live) setLoadError(errorText(e));
-    });
+    readText(url)
+      .then((r) => {
+        if (!live) return;
+        setTruncated(r.truncated);
+        setText(r.text);
+      })
+      .catch((e) => {
+        if (live) setLoadError(errorText(e));
+      });
     return () => {
       live = false;
     };
@@ -371,14 +418,14 @@ export function TextViewer({ bot, entry }: TextViewerProps) {
   const failure = error ?? loadError;
 
   return (
-    <div className="vw vw-text" tabIndex={0} aria-label={`${entry.name}, text`}>
+    <div className="vw vw-text" aria-label={`${entry.name}, text`}>
       {failure ? (
         <p className="vw-note">{`Could not open this file. ${failure}`}</p>
       ) : text === null ? (
         <p className="vw-note">Loading…</p>
       ) : (
         <>
-          <pre className="vw-pre">{text}</pre>
+          <NumberedText name={entry.name} text={text} />
           {truncated && <p className="vw-foot">Showing the first 1 MB.</p>}
         </>
       )}
@@ -402,6 +449,178 @@ export function PdfViewer({ bot, entry }: PdfViewerProps) {
   return (
     <div className="vw vw-pdf">
       <iframe className="vw-frame" src={url} title={entry.name} />
+    </div>
+  );
+}
+
+export interface TableViewerProps {
+  bot: BotSummary;
+  entry: DiskEntry;
+}
+
+/**
+ * A spreadsheet or a csv or tsv file, read-only: the first rows and columns of
+ * each sheet, values only. A csv or tsv file also has its raw text one click away.
+ */
+export function TableViewer({ bot, entry }: TableViewerProps) {
+  const { url, error } = useDiskUrl(bot.slug, entry.path);
+  const format = tableFormatOf(entry.name);
+  const delimited = format === "csv" || format === "tsv";
+  const [mode, setMode] = useState<"table" | "text">("table");
+  const [sheet, setSheet] = useState(0);
+  const [load, setLoad] = useState<{ url: string; tables: Table[] | null; error: string | null }>({ url: "", tables: null, error: null });
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  useEffect(() => {
+    if (!url) return;
+    let live = true;
+    if (entry.size > TABLE_BYTES_LIMIT) {
+      setLoad({ url, tables: null, error: `Crew shows tables up to ${TABLE_BYTES_LIMIT / (1024 * 1024)} MB.` });
+      return;
+    }
+    (async () => {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const tables = await readTables(entry.name, new Uint8Array(await res.arrayBuffer()));
+      if (live) setLoad({ url, tables, error: null });
+    })().catch((e) => {
+      if (live) setLoad({ url, tables: null, error: errorText(e) });
+    });
+    return () => {
+      live = false;
+    };
+  }, [url]);
+
+  const current = url && load.url === url ? load : null;
+  const failure = error ?? current?.error ?? null;
+  const tables = current?.tables ?? null;
+  const index = tables && tables.length ? Math.min(sheet, tables.length - 1) : 0;
+  const active = tables?.[index];
+  const note = active ? limitNote(active) : null;
+
+  const onTabKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (!tables || tables.length < 2) return;
+    const by = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+    if (!by) return;
+    e.preventDefault();
+    const next = (index + by + tables.length) % tables.length;
+    setSheet(next);
+    tabRefs.current[next]?.focus();
+  };
+
+  return (
+    <div className="vw vw-table" aria-label={`${entry.name}, ${delimited ? "table" : "spreadsheet"}`}>
+      {delimited && (
+        <div className="vw-bar">
+          <button type="button" className="btn ghost" aria-pressed={mode === "table"} onClick={() => setMode("table")}>
+            Table
+          </button>
+          <button type="button" className="btn ghost" aria-pressed={mode === "text"} onClick={() => setMode("text")}>
+            Text
+          </button>
+        </div>
+      )}
+      {mode === "text" ? (
+        <TextViewer bot={bot} entry={entry} />
+      ) : failure ? (
+        <p className="vw-note">{`Could not open this file. ${failure}`}</p>
+      ) : !tables ? (
+        <p className="vw-note">Loading…</p>
+      ) : !active ? (
+        <p className="vw-note">This workbook has no sheets.</p>
+      ) : active.totalRows === 0 ? (
+        <p className="vw-note">This sheet is empty.</p>
+      ) : (
+        <>
+          <TableGrid name={entry.name} table={active} />
+          {note && <p className="vw-foot">{note}</p>}
+        </>
+      )}
+      {mode === "table" && tables && tables.length > 1 && (
+        <div className="tv-tabs" role="tablist" aria-label="Sheets" onKeyDown={onTabKey}>
+          {tables.map((t, i) => (
+            <button
+              key={i}
+              ref={(el) => {
+                tabRefs.current[i] = el;
+              }}
+              type="button"
+              role="tab"
+              className="tab"
+              aria-selected={i === index}
+              tabIndex={i === index ? 0 : -1}
+              onClick={() => setSheet(i)}
+            >
+              {t.title || `Sheet ${i + 1}`}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The grid: column letters across a sticky header, row numbers down a sticky side, numbers in monospace on the right. */
+function TableGrid({ name, table }: { name: string; table: Table }) {
+  const letters = useMemo(() => columnLetters(table), [table]);
+  return (
+    <div className="tv-scroll" tabIndex={0} role="region" aria-label={table.title ? `${name}, ${table.title}` : name}>
+      <table className="tv-grid">
+        <thead>
+          <tr>
+            <th scope="col" className="tv-corner" />
+            {letters.map((l) => (
+              <th key={l} scope="col" className="tv-col">
+                {l}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {table.rows.map((row, r) => (
+            <tr key={r}>
+              <th scope="row" className="tv-row">
+                {r + 1}
+              </th>
+              {row.map((v, c) => (
+                <td key={c} className={isNumeric(v) ? "tv-num" : undefined} title={v.length > 28 ? v : undefined}>
+                  {v}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export interface FileInfoProps {
+  bot: BotSummary;
+  entry: DiskEntry;
+}
+
+/** A file Crew has no viewer for: its name, kind and size, and the one thing to do with it. */
+export function FileInfo({ bot, entry }: FileInfoProps) {
+  const saveCopy = () => {
+    invoke("crew:saveCopy", bot.slug, entry.path)
+      .then((to) => to && toast("Saved a copy."))
+      .catch((e) => toast(errorText(e)));
+  };
+  return (
+    <div className="vw vw-info" aria-label={`${entry.name}, file`}>
+      <dl className="vw-facts">
+        <dt>Name</dt>
+        <dd>{entry.name}</dd>
+        <dt>Kind</dt>
+        <dd>{kindLabel(entry.kind)}</dd>
+        <dt>Size</dt>
+        <dd>{formatSize(entry.size)}</dd>
+      </dl>
+      <p className="vw-note">Crew can't show this file.</p>
+      <button type="button" className="btn" onClick={saveCopy}>
+        Save a copy to…
+      </button>
     </div>
   );
 }

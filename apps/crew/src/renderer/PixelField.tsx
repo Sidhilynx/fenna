@@ -60,8 +60,8 @@ export function PixelField({ density = 6, cell = 3, color = "--text-3", alpha = 
       const dpr = window.devicePixelRatio || 1;
       canvas.width = Math.max(1, Math.round(w * dpr));
       canvas.height = Math.max(1, Math.round(h * dpr));
-      canvas.style.width = `${w}px`;
-      canvas.style.height = `${h}px`;
+      // Its size on screen comes from CSS (the parent's box), never from here: a fixed width could
+      // overflow the parent, add a scrollbar, and loop with this resize.
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       cols = Math.max(1, Math.floor(w / cell));
       rows = Math.max(1, Math.floor(h / cell));

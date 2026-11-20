@@ -88,7 +88,7 @@ shown). Faces are the only exception to the no-decorative-icons rule.
 ## MCP (draft, Claude finishes it)
 
 `crew` server, given to every bot: `ask_human` (question, options, multi),
-`request_approval` (action, details), `message_bot`, `create_bot` (needs
+`request_approval` (action, details), `message_bot` (bot, message, files: copies up to 20 files and 500 MB from the sender's disk into the other bot's Files/From <sender>/ or its Documents; never moves them), `create_bot` (needs
 approval), `remember` (append to memory.md), `set_status` (status line and
 mood). `browser` server: `open`, `snapshot` (page as text with element refs),
 `click`, `type`, `press`, `scroll`, `back`, `screenshot`, and tabs: `tabs`,
@@ -97,6 +97,11 @@ mood). `browser` server: `open`, `snapshot` (page as text with element refs),
 password). Results are small;
 errors say how to fix them; while the person has control, browser tools fail
 with "The person has control of the browser. Wait, then call snapshot again."
+
+Files, on the `crew` server (`apps/crew/src/main/files.cjs`):
+- `read_file` (path, offset, limit, sheet): a file on the bot's disk; text and code a page at a time, CSV, TSV and Excel as tables (every sheet, or `sheet`), images as pictures (shrunk over 1568 px or 3.5 MB), PDFs and binaries named only.
+- `import_sheet` (path, title): an .xlsx or .csv in Files or Downloads becomes a Fenna sheet in the bot's Documents, checked by the sheet package.
+- `export_file` (document, format, to): a Fenna sheet from Documents saved to Files/Outbox as .xlsx (all sheets) or .csv (first sheet); never overwrites.
 
 ## What it must not do
 
@@ -217,6 +222,22 @@ with "The person has control of the browser. Wait, then call snapshot again."
   only when the person presses Send. Fields are exactly those in
   PRIVACY.md#usage-counts; the receiver is `services/usage`. A day Crew is
   open counts as active even with no events. 2026-11-20
+- A bot's computer runs software it makes, under rules in
+  `docs/spec/crew-apps.md`. Apps (`Files/Apps/<name>/`, an `app.json` plus web
+  files) run sealed: own in-memory session, no Node, network only to origins
+  the person granted, a `crew` API checked against the grant. An app can
+  define tools the bot then calls (`app__<name>__<tool>`): a bot gives itself
+  new abilities that run sealed. Projects (`Files/Projects/<name>/`) run
+  `node`, `npm` and `npx` with the person's Node under Node's permission
+  model (project folder only, no child processes; network open, said on the
+  approval card), off until the person turns Projects on for the bot.
+  Containers and mounted folders from the person's computer come later.
+  2026-11-20
+- Crew ships with a Builder bot next to Fenna (every new crew, and older
+  crews once): it builds apps, tools and small websites on its computer,
+  tests them, keeps them working and uses them. It is the one bot with
+  Projects on by default; its first command in a project still asks the
+  person. Deleting it is final. 2026-11-20
 ## Build summary
 
 (Written by the builders.)

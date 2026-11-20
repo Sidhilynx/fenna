@@ -49,8 +49,24 @@ describe("crew server", () => {
   it("offers the brief's tools, each described for the model with an example", async () => {
     const c = await connect("crew");
     const { tools } = await c.listTools();
-    expect(tools.map((t) => t.name).sort()).toEqual(["ask_human", "create_bot", "desktop", "message_bot", "new_document", "remember", "request_approval", "search_files", "set_status", "terminal", "todo", "watch"]);
+    expect(tools.map((t) => t.name).sort()).toEqual(["app", "ask_human", "command", "create_bot", "desktop", "edit_file", "export_file", "import_sheet", "message_bot", "new_document", "processes", "read_file", "remember", "request_approval", "search_files", "set_status", "terminal", "todo", "watch", "write_file"]);
     for (const t of tools) expect(t.description, t.name).toMatch(/Example: \{/);
+  });
+
+  it("forwards write_file and edit_file to the app, and refuses an argument they do not take", async () => {
+    const c = await connect("crew");
+    answer = () => ({ text: "Edited Files/a.txt: 1 match replaced. Changed lines 2." });
+    const e = await call(c, "edit_file", { path: "Files/a.txt", old_string: "a", new_string: "b", replace_all: true });
+    expect(e).toMatchObject({ isError: false, text: "Edited Files/a.txt: 1 match replaced. Changed lines 2." });
+    await call(c, "write_file", { path: "Files/Apps/todo/index.html", content: "<h1>Todo</h1>" });
+    expect(calls).toEqual([
+      { method: "edit_file", params: { path: "Files/a.txt", old_string: "a", new_string: "b", replace_all: true } },
+      { method: "write_file", params: { path: "Files/Apps/todo/index.html", content: "<h1>Todo</h1>" } },
+    ]);
+    const bad = await call(c, "edit_file", { path: "Files/a.txt", old_string: "a", new_string: "b", old: "x" });
+    expect(bad.isError).toBe(true);
+    expect(bad.text).toMatch(/edit_file has no argument "old"; it takes path, old_string, new_string, replace_all/);
+    expect(calls).toHaveLength(2);
   });
 
   it("forwards watch and todo calls to the app, and refuses a kind it does not know", async () => {
@@ -101,6 +117,19 @@ describe("crew server", () => {
     };
     const r = await call(c, "message_bot", { bot: "reserch", message: "hi" });
     expect(r).toMatchObject({ isError: true, text: 'There is no bot "reserch". Bots: research, inbox.' });
+  });
+
+  it("hands files to another bot as paths, and refuses more than the hand-off allows", async () => {
+    const c = await connect("crew");
+    await call(c, "message_bot", { bot: "inbox", message: "Sort these", files: ["Files/notes/a.txt", "Documents/q3-report"] });
+    await call(c, "message_bot", { bot: "inbox", message: "Plain" });
+    expect(calls.map((x) => x.params)).toEqual([
+      { bot: "inbox", message: "Sort these", files: ["Files/notes/a.txt", "Documents/q3-report"] },
+      { bot: "inbox", message: "Plain", files: [] },
+    ]);
+    const tooMany = await call(c, "message_bot", { bot: "inbox", message: "x", files: Array.from({ length: 21 }, (_, i) => `Files/f${i}.txt`) });
+    expect(tooMany.isError).toBe(true);
+    expect(calls).toHaveLength(2);
   });
 
   it("makes a doc with content in the library that the doc format reads cleanly", async () => {

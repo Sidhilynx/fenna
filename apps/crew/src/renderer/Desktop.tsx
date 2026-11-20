@@ -6,13 +6,15 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { Menu, toast } from "@opendeck/shell";
 import { FENNA_APPS } from "@opendeck/crew";
-import { DESKTOP_APPS, DESKTOP_MAX, SHORTCUT_LABEL_MAX, type DesktopApp, type DesktopShortcut } from "../shared/contract.ts";
+import { DESKTOP_APPS, DESKTOP_MAX, SHORTCUT_LABEL_MAX, type AppInfo, type DesktopApp, type DesktopShortcut } from "../shared/contract.ts";
 import { errorText, invoke, on } from "../shared/api.ts";
 import { FileIcon } from "./FileIcon.tsx";
-import { appIconFor } from "./fileIcons.ts";
+import { appIconFor, type FileIconName } from "./fileIcons.ts";
 import { PixelIcon } from "./PixelIcon.tsx";
+import { useNow } from "./UserApp.tsx";
+import { appBadge, userAppIcon } from "./userApps.ts";
 
-const APP_LABEL: Record<DesktopApp, string> = { browser: "Browser", files: "Files", library: "Documents", terminal: "Terminal", activity: "Activity", clock: "Clock", connectors: "Connectors", trash: "Trash" };
+const APP_LABEL: Record<DesktopApp, string> = { browser: "Browser", files: "Files", library: "Documents", terminal: "Terminal", activity: "Activity", clock: "Clock", connectors: "Connectors", trash: "Trash", code: "Code", processes: "Processes", console: "Console" };
 
 const ID_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789";
 
@@ -205,7 +207,7 @@ export function useDesktop(slug: string): { items: DesktopShortcut[]; ready: boo
 }
 
 /** An icon's picture at `size` px: the Fenna app's own icon, a site's favicon, or a pixel icon. */
-export function ShortcutArt({ item, size }: { item: DesktopShortcut; size: number }) {
+export function ShortcutArt({ item, size, userIcon }: { item: DesktopShortcut; size: number; userIcon?: FileIconName }) {
   const origin = item.kind === "web" ? originOf(item.url) : "";
   const [favicon, setFavicon] = useState<string | null>(null);
 
@@ -222,6 +224,7 @@ export function ShortcutArt({ item, size }: { item: DesktopShortcut; size: numbe
   }, [origin]);
 
   if (item.kind === "fenna" || item.kind === "app") return <FileIcon name={appIconFor(item.app)} size={size} />;
+  if (item.kind === "userapp") return <FileIcon name={userIcon ?? "other"} size={size} />;
   if (favicon) {
     const px = Math.round((size * 2) / 3);
     return <img className="desk-favicon" src={favicon} alt="" width={px} height={px} draggable={false} onError={() => setFavicon(null)} />;
@@ -238,14 +241,18 @@ interface MenuAt {
 export function DesktopIcons({
   slug,
   items,
+  apps,
   save,
   onOpen,
 }: {
   slug: string;
   items: DesktopShortcut[];
+  /** The bot's apps, for the icons of its own apps; null until they load. */
+  apps: AppInfo[] | null;
   save(items: DesktopShortcut[]): void;
   onOpen(item: DesktopShortcut): void;
 }) {
+  const now = useNow();
   const [selected, setSelected] = useState<string | null>(null);
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -426,6 +433,9 @@ export function DesktopIcons({
           const cell = layout.get(item.id) ?? { col: 0, row: 0 };
           const moving = drag?.id === item.id ? drag : null;
           const tabStop = selected ? selected === item.id : index === 0;
+          const info = item.kind === "userapp" ? apps?.find((a) => a.name === item.app) : undefined;
+          const badge = info ? appBadge(info, now) : null;
+          const badgeWord = badge === "needs" ? ", waiting for you" : badge === "changed" ? ", changed" : "";
           return (
             <div
               key={item.id}
@@ -435,7 +445,7 @@ export function DesktopIcons({
               }}
               role="option"
               aria-selected={selected === item.id}
-              aria-label={item.label}
+              aria-label={`${item.label}${badgeWord}`}
               tabIndex={tabStop ? 0 : -1}
               className={`desk-icon${moving ? " dragging" : ""}`}
               style={{
@@ -492,7 +502,8 @@ export function DesktopIcons({
               }}
             >
               <span className={`desk-mark${item.kind === "fenna" ? " plain" : ""}`}>
-                <ShortcutArt item={item} size={48} />
+                <ShortcutArt item={item} size={48} userIcon={info ? userAppIcon(info.icon) : undefined} />
+                {badge && <span className={`desk-badge ${badge}`} aria-hidden />}
               </span>
               {isRenaming ? (
                 <input
