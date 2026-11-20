@@ -50,6 +50,7 @@ export function Composer({ name, running, onSend, onStop, mentions, hint, attach
   };
   const removeFile = (f: File) => {
     setFiles((cur) => cur.filter((x) => x !== f));
+    setError("");
     ta.current?.focus();
   };
   const dropped = (e: { dataTransfer: DataTransfer | null }) => Array.from(e.dataTransfer?.types ?? []).includes("Files");

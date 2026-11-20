@@ -820,9 +820,15 @@ function createDisk({ store, broadcast = () => {}, starterFiles = require("./edi
     protocol.registerSchemesAsPrivileged([{ scheme: "crewfile", privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } }]);
   }
 
-  /** Serves a file with Range support (video and audio seek). Sandboxed, so a page a bot made can't run script from it. */
+  /**
+   * Serves a file with Range support (video and audio seek). Sandboxed, so a page a bot made can't run script from it.
+   * Readable by fetch only from Crew's own page (the built page's origin is file:// or "null"; the dev server is on localhost).
+   */
   function serve(request, file, size, type) {
+    const origin = request.headers.get("origin");
+    const readable = origin === "null" || origin === "file://" || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin || "");
     const headers = {
+      ...(readable ? { "access-control-allow-origin": origin, vary: "origin" } : {}),
       "content-type": type,
       "accept-ranges": "bytes",
       "content-security-policy": "sandbox",

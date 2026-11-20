@@ -60,7 +60,11 @@ let sandbox = null;
 
 // Electron takes the privileged schemes in one call: the editors' asset schemes and the bots' disks (crewfile).
 const PRIVILEGED = { standard: true, secure: true, supportFetchAPI: true, stream: true };
-protocol.registerSchemesAsPrivileged([...editorSchemes(), "crewfile"].map((scheme) => ({ scheme, privileges: PRIVILEGED })));
+// crewfile is also read with fetch (text and table viewers), which needs CORS on; disk.cjs says which origins may read it.
+protocol.registerSchemesAsPrivileged([
+  ...editorSchemes().map((scheme) => ({ scheme, privileges: PRIVILEGED })),
+  { scheme: "crewfile", privileges: { ...PRIVILEGED, corsEnabled: true } },
+]);
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();

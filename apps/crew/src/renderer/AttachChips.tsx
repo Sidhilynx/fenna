@@ -4,6 +4,7 @@
 // other chips show their name and size.
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import type { RunAttachment } from "@opendeck/crew";
 import type { BotSummary, DiskEntry } from "../shared/contract.ts";
 import { formatSize } from "./diskPaths.ts";
@@ -144,7 +145,8 @@ export function AttachViewer({ bot, entry, onClose }: { bot: BotSummary; entry: 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
-  return (
+  // On the page itself, so no panel's stacking can cover it.
+  return createPortal(
     <div className="att-scrim" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="att-modal" role="dialog" aria-modal="true" aria-label={entry.name} ref={dialog} tabIndex={-1}>
         <header className="att-modal-head">
@@ -157,6 +159,7 @@ export function AttachViewer({ bot, entry, onClose }: { bot: BotSummary; entry: 
           <ImageViewer bot={bot} entry={entry} />
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
