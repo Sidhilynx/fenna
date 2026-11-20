@@ -1,7 +1,7 @@
 {
   "name": "@opendeck/crew-app",
   "productName": "Fenna Crew",
-  "version": "0.9.5",
+  "version": "0.9.6",
   "private": true,
   "description": "A team of always-on bots that do real work on your own computer, with the AI plan you already have.",
   "license": "AGPL-3.0-only",
