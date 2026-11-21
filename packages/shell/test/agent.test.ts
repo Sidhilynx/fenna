@@ -80,6 +80,23 @@ describe("assistant host: event parsing", () => {
     expect(x.map((e) => e.type)).toEqual(["session", "tool", "tool", "text", "done"]);
   });
 
+  it("reports the tokens a turn used, when the CLI gives them (Claude Code's cost too)", () => {
+    const ev: Record<string, unknown>[] = [];
+    const c = _test.makeParser(app, "claude", (e) => ev.push(e));
+    c.line({ type: "assistant", message: { content: [{ type: "text", text: "Done." }] } });
+    c.line({ type: "result", subtype: "success", total_cost_usd: 0.42, usage: { input_tokens: 10, cache_creation_input_tokens: 100, cache_read_input_tokens: 1000, output_tokens: 50 } });
+    expect(ev.map((e) => e.type)).toEqual(["text", "tokens", "done"]);
+    expect(ev[1]).toEqual({ type: "tokens", input: 1110, output: 50, costUsd: 0.42 });
+
+    const bare: Record<string, unknown>[] = [];
+    _test.makeParser(app, "claude", (e) => bare.push(e)).line({ type: "result", subtype: "success", usage: {} });
+    expect(bare.map((e) => e.type)).toEqual(["done"]);
+
+    const x: Record<string, unknown>[] = [];
+    _test.makeParser(app, "codex", (e) => x.push(e)).line({ type: "turn.completed", usage: { input_tokens: 900, cached_input_tokens: 400, output_tokens: 30 } });
+    expect(x).toEqual([{ type: "tokens", input: 900, output: 30, costUsd: null }, { type: "done", sessionId: null }]);
+  });
+
   it("explains common failures in plain words, with what would fix them", () => {
     expect(_test.friendly("claude", "Error: 401 Unauthorized")).toEqual({ message: "Claude Code needs you to sign in again.", fix: "signin" });
     expect(_test.friendly("codex", "rate limit exceeded (429)").message).toMatch(/usage limit/);

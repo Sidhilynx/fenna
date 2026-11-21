@@ -8,6 +8,7 @@ import "./px/computer.css";
 import "./px/overview.css";
 import "./px/apps.css";
 import "./px/processes.css";
+import "./px/usage.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { installTooltips } from "@opendeck/shell";

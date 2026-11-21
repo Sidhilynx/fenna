@@ -157,7 +157,7 @@ export function Sidebar() {
     </button>
   );
 
-  const page = (name: "crew" | "connectors" | "vault" | "settings", label: string, icon: PixelIconName) => (
+  const page = (name: "crew" | "connectors" | "vault" | "usage" | "settings", label: string, icon: PixelIconName) => (
     <button type="button" className="icon-btn" aria-label={label} title={label} aria-current={route.name === name ? "page" : undefined} onClick={() => go({ name })}>
       <PixelIcon name={icon} />
     </button>
@@ -224,6 +224,7 @@ export function Sidebar() {
           </MenuButton>
           {page("connectors", "Connectors", "connectors")}
           {page("vault", "Vault", "vault")}
+          {page("usage", "Usage", "usage")}
           {page("settings", "Settings", "settings")}
         </div>
         {overlays}
@@ -269,6 +270,10 @@ export function Sidebar() {
       <button type="button" className="row side-overview side-link" aria-current={route.name === "vault" ? "page" : undefined} onClick={() => go({ name: "vault" })}>
         <PixelIcon name="vault" />
         <span className="ell">Vault</span>
+      </button>
+      <button type="button" className="row side-overview side-link" aria-current={route.name === "usage" ? "page" : undefined} onClick={() => go({ name: "usage" })}>
+        <PixelIcon name="usage" />
+        <span className="ell">Usage</span>
       </button>
       <button type="button" className="row side-overview side-link" aria-current={route.name === "settings" ? "page" : undefined} onClick={() => go({ name: "settings" })}>
         <PixelIcon name="settings" />

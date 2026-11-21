@@ -50,6 +50,7 @@ export type PixelIconName =
   | "send"
   | "question"
   | "shield"
+  | "usage"
   | "attention";
 
 export const PIXEL_ICONS: Record<PixelIconName, readonly string[]> = {
@@ -667,6 +668,20 @@ export const PIXEL_ICONS: Record<PixelIconName, readonly string[]> = {
     "..xxxxxxxx..",
     "...xxxxxx...",
     "....xxxx....",
+    "............",
+  ],
+  usage: [
+    "............",
+    "............",
+    ".....xx.....",
+    ".....xx.....",
+    ".....xx.....",
+    "..xx.xx.....",
+    "..xx.xx.....",
+    "..xx.xx.xx..",
+    "..xx.xx.xx..",
+    "..xx.xx.xx..",
+    ".xxxxxxxxxx.",
     "............",
   ],
   attention: [

@@ -476,6 +476,10 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
     const list = await Promise.all(F.CLI_KINDS.map((k) => assistantCatalog(k, { fresh: fresh === true }).catch(() => null)));
     return list.filter(Boolean).map((c) => ({ kind: c.kind, name: c.name, installed: c.installed, signedIn: c.signedIn, version: c.version, account: c.account, models: c.models }));
   });
+  handle("crew:runStats", (_e, range) => {
+    if (range !== undefined && !["7d", "30d", "12w"].includes(range)) throw new Error('The range is "7d", "30d" or "12w".');
+    return crew.runStats.get(range || "30d");
+  });
 }
 
 module.exports = { registerIpc };

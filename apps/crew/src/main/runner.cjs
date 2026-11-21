@@ -234,6 +234,9 @@ function createRunner({ store, startRun, serversFor, link, waits, emitLive, onCh
       const usage = { used: Math.max(0, Math.round(Number(ev.used) || 0)), window: Number(ev.window) > 0 ? Math.round(Number(ev.window)) : null };
       run.usage = usage;
       record(run, { type: "usage", at: iso(), ...usage });
+    } else if (ev.type === "tokens") {
+      const costUsd = Number.isFinite(ev.costUsd) ? Number(ev.costUsd) : null;
+      record(run, { type: "tokens", at: iso(), input: Math.max(0, Math.round(Number(ev.input) || 0)), output: Math.max(0, Math.round(Number(ev.output) || 0)), costUsd });
     } else if (ev.type === "delta") {
       emitLive(run.slug, run.runId, { type: "delta", at: iso(), text: ev.text });
     } else if (ev.type === "text") {

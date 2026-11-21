@@ -985,6 +985,8 @@ function makeParser(profile, kind, emit, { raw = false } = {}) {
           st.finished = true;
           const windows = Object.values(msg.modelUsage || {}).map((m) => Number(m && m.contextWindow) || 0);
           if (st.context) emit({ type: "usage", used: st.context, window: Math.max(0, ...windows) || null });
+          const u = msg.usage;
+          if (u && (Number.isFinite(u.input_tokens) || Number.isFinite(u.output_tokens))) emit({ type: "tokens", input: (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0), output: u.output_tokens || 0, costUsd: Number.isFinite(msg.total_cost_usd) ? msg.total_cost_usd : null });
           if (msg.is_error || st.lastError) emit({ type: "error", message: st.lastError || String(msg.result || "The assistant stopped with an error.") });
           else emit({ type: "done", sessionId: msg.session_id || null });
         }
@@ -1006,6 +1008,7 @@ function makeParser(profile, kind, emit, { raw = false } = {}) {
       else if (msg.type === "error") st.lastError = String(msg.message || "");
       else if (msg.type === "turn.completed") {
         st.finished = true;
+        if (msg.usage && (Number.isFinite(msg.usage.input_tokens) || Number.isFinite(msg.usage.output_tokens))) emit({ type: "tokens", input: Number(msg.usage.input_tokens) || 0, output: Number(msg.usage.output_tokens) || 0, costUsd: null });
         emit({ type: "done", sessionId: null });
       } else if (msg.type === "turn.failed") {
         st.finished = true;
@@ -1099,7 +1102,8 @@ const SERVER_NAME = /^[a-z][a-z0-9-]{0,31}$/;
  * One turn of the user's CLI with no window attached (Fenna Crew's bots).
  * Events go to onEvent as { runId, type, … }, the same events a chat gets:
  * session, delta, text, tool (also naming server and tool), usage (Claude Code:
- * tokens in the context and the model's window), done, error
+ * tokens in the context and the model's window), tokens (Claude Code and Codex,
+ * when the CLI reports them: input, output, costUsd or null), done, error
  * ({ message, fix }), stopped. Exactly one of done, error or stopped ends
  * every run.
  *

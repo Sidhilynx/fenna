@@ -6,7 +6,7 @@ import { errorText, invoke, on } from "../shared/api.ts";
 import type { BotDetail, BotSummary, CliStatus, ConnectorView, Overview, TeamSummary, VaultItemView, Waiting } from "../shared/contract.ts";
 import { absorbOverview } from "./screens.ts";
 
-export type Route = { name: "crew" } | { name: "connectors" } | { name: "vault" } | { name: "settings" } | { name: "chat"; slug: string } | { name: "computer"; slug: string; open?: string; launch?: { app: string; props?: Record<string, unknown>; key?: string; title?: string } } | { name: "team"; slug: string };
+export type Route = { name: "crew" } | { name: "connectors" } | { name: "vault" } | { name: "usage" } | { name: "settings" } | { name: "chat"; slug: string } | { name: "computer"; slug: string; open?: string; launch?: { app: string; props?: Record<string, unknown>; key?: string; title?: string } } | { name: "team"; slug: string };
 
 export interface Crew {
   overview: Overview;
