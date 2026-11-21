@@ -97,7 +97,8 @@ const FENNA = {
 };
 
 /** The brain's own tools in a coding run (Claude Code, Antigravity, Codex): what the person sees in the chat. */
-const ran = (cmd) => `Ran ${short(cmd, 70)}`;
+// A command as the person reads it, without the folder change in front: `cd "C:/x" && npm test` → "Ran npm test".
+const ran = (cmd) => `Ran ${short(String(cmd ?? "").replace(/^\s*(?:(?:cd|pushd|set-location|sl)\s+(?:"[^"]*"|'[^']*'|\S+)\s*(?:&&|;)\s*)+/i, ""), 70)}`;
 const NATIVE = {
   Bash: (p) => ran(p.command),
   PowerShell: (p) => ran(p.command),

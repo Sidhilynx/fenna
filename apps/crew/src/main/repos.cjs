@@ -98,16 +98,54 @@ function checkTool(dir, tool, input) {
     if (!cmd) return { deny: "Say the command to run." };
     if (GIT_BLOCKED.test(cmd)) return { deny: "Pushing, remotes, credentials and hooks go through Crew: commit here, then call repo {action: \"push\"} and the person approves it." };
     if (GH_BLOCKED.test(cmd)) return { deny: "Pull requests, releases and GitHub settings go through the GitHub connector or repo push, with the person's approval." };
-    const program = programOf(cmd);
-    return { ask: { action: `Run ${program} in Files/Repos`, details: `The command: ${cmd.slice(0, 600)}\n\nIt runs as you on this computer, in ${dir}. Always lets ${program} run in your bot's repos without asking.`, key: program } };
+    const programs = programsOf(cmd);
+    const hidden = HIDDEN_COMMAND.test(cmd);
+    const what = programs.length ? programs.join(", ") : "a command";
+    return {
+      ask: {
+        action: `Run ${what} in Files/Repos`,
+        details: `The command: ${cmd.slice(0, 600)}\n\nIt runs as you on this computer, in ${dir}.${hidden ? " It builds a command to run from text, so it asks every time." : ` Always lets ${what} run in your bot's repos without asking.`}`,
+        key: programs[0] ?? "command",
+        keys: programs,
+        hidden,
+      },
+    };
   }
-  return { ask: { action: `Use ${name}`, details: JSON.stringify(args).slice(0, 600), key: name } };
+  return { ask: { action: `Use ${name}`, details: JSON.stringify(args).slice(0, 600), key: name, keys: [name], hidden: false } };
 }
 
-/** The program a shell command starts with, lowercased and without its folder or .exe: "npm", "flutter", "python". */
+// A command that runs text as a command: always the person's decision, never "always".
+const HIDDEN_COMMAND = /\$\(|`|<\(|\|\s*(?:sh|bash|zsh|cmd|powershell|pwsh|iex)\b|\b(?:invoke-expression|iex|eval|exec)\b|\b(?:bash|sh|zsh)\s+-c\b|\bcmd(?:\.exe)?\s+\/c\b|\b(?:powershell|pwsh)(?:\.exe)?\s+(?:-\w+\s+)*-(?:c|command|encodedcommand|e)\b/i;
+// Moving between folders runs nothing.
+const NAVIGATION = new Set(["cd", "pushd", "popd", "set-location", "sl", "chdir"]);
+
+/** The program one part of a command line starts with, lowercased and without its folder or .exe: "npm", "flutter", "python". */
 function programOf(cmd) {
-  const first = String(cmd).trim().replace(/^(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)+/, "").split(/\s+/)[0] || "";
+  const first = String(cmd).trim().replace(/^(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)+/, "").replace(/^&\s*/, "").split(/\s+/)[0] || "";
   return path.basename(first.replace(/^["'&]+|["']+$/g, "")).replace(/\.(exe|cmd|bat|ps1)$/i, "").toLowerCase() || "command";
+}
+
+/** Every program a command line runs, in order and once each, without folder changes: `cd x && npm test | tee log` → ["npm", "tee"]. */
+function programsOf(cmd) {
+  const parts = [];
+  let cur = "";
+  let quote = null;
+  const text = String(cmd);
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quote) {
+      if (ch === quote) quote = null;
+      cur += ch;
+    } else if (ch === '"' || ch === "'") {
+      quote = ch;
+      cur += ch;
+    } else if (ch === ";" || ch === "|" || ch === "&" || ch === "\n") {
+      if (cur.trim()) parts.push(cur);
+      cur = "";
+    } else cur += ch;
+  }
+  if (cur.trim()) parts.push(cur);
+  return [...new Set(parts.map(programOf).filter((p) => p && !NAVIGATION.has(p)))];
 }
 
 /**
@@ -446,12 +484,14 @@ function createRepos({ disk, store, approve, broadcast = () => {}, git = runGit,
       const d = checkTool(coding.dir, p.tool_name, p.input);
       if (d.allow) return { behavior: "allow", updatedInput: p.input ?? {} };
       if (d.deny) return { behavior: "deny", message: d.deny };
-      if (settings(ctx.slug).programs.includes(d.ask.key)) return { behavior: "allow", updatedInput: p.input ?? {} };
-      const r = await approve(ctx, { action: d.ask.action, details: d.ask.details, source: "repo", tool: d.ask.key });
+      // Allowed without asking only when every program in it is, and nothing in it runs text as a command.
+      const allowed = settings(ctx.slug).programs;
+      if (!d.ask.hidden && d.ask.keys.length && d.ask.keys.every((k) => allowed.includes(k))) return { behavior: "allow", updatedInput: p.input ?? {} };
+      const r = await approve(ctx, { action: d.ask.action, details: d.ask.details, source: "repo", tool: d.ask.hidden ? null : d.ask.key });
       if (!r.allowed) return { behavior: "deny", message: r.by === "person" ? "Denied by the person. Don't try it another way." : "Not approved in time. Say it waits for the person." };
-      if (r.always) {
+      if (r.always && !d.ask.hidden && d.ask.keys.length) {
         const s = settings(ctx.slug);
-        saveSettings(ctx.slug, { ...s, programs: [...new Set([...s.programs, d.ask.key])] });
+        saveSettings(ctx.slug, { ...s, programs: [...new Set([...s.programs, ...d.ask.keys])] });
       }
       return { behavior: "allow", updatedInput: p.input ?? {} };
     },
@@ -499,4 +539,4 @@ function runGit(args, { cwd, env = {} } = {}) {
   });
 }
 
-module.exports = { createRepos, checkTool, programOf, repoName, nameFrom, cloneUrl, branchName, gitConfigText, sandboxed, GIT_ENV };
+module.exports = { createRepos, checkTool, programOf, programsOf, repoName, nameFrom, cloneUrl, branchName, gitConfigText, sandboxed, GIT_ENV };

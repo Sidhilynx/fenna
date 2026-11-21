@@ -66,3 +66,11 @@ describe("Codex's own shell and edits", () => {
     expect(ev.find((e) => e.type === "tool")).toMatchObject({ id: "f1", label: "Edited add.js", status: "done" });
   });
 });
+
+describe("a command's label leaves out the folder change", () => {
+  it("shows the program, not the path", () => {
+    expect(label("Bash", { command: 'cd "C:/Users/me/AppData/Roaming/Fenna Crew/Crew/bots/builder/workspace/Repos/calc" && node test.js' }, "", "ada")).toBe("Ran node test.js");
+    expect(label("Bash", { command: "cd calc; npm test" }, "", "ada")).toBe("Ran npm test");
+    expect(label("Bash", { command: "npm test" }, "", "ada")).toBe("Ran npm test");
+  });
+});

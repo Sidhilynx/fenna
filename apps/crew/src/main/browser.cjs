@@ -1418,6 +1418,29 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
       return { tab: t.id };
     },
 
+    /**
+     * A notification watch hears a site only while one of the bot's tabs is on
+     * it: open the site in a background tab unless one already is. Returns
+     * whether it opened one.
+     */
+    async keepSite(slug, origin) {
+      const a = webAddress(origin);
+      if (a.error) throw new Error(a.error);
+      const b = await get(slug);
+      if (b.tabs.some((x) => originOf(x) === a.url.origin)) return { opened: false };
+      if (b.tabs.length >= MAX_TABS) throw new Error(`${MAX_TABS} tabs are open, the most a bot can have, so Crew can't keep ${a.url.origin} open to hear it. Close a tab.`);
+      const t = newTab(b, { activate: false });
+      await t.ready;
+      t.wc.loadURL(`${a.url.origin}/`).catch(() => {});
+      return { opened: true };
+    },
+
+    /** Whether one of the bot's tabs is on this site now (without opening the browser). */
+    hasSite(slug, origin) {
+      const b = all.get(slug);
+      return !!b && b.tabs.some((x) => originOf(x) === origin);
+    },
+
     /** Stop a watch: the page's observer goes too. */
     async unwatchElement(slug, id) {
       const b = all.get(slug);

@@ -375,3 +375,27 @@ describe("prompt", () => {
     expect(p.split("\n").filter((l) => /^- t\d+  Task/.test(l))).toHaveLength(19);
   });
 });
+
+describe("notification watches keep their site open", () => {
+  it("opens the site in a background tab when set, on start, and after the browser closes, and says whether it is listening", async () => {
+    browsers.keepSite = vi.fn(async () => ({ opened: true }));
+    let open = false;
+    browsers.hasSite = vi.fn(() => open);
+    const x = await w.add(slug, { kind: "notification", origin: "https://web.whatsapp.com", note: "Tell me what Amma says" });
+    await flush();
+    expect(browsers.keepSite).toHaveBeenCalledWith(slug, "https://web.whatsapp.com");
+    expect(w.list(slug).find((y) => y.id === x.id)).toMatchObject({ listening: false });
+    open = true;
+    expect(w.list(slug).find((y) => y.id === x.id)).toMatchObject({ listening: true });
+    w.rearm(slug);
+    w.start();
+    await flush();
+    expect(browsers.keepSite).toHaveBeenCalledTimes(3);
+  });
+
+  it("leaves timer and page watches without a listening state", async () => {
+    browsers.hasSite = vi.fn(() => false);
+    await w.add(slug, { kind: "timer", in: 10, note: "Stretch" });
+    expect(w.list(slug)[0]).not.toHaveProperty("listening");
+  });
+});

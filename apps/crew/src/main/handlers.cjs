@@ -260,6 +260,10 @@ function createHandlers({ store, runner, waits, approve, browsers, gateway, appH
       if (p.action === "add") {
         const w = await watches.add(ctx.slug, { kind: p.kind, note: p.note, origin: p.origin, match: p.match, url: p.url, every: p.every, ref: p.ref, at: p.at, in: p.in });
         said = `Watching ${w.id} (${w.kind}). Crew wakes you when it fires; end your turn now.`;
+        if (w.kind === "notification") {
+          const same = watches.list(ctx.slug).filter((x) => x.id !== w.id && x.kind === "notification" && x.origin === w.origin && (!x.match || !w.match || x.match.toLowerCase() === w.match.toLowerCase()));
+          said = `Watching ${w.id}: Crew keeps ${w.origin} open in a background tab of your browser, because a site is heard only while it is open there. Before you end your turn, open it with your browser tools and check you are signed in; if it shows a sign-in page or a QR code, ask the person to take control and sign in.${!w.match ? " It fires on every notification from the site: give match (like the sender's name) to fire only for one person." : ""}${same.length ? ` Watches ${same.map((x) => x.id).join(", ")} also fire on the same notifications; remove the ones you don't need.` : ""}`;
+        }
       } else if (p.action === "remove") {
         await watches.remove(ctx.slug, String(p.id ?? ""));
         said = `Removed watch ${p.id}.`;

@@ -413,6 +413,8 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
   handle("crew:closeBrowser", (_e, slug) => {
     if (runner.running(slugArg(slug))) return false;
     browsers.close(slug);
+    // Watches listen through the bot's tabs: their sites open again in the background.
+    crew.watches.rearm(slugArg(slug));
     crew.onChange();
     return true;
   });
