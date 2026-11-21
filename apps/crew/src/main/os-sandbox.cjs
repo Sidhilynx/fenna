@@ -18,7 +18,9 @@ const SECRET_PATHS = [".ssh", ".aws", ".azure", ".config/gcloud", ".gnupg", ".do
 /** Throws unless the writable and deny lists are full paths on `platform`, and at least one folder is writable. */
 function checkPaths(writable, readDeny, platform) {
   if (!Array.isArray(writable) || writable.length === 0) throw new Error("Give at least one folder the command may write to, like /home/me/repo.");
-  const full = platform === "win32" ? path.win32.isAbsolute : path.posix.isAbsolute;
+  // Crew wraps commands for the system it runs on; a path full by that system's rules or this one's is accepted.
+  const target = platform === "win32" ? path.win32 : path.posix;
+  const full = (p) => path.isAbsolute(p) || target.isAbsolute(p);
   for (const p of [...writable, ...readDeny]) {
     if (typeof p !== "string" || !full(p)) throw new Error(`"${String(p)}" isn't a full path. Give the folder's full path, like /home/me/repo.`);
   }

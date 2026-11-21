@@ -5,6 +5,9 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+// These tests run real git, which is slow when the whole suite runs at once.
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
+
 const require = createRequire(import.meta.url);
 const { createDisk } = require("../src/main/disk.cjs");
 const { createStore } = require("../src/main/store.cjs");
