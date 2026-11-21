@@ -15,6 +15,7 @@ export type PixelIconName =
   | "search"
   | "settings"
   | "connectors"
+  | "skills"
   | "vault"
   | "site"
   | "browser"
@@ -50,6 +51,7 @@ export type PixelIconName =
   | "send"
   | "question"
   | "shield"
+  | "usage"
   | "attention";
 
 export const PIXEL_ICONS: Record<PixelIconName, readonly string[]> = {
@@ -149,6 +151,20 @@ export const PIXEL_ICONS: Record<PixelIconName, readonly string[]> = {
     ".....xx.....",
     ".....xx.....",
     ".....xx.....",
+    "............",
+  ],
+  skills: [
+    "............",
+    "....xxxx....",
+    "...x....x...",
+    "..x......x..",
+    "..x......x..",
+    "..x......x..",
+    "...x....x...",
+    "....x..x....",
+    "....x..x....",
+    "....xxxx....",
+    "............",
     "............",
   ],
   vault: [
@@ -667,6 +683,20 @@ export const PIXEL_ICONS: Record<PixelIconName, readonly string[]> = {
     "..xxxxxxxx..",
     "...xxxxxx...",
     "....xxxx....",
+    "............",
+  ],
+  usage: [
+    "............",
+    "............",
+    ".....xx.....",
+    ".....xx.....",
+    ".....xx.....",
+    "..xx.xx.....",
+    "..xx.xx.....",
+    "..xx.xx.xx..",
+    "..xx.xx.xx..",
+    "..xx.xx.xx..",
+    ".xxxxxxxxxx.",
     "............",
   ],
   attention: [

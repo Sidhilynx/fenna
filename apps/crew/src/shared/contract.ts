@@ -616,6 +616,43 @@ export interface ConnectorSignInResult {
   needsClientId: boolean;
 }
 
+// ── Skills ─────────────────────────────────────────────────────────────
+// Skills installed on this computer (<userData>/Crew/skills/<name>/): the open
+// Agent Skills format, a folder with SKILL.md. A bot is granted some by name
+// in bot.md; before its run they are copied onto its disk at Files/Skills/<name>/.
+
+export interface SkillFile {
+  path: string;
+  size: number;
+}
+
+/** An installed skill as the page sees it. */
+export interface SkillView {
+  name: string;
+  description: string;
+  files: SkillFile[];
+  size: number;
+  /** Bots granted it. */
+  usedBy: { slug: string; name: string }[];
+}
+
+/** An installed skill in full: its instructions (SKILL.md after its front matter) as well. */
+export interface SkillDetail extends SkillView {
+  body: string;
+}
+
+/** A skill read from a folder, a file or an address, shown in full before it is added. Add it with crew:skillAdd(id). */
+export interface SkillPreview {
+  id: string;
+  name: string;
+  description: string;
+  body: string;
+  files: SkillFile[];
+  size: number;
+  /** A skill of this name is installed; adding replaces it. */
+  replaces: boolean;
+}
+
 // ── The vault ──────────────────────────────────────────────────────────
 // The person's site logins, once per computer (<userData>/Crew/vault.dat,
 // encrypted). Bots are granted them by name in bot.md (LoginGrant: allow or
@@ -659,7 +696,113 @@ export interface CliStatus {
   signedIn: boolean | null;
   version: string | null;
   account: { email: string | null; plan: string | null } | null;
-  models: { value: string; label: string; description: string; efforts: string[]; defaultEffort: string | null }[];
+  /** `local`: a model this computer serves (Ollama, LM Studio), run through Codex. */
+  models: { value: string; label: string; description: string; efforts: string[]; defaultEffort: string | null; local?: { provider: "ollama" | "lmstudio"; sizeBytes: number | null; paramsB: number | null } }[];
+}
+
+/** The Usage page's range: the last 7 days, the last 30 days, or the last 12 weeks. */
+export type UsageRange = "7d" | "30d" | "12w";
+
+/** Numbers from the runs' logs (runstats.cjs). A null means no run reported it, never zero. */
+export interface UsageRow {
+  runs: number;
+  ok: number;
+  failed: number;
+  stopped: number;
+  /** Runs with no end line: still running, or cut off when Crew quit. */
+  unfinished: number;
+  /** Time from start to end, over the runs that ended. */
+  ms: number;
+  /** Input (cached input included) and output tokens, summed over the runs that reported them. */
+  tokens: { input: number; output: number } | null;
+  /** How many runs reported tokens. */
+  tokenRuns: number;
+  /** The CLI's API-equivalent cost estimate, summed over the runs that reported one. Not what a plan bills. */
+  costUsd: number | null;
+}
+
+export interface UsageCli extends UsageRow {
+  cli: CliKind;
+  name: string;
+}
+
+export interface UsageBot {
+  slug: string;
+  name: string;
+  runs: number;
+  ms: number;
+  /** The CLI this bot ran with most often in the range. */
+  cli: CliKind | null;
+}
+
+export interface UsageBucket {
+  /** Local midnight of the day, or of the Monday of the week. */
+  start: number;
+  runs: number;
+  ms: number;
+}
+
+export interface LimitHit {
+  /** When the run stopped. */
+  at: string;
+  slug: string;
+  name: string;
+  cli: CliKind;
+  message: string;
+  /** When the message states a reset time, the next such time; else null. */
+  resetsAt: string | null;
+}
+
+export interface RunStats {
+  range: UsageRange;
+  generatedAt: string;
+  /** Every run the bots have, in all time (not only the range). */
+  runsEver: number;
+  totals: UsageRow & { limitHits: number };
+  clis: UsageCli[];
+  bots: UsageBot[];
+  /** The last 30 days, oldest first. */
+  days: UsageBucket[];
+  /** The last 12 weeks, oldest first. */
+  weeks: UsageBucket[];
+  /** Newest first, at most 200. */
+  limitHits: LimitHit[];
+}
+
+/** One fact to bring into a bot's memory. category is one of the import categories, or "other". */
+export interface MemoryFact {
+  category: string;
+  text: string;
+}
+
+/** What a piece of text held: the facts, how many secret-looking lines were left out, how many were past the cap. */
+export interface MemoryParse {
+  format: "fenna" | "json" | "text" | "empty";
+  facts: MemoryFact[];
+  secretsLeftOut: number;
+  tooMany: number;
+}
+
+/** A memory file a CLI on this computer keeps, found by a scan (never read until ticked). */
+export interface MemorySource {
+  id: string;
+  group: string;
+  label: string;
+  path: string;
+  size: number;
+}
+
+/** A ticked memory file, read: its heading source, its facts, or the reason it could not be read. */
+export interface MemoryRead extends MemoryParse {
+  id: string;
+  source: string;
+  error?: string;
+}
+
+/** Facts to add, grouped by where they came from (one dated heading each in memory.md). */
+export interface MemoryImportGroup {
+  source: string;
+  facts: MemoryFact[];
 }
 
 // ── Calls ──────────────────────────────────────────────────────────────
@@ -700,6 +843,15 @@ export interface Calls {
   "crew:connectorSignInCancel": { args: [name: string]; result: boolean };
   "crew:connectorSignOut": { args: [name: string]; result: ConnectorView };
   "crew:connectorRemove": { args: [name: string]; result: { bots: string[] } };
+  "crew:skills": { args: []; result: SkillView[] };
+  "crew:skill": { args: [name: string]; result: SkillDetail };
+  /** The pickers: the preview of what the person chose, or null when they cancel. */
+  "crew:skillFolder": { args: []; result: SkillPreview | null };
+  "crew:skillFile": { args: []; result: SkillPreview | null };
+  /** An https address: a raw SKILL.md, or a GitHub folder (…/tree/…). */
+  "crew:skillUrl": { args: [url: string]; result: SkillPreview };
+  "crew:skillAdd": { args: [id: string]; result: SkillView };
+  "crew:skillRemove": { args: [name: string]; result: { bots: string[] } };
   "crew:vault": { args: []; result: VaultItemView[] };
   "crew:vaultSave": { args: [input: VaultItemInput, opts?: { replace?: string }]; result: VaultItemView };
   "crew:vaultRemove": { args: [name: string]; result: { bots: string[] } };
@@ -727,6 +879,13 @@ export interface Calls {
   "crew:workspaceWrite": { args: [slug: string, relPath: string, content: string]; result: { path: string; size: number; edited: string } };
   "crew:workspaceReveal": { args: [slug: string, relPath?: string]; result: boolean };
   "crew:clis": { args: [fresh?: boolean]; result: CliStatus[] };
+  /** The Usage page: runs, time, tokens and cost per CLI and bot, the day and week buckets, and limit hits. */
+  "crew:runStats": { args: [range?: UsageRange]; result: RunStats };
+  "crew:memoryPrompt": { args: []; result: string };
+  "crew:memoryParse": { args: [text: string]; result: MemoryParse };
+  "crew:memoryScan": { args: []; result: MemorySource[] };
+  "crew:memoryRead": { args: [ids: string[]]; result: MemoryRead[] };
+  "crew:memoryImport": { args: [slugs: string[], groups: MemoryImportGroup[]]; result: { bots: { slug: string; added: number; skipped: number }[] } };
   "crew:desktop": { args: [slug: string]; result: DesktopShortcut[] };
   "crew:watches": { args: [slug: string]; result: { watches: Watch[]; todos: Todo[]; notifications: SiteNotification[] } };
   "crew:disk": { args: [slug: string, dir: string]; result: DiskListing };
@@ -843,6 +1002,8 @@ export interface Events {
   "crew:frame": FrameEvent;
   "crew:browser": { slug: string; state: BrowserState };
   "crew:connectors": ConnectorView[];
+  /** The skills installed on this computer changed (added, replaced or removed). */
+  "crew:skills": SkillView[];
   "crew:vault": VaultItemView[];
   /** The person clicked a notification: show this bot's chat. */
   "crew:open": { slug: string };

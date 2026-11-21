@@ -20,7 +20,9 @@
 //   logins:
 //     - name: example-mail      # a login in this computer's vault
 //       level: ask              # allow: Crew signs in without asking; ask: each time
-//   projects: on              # runs node, npm and npx in Files/Projects (off unless the person turns it on)
+//   skills:
+//     - weekly-report           # a skill installed on this computer
+//   projects: on             # runs node, npm and npx in Files/Projects (off unless the person turns it on)
 //   askBefore:
 //     - Signing up for trials
 //   wallpaper: clay
@@ -58,6 +60,7 @@ import {
   type Wallpaper,
 } from "./schema.ts";
 import { connectorNameProblem, connectorUrlProblem, type Grant } from "./connector.ts";
+import { skillNameProblem } from "./skill.ts";
 import { formatSchedule, parseSchedule } from "./schedule.ts";
 import { isSlug } from "./slug.ts";
 import { closest, parseYaml, splitFrontMatter, stringifyYaml, type YamlMap, type YamlValue } from "./yaml.ts";
@@ -100,6 +103,8 @@ export interface Bot {
   connectors: Connector[];
   /** Vault logins it may use; any other login is invisible to it. */
   logins: LoginGrant[];
+  /** Skills it is granted, by name: the ones installed on this computer (a name not installed is ignored). */
+  skills: string[];
   /** Whether it may run node, npm and npx in its projects. */
   projects: ProjectsLevel;
   askBefore: string[];
@@ -345,6 +350,32 @@ function readLogin(v: YamlValue, i: number, out: Diagnostic[], line?: number): L
   return { name, level };
 }
 
+/** The skills a bot is granted: names in a list, each a skill name; duplicates are dropped. */
+function readSkills(v: YamlValue | undefined, d: Diagnostic[], line?: number): string[] {
+  const at = line ? { line } : {};
+  const list = asList(v);
+  if (!list || list.some((s) => typeof s !== "string")) {
+    d.push({ severity: "error", ...at, message: `skills should be a list of skill names, one "- weekly-report" per line.` });
+    return [];
+  }
+  if (list.length > LIMITS.skills) d.push({ severity: "error", ...at, message: `A bot can have at most ${LIMITS.skills} skills; this one has ${list.length}.` });
+  const names: string[] = [];
+  for (const raw of list.slice(0, LIMITS.skills) as string[]) {
+    const name = raw.trim();
+    const problem = skillNameProblem(name);
+    if (problem) {
+      d.push({ severity: "error", ...at, message: `skills: ${problem}` });
+      continue;
+    }
+    if (names.includes(name)) {
+      d.push({ severity: "warning", ...at, message: `Skill "${name}" is listed twice; the second is ignored.` });
+      continue;
+    }
+    names.push(name);
+  }
+  return names;
+}
+
 /** Read bot settings from parsed front matter. */
 export function readBotSettings(raw: YamlMap, how: string, keyLines: Record<string, number> = {}): { bot: Bot; diagnostics: Diagnostic[]; legacy: LegacyConnector[] } {
   const d: Diagnostic[] = [];
@@ -409,6 +440,8 @@ export function readBotSettings(raw: YamlMap, how: string, keyLines: Record<stri
     });
   }
 
+  const skills = readSkills(raw.skills, d, ln("skills"));
+
   let projects: ProjectsLevel = "off";
   if (raw.projects !== undefined && raw.projects !== "") {
     const p = typeof raw.projects === "string" ? raw.projects.trim().toLowerCase() : "";
@@ -457,7 +490,7 @@ export function readBotSettings(raw: YamlMap, how: string, keyLines: Record<stri
   const body = how.trim();
   if (body.length > LIMITS.how) d.push({ severity: "error", message: `How it works is ${body.length} characters; the most is ${LIMITS.how}. Move reference material into memory.md or the library.` });
 
-  return { bot: { name, job, avatar, color, schedule, brain, connectors, logins, projects, askBefore, wallpaper, how: body.slice(0, LIMITS.how) }, diagnostics: d, legacy };
+  return { bot: { name, job, avatar, color, schedule, brain, connectors, logins, skills, projects, askBefore, wallpaper, how: body.slice(0, LIMITS.how) }, diagnostics: d, legacy };
 }
 
 /**
@@ -509,6 +542,8 @@ export function botYaml(bot: Bot): YamlMap {
   // Written only when it has some, so a bot.md without logins stays as it was.
   const logins = bot.logins ?? [];
   if (logins.length) out.logins = logins.map((g) => ({ name: g.name, level: g.level }));
+  // Likewise skills: written only when some are granted.
+  if (bot.skills?.length) out.skills = [...bot.skills];
   // Written only when on, so a bot.md with projects off stays as it was.
   if (bot.projects === "on") out.projects = "on";
   out.askBefore = [...bot.askBefore];
@@ -558,6 +593,7 @@ export function newBot(input: NewBotInput): { bot: Bot; diagnostics: Diagnostic[
     brain: { cli: input.cli ?? "claude", model: input.model ?? "", effort: input.effort ?? "" },
     connectors: input.connectors ?? FENNA_APPS.map((a) => ({ type: "fenna" as const, app: a.id })),
     logins: input.logins ?? [],
+    skills: [],
     projects: input.projects ?? "off",
     askBefore: input.askBefore ?? [],
     wallpaper: input.wallpaper ?? WALLPAPERS[0],

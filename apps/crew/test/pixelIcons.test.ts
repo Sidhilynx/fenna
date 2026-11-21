@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import { PIXEL_ICONS, type PixelIconName } from "../src/renderer/pixelIcons.ts";
 
 const NAMES: PixelIconName[] = [
-  "overview", "bots", "group", "plus", "search", "settings", "connectors", "vault", "site", "browser",
+  "overview", "bots", "group", "plus", "search", "settings", "connectors", "skills", "vault", "site", "browser",
   "files", "activity", "doc", "sheet", "slides", "board", "design", "library", "share", "download", "export", "duplicate",
   "check", "maximize", "restore", "close", "chevron-down", "chevron-right", "sun", "moon", "lock", "trash", "run", "stop",
   "more", "panel", "collapse", "expand", "bell", "eye", "clock", "send", "question", "shield",
-  "attention",
+  "usage", "attention",
 ];
 
 describe("pixel icons", () => {

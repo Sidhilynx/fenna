@@ -3,6 +3,7 @@ export * from "./slug.ts";
 export * from "./schedule.ts";
 export * from "./bot.ts";
 export * from "./connector.ts";
+export * from "./skill.ts";
 export * from "./vault.ts";
 export * from "./team.ts";
 export * from "./state.ts";

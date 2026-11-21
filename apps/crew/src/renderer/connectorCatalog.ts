@@ -4,7 +4,7 @@
 // domain). Crew does not check at run time that a vendor is who it says.
 // A web address entry signs in through the sign-in flow in Connectors.tsx.
 
-export const CATEGORIES = ["Work", "Dev", "Docs", "Data", "Design", "Payments"] as const;
+export const CATEGORIES = ["Work", "Chat", "Dev", "Docs", "Data", "Storage", "Search", "Design", "Payments"] as const;
 export type ConnectorCategory = (typeof CATEGORIES)[number];
 
 export interface CatalogEntry {
@@ -18,6 +18,8 @@ export interface CatalogEntry {
   url?: string;
   command?: string;
   args?: string[];
+  /** Values a command needs before it starts (an API key, say). The dialog asks for them when adding. */
+  env?: { name: string; label: string; secret: boolean }[];
   /** oauth: the server signs the person in; token: a value must be pasted; none: nothing needed. */
   auth: "oauth" | "token" | "none";
   /** The page that shows the address or package. */
@@ -57,4 +59,16 @@ export const CONNECTOR_CATALOG: CatalogEntry[] = [
   { id: "stripe", name: "Stripe", vendor: "Stripe", description: "Look up customers, payments and subscriptions.", kind: "url", url: "https://mcp.stripe.com", auth: "oauth", docs: "https://docs.stripe.com/mcp", category: "Payments", logo: true },
   { id: "paypal", name: "PayPal", vendor: "PayPal", description: "Work with invoices, orders and transactions.", kind: "url", url: "https://mcp.paypal.com/mcp", auth: "oauth", docs: registry("com.paypal.mcp"), category: "Payments", logo: true },
   { id: "square", name: "Square", vendor: "Square", description: "Look up payments, orders and catalog items.", kind: "url", url: "https://mcp.squareup.com/mcp", auth: "oauth", docs: "https://developer.squareup.com/docs/mcp", category: "Payments", logo: true },
+  { id: "todoist", name: "Todoist", vendor: "Todoist", description: "Find, add and complete tasks and projects.", kind: "url", url: "https://ai.todoist.net/mcp", auth: "oauth", docs: "https://www.todoist.com/help/todoist/todoist-and-ai/connect-todoist-to-an-ai-assistant-xMSzFfHng", category: "Work", logo: false },
+  { id: "slack", name: "Slack", vendor: "Slack", description: "Read and search channels and messages, and send messages.", kind: "url", url: "https://mcp.slack.com/mcp", auth: "oauth", docs: "https://docs.slack.dev/ai/slack-mcp-server/", category: "Chat", logo: false },
+  { id: "gitlab", name: "GitLab", vendor: "GitLab", description: "Read projects, issues and merge requests, and change them.", kind: "url", url: "https://gitlab.com/api/v4/mcp", auth: "oauth", docs: registry("com.gitlab"), category: "Dev", logo: false },
+  { id: "vercel", name: "Vercel", vendor: "Vercel", description: "Look up projects, deployments and logs on Vercel.", kind: "url", url: "https://mcp.vercel.com", auth: "oauth", docs: "https://vercel.com/docs/agent-resources/vercel-mcp", category: "Dev", logo: false },
+  { id: "pagerduty", name: "PagerDuty", vendor: "PagerDuty", description: "Look up incidents, services and on-call schedules.", kind: "command", command: "uvx", args: ["pagerduty-mcp"], env: [{ name: "PAGERDUTY_USER_API_KEY", label: "PagerDuty user API token", secret: true }], auth: "token", docs: "https://github.com/PagerDuty/pagerduty-mcp-server", category: "Dev", logo: false },
+  { id: "dropbox", name: "Dropbox", vendor: "Dropbox", description: "Browse, search, read and move files in Dropbox.", kind: "url", url: "https://mcp.dropbox.com/mcp", auth: "oauth", docs: "https://help.dropbox.com/integrations/connect-dropbox-mcp-server", category: "Storage", logo: false },
+  { id: "mongodb", name: "MongoDB", vendor: "MongoDB", description: "Query and inspect collections in a MongoDB database.", kind: "command", command: "npx", args: ["-y", "mongodb-mcp-server"], env: [{ name: "MDB_MCP_CONNECTION_STRING", label: "Connection string", secret: true }], auth: "token", docs: "https://github.com/mongodb-js/mongodb-mcp-server", category: "Data", logo: false },
+  { id: "pinecone", name: "Pinecone", vendor: "Pinecone", description: "Manage indexes and search records in Pinecone.", kind: "command", command: "npx", args: ["-y", "@pinecone-database/mcp"], env: [{ name: "PINECONE_API_KEY", label: "Pinecone API key", secret: true }], auth: "token", docs: "https://github.com/pinecone-io/pinecone-mcp", category: "Data", logo: false },
+  { id: "huggingface", name: "Hugging Face", vendor: "Hugging Face", description: "Search models, datasets and Spaces on the Hugging Face Hub.", kind: "url", url: "https://huggingface.co/mcp", auth: "none", docs: "https://huggingface.co/mcp", category: "Data", logo: false },
+  { id: "brave-search", name: "Brave Search", vendor: "Brave", description: "Search the web, news and images with the Brave Search API.", kind: "command", command: "npx", args: ["-y", "@brave/brave-search-mcp-server"], env: [{ name: "BRAVE_API_KEY", label: "Brave Search API key", secret: true }], auth: "token", docs: "https://github.com/brave/brave-search-mcp-server", category: "Search", logo: false },
+  { id: "tavily", name: "Tavily", vendor: "Tavily", description: "Search the web and read pages with the Tavily API.", kind: "command", command: "npx", args: ["-y", "tavily-mcp"], env: [{ name: "TAVILY_API_KEY", label: "Tavily API key", secret: true }], auth: "token", docs: "https://github.com/tavily-ai/tavily-mcp", category: "Search", logo: false },
+  { id: "firecrawl", name: "Firecrawl", vendor: "Firecrawl", description: "Search, scrape and crawl websites with the Firecrawl API.", kind: "command", command: "npx", args: ["-y", "firecrawl-mcp"], env: [{ name: "FIRECRAWL_API_KEY", label: "Firecrawl API key", secret: true }], auth: "token", docs: "https://github.com/firecrawl/firecrawl-mcp-server", category: "Search", logo: false },
 ];

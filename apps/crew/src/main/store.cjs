@@ -16,6 +16,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const F = require("./format.cjs");
+const { appendImported, localDay } = require("./memimport.cjs");
 
 const MAX_RUN_FILES_LISTED = 2000;
 
@@ -417,6 +418,20 @@ function createStore(root, { trash, migrate } = {}) {
         text = text.slice(cut + 1);
       }
       writeAtomic(path.join(botDir(slug), "memory.md"), text);
+    },
+
+    /** Append approved facts (memimport.cjs: one heading per source, duplicates skipped) and say how many were added. */
+    importMemory(slug, groups, now = new Date()) {
+      const current = store.readMemory(slug);
+      const r = appendImported(current, groups, localDay(now));
+      if (!r.added) return { added: 0, skipped: r.skipped };
+      let text = r.text;
+      if (text.length > F.LIMITS.memory) {
+        const cut = text.indexOf("\n", text.length - F.LIMITS.memory);
+        text = text.slice(cut + 1);
+      }
+      writeAtomic(path.join(botDir(slug), "memory.md"), text);
+      return { added: r.added, skipped: r.skipped };
     },
 
     /** The documents in the bot's library, newest first. */

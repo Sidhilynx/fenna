@@ -19,11 +19,15 @@ export interface SignInState {
   needsCode: boolean;
 }
 
-/** Where `kind` stands: what the user has to do before it can answer. */
-export function setupOf(kind: AgentKind | null, catalog: AgentCatalog | undefined, expired: boolean): SetupStep {
+/**
+ * Where `kind` stands: what the user has to do before it can answer. `local`: the chosen model runs on this
+ * computer's own server through Codex, which needs no sign-in, so only Codex being installed matters.
+ */
+export function setupOf(kind: AgentKind | null, catalog: AgentCatalog | undefined, expired: boolean, local = false): SetupStep {
   if (!kind) return { step: "ready" };
   if (!catalog) return { step: "loading", kind };
   if (!catalog.installed) return { step: "install", kind };
+  if (local) return { step: "ready" };
   if (catalog.signedIn === false) return { step: "sign-in", kind };
   if (catalog.apiKey) return { step: "sign-in", kind, api: true };
   if (expired) return { step: "sign-in", kind, expired: true };
@@ -85,7 +89,7 @@ export function useAgents() {
     signin,
     error,
     load,
-    stepOf: (kind: AgentKind | null) => setupOf(kind, kind ? catalogs[kind] : undefined, !!(kind && expired[kind])),
+    stepOf: (kind: AgentKind | null, local = false) => setupOf(kind, kind ? catalogs[kind] : undefined, !!(kind && expired[kind]), local),
     install: (kind: AgentKind) =>
       guarded(async () => {
         setInstalling(kind);

@@ -254,6 +254,22 @@ describe("runner", () => {
     expect(started[2]!.o.prompt).toContain("<earlier>\nThe person wants the long job; it is done.\n</earlier>");
   });
 
+  it("logs the tokens a CLI reports for a turn, with cost only when it gave one", async () => {
+    const r = runner.enqueue({ slug: "research", trigger: "person", text: "Count it" });
+    started[0]!.emit({ type: "tokens", input: 1200.4, output: 300, costUsd: 0.42 });
+    started[0]!.emit({ type: "done" });
+    await r.done;
+    const r2 = runner.enqueue({ slug: "research", trigger: "person", text: "Count it again" });
+    started[1]!.emit({ type: "tokens", input: 10, output: 2, costUsd: null });
+    started[1]!.emit({ type: "done" });
+    await r2.done;
+    const logged = store.allRuns("research").map((run: { events: { type: string }[] }) => run.events.find((e) => e.type === "tokens"));
+    expect(logged.slice(-2)).toMatchObject([
+      { type: "tokens", input: 1200, output: 300, costUsd: 0.42 },
+      { type: "tokens", input: 10, output: 2, costUsd: null },
+    ]);
+  });
+
   it("keeps each chat's conversation apart", async () => {
     const a = runner.enqueue({ slug: "research", trigger: "person", text: "first" });
     started[0]!.emit({ type: "session", sessionId: "s-a" });

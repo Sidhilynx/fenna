@@ -50,6 +50,7 @@ const isLibraryCall = (server, tool) => server === "fenna" || tool === "new_docu
  * @param {() => void} o.onChange
  * @param {(tool: string, params: object, server: string) => string|null} [o.toolLabel]
  * @param {(name: string) => boolean} [o.installed]  whether a granted connector is installed (the prompt names only those)
+ * @param {(slug: string, granted: string[]) => { name: string, description: string, path: string }[]} [o.skillsFor]  copies the granted skills onto the bot's disk before a run and returns the installed ones (skills.cjs)
  * @param {(runId: string) => void} [o.onEnd]  a run ended (its connector calls in flight are stopped)
  * @param {{ run(info: { trigger: string, outcome: string, manual: boolean }): void }} [o.usage]  counts the run when it ends (usage.cjs)
  */
@@ -59,7 +60,7 @@ function withCwd(o, botDir) {
   return { ...rest, cwd: cwd || botDir };
 }
 
-function createRunner({ store, startRun, serversFor, link, waits, emitLive, onChange, toolLabel, installed, repoNames = () => [], teamNotes = () => "", onEnd = () => {}, usage = noUsage, now = () => new Date(), maxConcurrent = 2, runTimeoutMs = RUN_TIMEOUT_MS }) {
+function createRunner({ store, startRun, serversFor, link, waits, emitLive, onChange, toolLabel, installed, skillsFor = () => [], repoNames = () => [], teamNotes = () => "", onEnd = () => {}, usage = noUsage, now = () => new Date(), maxConcurrent = 2, runTimeoutMs = RUN_TIMEOUT_MS }) {
   /** @type {Map<string, object>} slug → its running run */
   const active = new Map();
   /** @type {object[]} */
@@ -187,7 +188,15 @@ function createRunner({ store, startRun, serversFor, link, waits, emitLive, onCh
     // A fresh conversation in a compacted chat starts from the chat's summary.
     const earlier = !sessionId && chat.summary && run.trigger !== "compact" ? chat.summary : "";
     const from = run.from ? store.readBot(run.from) : null;
+    let skills;
+    try {
+      skills = skillsFor(run.slug, bot.skills || []);
+    } catch (e) {
+      finish(run, "error", `Its skills couldn't be copied onto its disk: ${e.message}`);
+      return;
+    }
     const prompt = buildPrompt({
+      skills,
       slug: run.slug,
       bot,
       memory: store.readMemory(run.slug),
@@ -234,6 +243,9 @@ function createRunner({ store, startRun, serversFor, link, waits, emitLive, onCh
       const usage = { used: Math.max(0, Math.round(Number(ev.used) || 0)), window: Number(ev.window) > 0 ? Math.round(Number(ev.window)) : null };
       run.usage = usage;
       record(run, { type: "usage", at: iso(), ...usage });
+    } else if (ev.type === "tokens") {
+      const costUsd = Number.isFinite(ev.costUsd) ? Number(ev.costUsd) : null;
+      record(run, { type: "tokens", at: iso(), input: Math.max(0, Math.round(Number(ev.input) || 0)), output: Math.max(0, Math.round(Number(ev.output) || 0)), costUsd });
     } else if (ev.type === "delta") {
       emitLive(run.slug, run.runId, { type: "delta", at: iso(), text: ev.text });
     } else if (ev.type === "text") {
