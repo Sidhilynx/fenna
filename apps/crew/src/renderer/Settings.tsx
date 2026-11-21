@@ -6,6 +6,7 @@ import { CLI_KINDS, CLI_NAMES, type CliKind } from "@opendeck/crew";
 import { errorText, invoke } from "../shared/api.ts";
 import type { Settings } from "../shared/contract.ts";
 import { FeedbackDialog } from "./Feedback.tsx";
+import { ImportMemoryDialog } from "./ImportMemory.tsx";
 import { Pick } from "./Pick.tsx";
 import { useCrew } from "./crew.tsx";
 
@@ -47,12 +48,13 @@ function Row({ name, sub, children, htmlFor }: { name: string; sub?: ReactNode; 
 }
 
 export function SettingsDialog({ onClose }: { onClose(): void }) {
-  const { clis } = useCrew();
+  const { clis, overview } = useCrew();
   const [section, setSection] = useState<Section>("general");
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     invoke("crew:settings")
@@ -192,6 +194,11 @@ export function SettingsDialog({ onClose }: { onClose(): void }) {
                     name="Logins"
                     sub={settings.vaultEncrypted ? "Encrypted on this computer. Bots never see a password." : "No secure storage here, so logins can't be saved."}
                   />
+                  <Row name="Memory" sub="Bring in what other AI tools know about you. Nothing is sent anywhere.">
+                    <button type="button" className="btn" onClick={() => setImporting(true)}>
+                      Import memory
+                    </button>
+                  </Row>
                 </>
               )}
             </div>
@@ -205,6 +212,7 @@ export function SettingsDialog({ onClose }: { onClose(): void }) {
       </div>
     </Dialog>
     {feedback && <FeedbackDialog onClose={() => setFeedback(false)} />}
+    {importing && <ImportMemoryDialog bots={overview.bots} onClose={() => setImporting(false)} />}
     </>
   );
 }

@@ -662,6 +662,42 @@ export interface CliStatus {
   models: { value: string; label: string; description: string; efforts: string[]; defaultEffort: string | null }[];
 }
 
+/** One fact to bring into a bot's memory. category is one of the import categories, or "other". */
+export interface MemoryFact {
+  category: string;
+  text: string;
+}
+
+/** What a piece of text held: the facts, how many secret-looking lines were left out, how many were past the cap. */
+export interface MemoryParse {
+  format: "fenna" | "json" | "text" | "empty";
+  facts: MemoryFact[];
+  secretsLeftOut: number;
+  tooMany: number;
+}
+
+/** A memory file a CLI on this computer keeps, found by a scan (never read until ticked). */
+export interface MemorySource {
+  id: string;
+  group: string;
+  label: string;
+  path: string;
+  size: number;
+}
+
+/** A ticked memory file, read: its heading source, its facts, or the reason it could not be read. */
+export interface MemoryRead extends MemoryParse {
+  id: string;
+  source: string;
+  error?: string;
+}
+
+/** Facts to add, grouped by where they came from (one dated heading each in memory.md). */
+export interface MemoryImportGroup {
+  source: string;
+  facts: MemoryFact[];
+}
+
 // ── Calls ──────────────────────────────────────────────────────────────
 
 /** Every invoke channel: arguments and what it resolves to. Errors reject with a message to show. */
@@ -727,6 +763,11 @@ export interface Calls {
   "crew:workspaceWrite": { args: [slug: string, relPath: string, content: string]; result: { path: string; size: number; edited: string } };
   "crew:workspaceReveal": { args: [slug: string, relPath?: string]; result: boolean };
   "crew:clis": { args: [fresh?: boolean]; result: CliStatus[] };
+  "crew:memoryPrompt": { args: []; result: string };
+  "crew:memoryParse": { args: [text: string]; result: MemoryParse };
+  "crew:memoryScan": { args: []; result: MemorySource[] };
+  "crew:memoryRead": { args: [ids: string[]]; result: MemoryRead[] };
+  "crew:memoryImport": { args: [slugs: string[], groups: MemoryImportGroup[]]; result: { bots: { slug: string; added: number; skipped: number }[] } };
   "crew:desktop": { args: [slug: string]; result: DesktopShortcut[] };
   "crew:watches": { args: [slug: string]; result: { watches: Watch[]; todos: Todo[]; notifications: SiteNotification[] } };
   "crew:disk": { args: [slug: string, dir: string]; result: DiskListing };

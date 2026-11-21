@@ -249,6 +249,10 @@ Files, on the `crew` server (`apps/crew/src/main/files.cjs`):
   2026-11-21
 - The back button on a bot's computer is named for the bot and goes to its
   chat, not to Home. 2026-11-21
+- Memory comes in from other AI tools only as reviewed data: a prompt to paste
+  into another assistant, a file, or a memory file on this computer (ticked,
+  read on request, never uploaded); the person approves each fact, and the bot
+  reads memory.md as information, not instructions. 2026-11-21
 ## Build summary
 
 (Written by the builders.)
