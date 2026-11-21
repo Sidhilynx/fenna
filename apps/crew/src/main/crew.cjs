@@ -24,6 +24,7 @@ const { createGateway } = require("./gateway.cjs");
 const { createVault } = require("./vault.cjs");
 const { createLogins } = require("./logins.cjs");
 const { createProjects } = require("./projects.cjs");
+const { createRepos } = require("./repos.cjs");
 const { createToolLabel } = require("./labels.cjs");
 const { createAppHost } = require("./appHost.cjs");
 const { createApps } = require("./apps.cjs");
@@ -171,6 +172,7 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
   let gateway = null;
   let logins = null;
   let projects = null;
+  let repos = null;
   const link = createLink({ handle: (ctx, method, params) => handle(ctx, method, params) });
   // The bot's apps (apps.cjs). Their sessions and the page's calls need Electron, which main passes in; without it no bot has apps.
   // The runner is looked up at call time: it is created below, after the apps that its run tools need.
@@ -180,10 +182,12 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
     const m = apps && name ? apps.manifest(slug, name) : null;
     return (m && m.app && m.app.title) || null;
   };
-  const serversFor = createServers({ link, store, connectors, connections, packaged, resources, repo, homes: path.join(userData, "assistant", "agy-crew"), apps });
+  // Repos are made below with the approver; a run started before that has none.
+  const serversFor = createServers({ link, store, connectors, connections, packaged, resources, repo, homes: path.join(userData, "assistant", "agy-crew"), apps, repos: { codingFor: (slug, cli) => (repos ? repos.codingFor(slug, cli) : null) } });
   const runner = createRunner({
     store,
     startRun,
+    repoNames: (slug) => (repos ? repos.names(slug) : []),
     serversFor,
     link,
     waits,
@@ -208,8 +212,9 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
   gateway = createGateway({ store, connectors, connections, approve, runner, onChange, apps, appHost });
   logins = createLogins({ store, vault, browsers, approve, runner, onChange });
   projects = createProjects({ disk, store, runner, approve, browsers, broadcast });
+  repos = createRepos({ disk, store, approve, broadcast });
   const watches = createWatches({ store, runner, browsers, broadcast, onFire: (slug, w, what) => notices.add(slug, { kind: w.kind === "timer" ? "reminder" : "watch", title: w.note, body: what }) });
-  handle = createHandlers({ store, runner, waits, approve, browsers, gateway, appHost, logins, onChange, onDesktop, watches, search, files, shell, projects, disk, usage });
+  handle = createHandlers({ store, runner, waits, approve, browsers, gateway, appHost, logins, onChange, onDesktop, watches, search, files, shell, projects, repos, disk, usage });
   const scheduler = createScheduler({ store, runner });
   const teamChat = createTeamChat({ store, runner, onChange });
   views = createViews({ store, runner, waits, scheduler, browsers, settings, offers: () => offerViews() });

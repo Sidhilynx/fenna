@@ -41,6 +41,7 @@ const isLibraryCall = (server, tool) => server === "fenna" || tool === "new_docu
  * @param {object} o
  * @param {ReturnType<import("./store.cjs").createStore>} o.store
  * @param {Function} o.startRun     the shell's startRun
+ * @param {(slug: string) => string[]} [o.repoNames]  the bot's repos, named in its prompt
  * @param {(o: { slug: string, bot: object, token: string }) => object} o.serversFor  servers, trusted, home, env
  * @param {{ issue(ctx: object): string, revoke(token: string): void }} o.link
  * @param {ReturnType<import("./waits.cjs").createWaits>} o.waits
@@ -51,7 +52,13 @@ const isLibraryCall = (server, tool) => server === "fenna" || tool === "new_docu
  * @param {(runId: string) => void} [o.onEnd]  a run ended (its connector calls in flight are stopped)
  * @param {{ run(info: { trigger: string, outcome: string, manual: boolean }): void }} [o.usage]  counts the run when it ends (usage.cjs)
  */
-function createRunner({ store, startRun, serversFor, link, waits, emitLive, onChange, toolLabel, installed, onEnd = () => {}, usage = noUsage, now = () => new Date(), maxConcurrent = 2, runTimeoutMs = RUN_TIMEOUT_MS }) {
+/** The servers' options with the run's folder: a coding run's own, or the bot's folder. */
+function withCwd(o, botDir) {
+  const { cwd, ...rest } = o;
+  return { ...rest, cwd: cwd || botDir };
+}
+
+function createRunner({ store, startRun, serversFor, link, waits, emitLive, onChange, toolLabel, installed, repoNames = () => [], onEnd = () => {}, usage = noUsage, now = () => new Date(), maxConcurrent = 2, runTimeoutMs = RUN_TIMEOUT_MS }) {
   /** @type {Map<string, object>} slug → its running run */
   const active = new Map();
   /** @type {object[]} */
@@ -195,6 +202,7 @@ function createRunner({ store, startRun, serversFor, link, waits, emitLive, onCh
       files: run.files.map((f) => f.toPath),
       now: now(),
       installed,
+      repos: repoNames(run.slug),
     });
     if (!run.token) run.token = link.issue({ slug: run.slug, runId: run.runId, team: run.team, chain: run.chain });
     try {
@@ -204,9 +212,8 @@ function createRunner({ store, startRun, serversFor, link, waits, emitLive, onCh
         effort: bot.brain.effort,
         prompt,
         images: run.images,
-        cwd: store.botDir(run.slug),
         sessionId,
-        ...serversFor({ slug: run.slug, bot, token: run.token }),
+        ...withCwd(serversFor({ slug: run.slug, bot, token: run.token }), store.botDir(run.slug)),
         toolLabel: (tool, params, server) => toolLabel(tool, params, server, run.slug),
         onEvent: (ev) => onEvent(run, ev),
       });

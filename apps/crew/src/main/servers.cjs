@@ -24,8 +24,9 @@ const CREW_TOOL_TIMEOUT_SEC = 1000;
  * @param {string} o.repo       the repository root (development)
  * @param {string} o.homes      where each bot's Antigravity home lives
  * @param {{ list(slug: string): { grant: object | null }[] } | null} [o.apps]  the bot's apps: granted ones need the gateway too
+ * @param {{ codingFor(slug: string, cli: string): { dir: string, env: object } | null } | null} [o.repos]  a bot with a repo runs as a coding run
  */
-function createServers({ link, store, connectors, connections, packaged, resources, repo, homes, apps = null }) {
+function createServers({ link, store, connectors, connections, packaged, resources, repo, homes, apps = null, repos = null }) {
   const node = process.execPath;
   const script = (bundle, source) => (packaged ? [path.join(resources, "mcp", bundle)] : ["--experimental-strip-types", path.join(repo, source)]);
   const crewArgs = (which) => [...script("fenna-crew-mcp.cjs", "packages/crew-mcp/src/cli.ts"), `--server=${which}`];
@@ -49,9 +50,12 @@ function createServers({ link, store, connectors, connections, packaged, resourc
       // Start them now, while the CLI starts, so the gateway's first list doesn't wait.
       for (const g of granted) connections.ensure(g.name).catch(() => undefined);
     }
+    const coding = repos ? repos.codingFor(slug, bot.brain.cli) : null;
     return {
       servers,
       trusted: Object.keys(servers),
+      // A coding run: the brain's own tools in Files/Repos; Claude Code asks Crew about each of its calls.
+      ...(coding ? { coding, cwd: coding.dir, permissionTool: "mcp__crew__approve_tool" } : {}),
       home: path.join(homes, slug),
       // Claude Code's own limit on one MCP tool call, so a question or an approval can wait for the person.
       env: { MCP_TOOL_TIMEOUT: String(CREW_TOOL_TIMEOUT_SEC * 1000) },

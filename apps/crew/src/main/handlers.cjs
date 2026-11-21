@@ -81,7 +81,7 @@ function createApprover({ store, runner, waits, usage = noUsage, now = () => new
  * @param {{ command(ctx: object, p: object): Promise<{ text: string }>, processes(ctx: object, p: object): { text: string } }} o.projects  node, npm and npx in the bot's projects (projects.cjs)
  * @param {() => Date} [o.now]
  */
-function createHandlers({ store, runner, waits, approve, browsers, gateway, appHost, logins = null, onChange, onDesktop, watches, search, files, shell, projects, disk, usage = noUsage, now = () => new Date() }) {
+function createHandlers({ store, runner, waits, approve, browsers, gateway, appHost, logins = null, onChange, onDesktop, watches, search, files, shell, projects, repos = null, disk, usage = noUsage, now = () => new Date() }) {
   const iso = () => now().toISOString();
   const botName = (slug) => botNameOf(store, slug);
 
@@ -332,6 +332,18 @@ function createHandlers({ store, runner, waits, approve, browsers, gateway, appH
     /** The bot's running and recent processes: list, stop one, or read its output. */
     processes(ctx, p) {
       return projects.processes(ctx, p);
+    },
+
+    /** The bot's repos (repos.cjs): list, status, link, clone, push, remove. */
+    repo(ctx, p) {
+      if (!repos) throw new Error("Repos are not available on this computer yet.");
+      return repos.handle(ctx, p);
+    },
+
+    /** Claude Code's question about one of its own tool calls in a coding run: the answer is its permission JSON. */
+    async approve_tool(ctx, p) {
+      const answer = repos ? await repos.checkTool(ctx, p) : { behavior: "deny", message: "Your own tools are off. Use Crew's tools." };
+      return { text: JSON.stringify(answer) };
     },
 
     /** The bot's terminal: one line over its own disk. The output, then the folder it ended in. */

@@ -381,6 +381,39 @@ export function createCrewServer(link: Link, opts: CrewOptions): McpServer {
   );
 
   tool(
+    "repo",
+    {
+      title: "Your repos",
+      description:
+        "Code repositories you work on, each your own git clone in Files/Repos/<name>. While you have one, your own tools (shell, read, edit) work in Files/Repos: use them to read code, edit it, run the repo's own build and tests with whatever toolchain it uses (npm, flutter, python, cargo, go, dotnet, make, ...), and commit with git on a branch of your own. Your clone has no remote URLs and git has no sign-in, so git push and git fetch don't work: sync and push here, and the person approves each push. Actions: list (your repos and their state); status {name} (branch, changes, where push goes); link {path, name?} (copy a git folder on this computer the person named, after their approval); clone {url, name?} (clone an https or ssh URL, after their approval); sync {name, to?} (fetch the latest branches into source/<branch> or origin/<branch>, then merge or rebase with git); push {name, branch?, to?} (send a branch to the folder it came from, to: \"source\" (the default when there is one), or to its remote, to: \"origin\"; never main or the branch the person has checked out; asks every time); remove {name, force?} (to Trash); allow_shell (when your own shell is off in Files/Repos because your AI can't sandbox it on this computer: asks the person to allow it unsandboxed). If a toolchain is missing, say which and ask the person before installing it. Example: {action: \"link\", path: \"D:\\code\\shop\"}, then work in Files/Repos/shop, then {action: \"push\", name: \"shop\", branch: \"fenna/fix-cart\"}",
+      inputSchema: {
+        action: z.enum(["list", "status", "link", "clone", "sync", "push", "remove", "allow_shell"]).describe("what to do"),
+        name: z.string().min(1).max(64).optional().describe("the repo's name in Files/Repos; for link and clone, the name to give it (default: the folder's or URL's name)"),
+        path: z.string().min(1).max(1000).optional().describe("link: the full path of a git folder on this computer"),
+        url: z.string().min(1).max(1000).optional().describe("clone: an https or ssh URL"),
+        branch: z.string().min(1).max(120).optional().describe("push: the branch to send (default: the one checked out)"),
+        to: z.enum(["source", "origin"]).optional().describe("sync and push: source (the folder it came from, the default when there is one) or origin (its remote)"),
+        force: z.boolean().optional().describe("remove: true also throws away uncommitted changes"),
+      },
+    },
+    (args) => call("repo", args),
+  );
+
+  tool(
+    "approve_tool",
+    {
+      title: "Crew's answer about one of your own tool calls",
+      description: "Crew calls this itself to decide whether one of your own tool calls may run in a coding run. Never call it yourself. Example: {tool_name: \"Bash\", input: {command: \"npm test\"}}",
+      inputSchema: {
+        tool_name: z.string().describe("the tool"),
+        input: z.record(z.string(), z.unknown()).describe("its input"),
+        tool_use_id: z.string().optional().describe("the call's id"),
+      },
+    },
+    (args) => call("approve_tool", { tool_name: args.tool_name, input: args.input, tool_use_id: args.tool_use_id }),
+  );
+
+  tool(
     "new_document",
     {
       title: "New document",

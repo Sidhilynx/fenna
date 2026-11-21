@@ -35,7 +35,7 @@ const localTime = (d) => `${DAYS[d.getDay()]} ${d.getFullYear()}-${pad(d.getMont
  * @param {Date} o.now
  * @param {(name: string) => boolean} [o.installed]  whether a granted connector is installed on this computer
  */
-function buildPrompt({ slug, bot, memory, library, watches = [], todos = [], others, team, trigger, text, earlier = "", from, files = [], now, installed = () => true }) {
+function buildPrompt({ slug, bot, memory, library, watches = [], todos = [], others, team, trigger, text, earlier = "", from, files = [], now, installed = () => true, repos = [] }) {
   const fenna = bot.connectors.filter((c) => c.type === "fenna");
   const granted = bot.connectors.filter((c) => c.type === "grant" && installed(c.name));
   const s = F.parseSchedule(bot.schedule);
@@ -68,6 +68,9 @@ function buildPrompt({ slug, bot, memory, library, watches = [], todos = [], oth
     "Call set_status when you start and when you finish: one short line saying what you are doing or what you found.",
     fenna.length ? "Put what you make in your library as Fenna documents: new_document makes one (a doc can take its content at once), then the fenna tools change it using the path it gives. Change an existing document rather than making a duplicate." : "",
     "Read files on your disk with read_file (text, CSV, Excel and images). Write code and app files with write_file, and change part of a file with edit_file (exact text replace); the person sees each change in the Code window. For a spreadsheet you change, import_sheet makes a Fenna sheet from it, and export_file saves a sheet back to Files as .xlsx or .csv.",
+    repos.length
+      ? `Repos: you have ${repos.map((r) => `Files/Repos/${r}`).join(", ")}, and your own tools (shell, read, edit) work in Files/Repos. For code work there: read before you change, make a branch of your own (fenna/<topic>), run the repo's own tests and build with its toolchain, commit, then push with repo and the person approves. Say what you ran and what passed.`
+      : "Repos: when the person wants you to work on code, ask for the folder or URL and call repo link or clone.",
     bot.projects === "on" ? "Projects: write files in Files/Projects/<name> and run node, npm or npx there with command (background: true for a server). Check a background server with processes, and in your browser when it prints a localhost address." : "",
     "Save what you will need next time with remember (short facts, not the whole run).",
     "Pin sites you use often and documents you make to your desktop with the desktop tool, so the person can open them from there.",

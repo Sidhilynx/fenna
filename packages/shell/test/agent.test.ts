@@ -1,4 +1,6 @@
 import { readFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 
@@ -13,7 +15,7 @@ const { _test } = require("../main/agent.cjs") as {
     describeTool(profile: Profile, name: string, params: unknown): string;
     friendly(kind: string, raw: string): { message: string; fix: string | null };
     urlsIn(text: string): string[];
-    argsFor(profile: Profile, kind: string, opts: { sessionId?: string | null; model?: string; effort?: string; root: string; images?: { path: string; name?: string }[] }): string[];
+    argsFor(profile: Profile, kind: string, opts: { sessionId?: string | null; model?: string; effort?: string; root: string; images?: { path: string; name?: string }[]; permissionTool?: string; coding?: { dir: string } }): string[];
     promptFor(profile: Profile, text: string, context: unknown, first: boolean, images?: { path: string; name?: string }[]): string;
     inputFor(kind: string, prompt: string, images?: { path: string; name?: string; mimeType?: string; base64?: string }[]): string;
     saveImages(images: { name?: string; mimeType?: string; data: string }[]): { path: string; name: string; mimeType: string; base64: string }[];
@@ -142,5 +144,46 @@ describe("assistant host: event parsing", () => {
     expect(settingsIdx).toBeGreaterThanOrEqual(0);
     const settings = JSON.parse(agyArgs[settingsIdx + 1]!);
     expect(settings.permissions.allow.some((p: string) => p.startsWith("read_file(") && p.includes("images"))).toBe(true);
+  });
+});
+
+describe("coding runs", () => {
+  const dir = path.join(os.tmpdir(), "bot", "workspace", "Repos");
+  const disabled = (a: string[]) => a.flatMap((x, i) => (x === "--disable" ? [a[i + 1]] : []));
+
+  it("gives Claude Code its own tools in a coding run, each asked through the permission tool", () => {
+    const plain = _test.argsFor(app, "claude", { root: "/tmp/doc" });
+    expect(plain[plain.indexOf("--tools") + 1]).toBe("");
+    const coding = _test.argsFor(app, "claude", { root: "/tmp/doc", coding: { dir }, permissionTool: "mcp__crew__approve_tool" });
+    expect(coding[coding.indexOf("--tools") + 1]).toBe("default");
+    expect(coding[coding.indexOf("--permission-prompt-tool") + 1]).toBe("mcp__crew__approve_tool");
+    expect(coding[coding.indexOf("--allowedTools") + 1]).toBe("mcp__notes");
+  });
+
+  it("turns Codex's shell on in its workspace-write sandbox, rooted in the repos folder", () => {
+    const plain = _test.argsFor(app, "codex", { root: "/tmp/doc" });
+    expect(disabled(plain)).toEqual(expect.arrayContaining(["shell_tool", "unified_exec"]));
+    expect(plain).toContain("sandbox_mode=read-only");
+    const coding = _test.argsFor(app, "codex", { root: "/tmp/doc", coding: { dir } });
+    expect(disabled(coding)).not.toContain("shell_tool");
+    expect(disabled(coding)).not.toContain("unified_exec");
+    expect(coding).toContain("sandbox_mode=workspace-write");
+    expect(coding).not.toContain("sandbox_mode=read-only");
+    expect(coding[coding.indexOf("-C") + 1]).toBe(dir);
+    expect(coding).toContain("approval_policy=never");
+  });
+
+  it("lets Antigravity run commands and write only in the repos folder, sandboxed", () => {
+    const settingsOf = (a: string[]) => JSON.parse(a[a.indexOf("--settings") + 1]!);
+    const plain = settingsOf(_test.argsFor(app, "antigravity", { root: "/tmp/doc" }));
+    expect(plain.permissions.deny).toEqual(expect.arrayContaining(["command(*)", "write_file(*)", "unsandboxed(*)"]));
+    const args = _test.argsFor(app, "antigravity", { root: "/tmp/doc", coding: { dir } });
+    const s = settingsOf(args);
+    const fwd = dir.split(path.sep).join("/");
+    expect(s.permissions.allow).toEqual(expect.arrayContaining(["command(*)", `write_file(${fwd}/**)`, `read_file(${fwd}/**)`]));
+    expect(s.permissions.deny).not.toContain("command(*)");
+    expect(s.permissions.deny).not.toContain("write_file(*)");
+    expect(s.permissions.deny).toContain("unsandboxed(*)");
+    expect(args).toContain("--sandbox");
   });
 });
