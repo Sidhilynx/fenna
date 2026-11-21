@@ -38,6 +38,13 @@ if (info) {
   if (info.documents === "write") {
     crew.docs.writeCells = (path, sheet, cells) => call("docs.writeCells", { path, sheet, cells });
   }
+  if (info.network.length) {
+    // Crew sends the request, so sites that refuse other pages' requests (CORS) still answer.
+    crew.fetch = async (url, options = {}) => {
+      const r = await call("net.fetch", { url, method: options.method, headers: options.headers, body: options.body });
+      return { ...r, json: () => JSON.parse(r.text) };
+    };
+  }
   if (info.bot) {
     crew.bot = { tell: (text) => call("bot.tell", { text }) };
   }

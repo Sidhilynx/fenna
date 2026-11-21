@@ -97,6 +97,15 @@ describe("calls go to main with the operation's name", () => {
   });
 });
 
+describe("crew.fetch", () => {
+  it("is there only with a network grant, and sends the request to main", async () => {
+    expect(load(READ_ONLY).crew.fetch).toBeUndefined();
+    const { crew, invokes } = load({ ...READ_ONLY, network: ["https://api.example.com"] });
+    await crew.fetch("https://api.example.com/q", { method: "POST", headers: { a: "b" }, body: "{}" });
+    expect(invokes[0].args).toEqual(["net.fetch", { url: "https://api.example.com/q", method: "POST", headers: { a: "b" }, body: "{}" }]);
+  });
+});
+
 describe("tools the page defines", () => {
   it("asks main first, then keeps the function to run when main calls", async () => {
     const { crew, invokes, listeners, sent } = load(READ_ONLY);

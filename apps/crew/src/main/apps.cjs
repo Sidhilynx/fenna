@@ -38,6 +38,10 @@ const ROWS_MAX = 500;
 const COLS_MAX = 40;
 const TEXT_MAX = 200_000;
 const GRANT_CACHE_MS = 2000;
+const FETCH_TIMEOUT_MS = 20_000;
+const FETCH_REDIRECTS = 5;
+const FETCH_BODY_MAX = 1024 * 1024;
+const FETCH_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"];
 const WATCH_DEBOUNCE_MS = 300;
 const TYPES = {
   html: "text/html; charset=utf-8", htm: "text/html; charset=utf-8", js: "text/javascript; charset=utf-8", mjs: "text/javascript; charset=utf-8",
@@ -250,7 +254,7 @@ function cellUpdates(cells) {
  * The apps of the crew. `session` and `ipcMain` are Electron's; `runner`
  * starts a bot's run; `broadcast` tells the page that apps changed.
  */
-function createApps({ disk, store, broadcast = () => {}, runner, session, ipcMain, now = () => Date.now() }) {
+function createApps({ disk, store, broadcast = () => {}, runner, session, ipcMain, now = () => Date.now(), fetch: fetchImpl = globalThis.fetch }) {
   const preloadPath = path.join(__dirname, "app-preload.cjs");
   /** partition → { slug, name, ses } for every app whose session is prepared. */
   const byPartition = new Map();
@@ -604,6 +608,8 @@ function createApps({ disk, store, broadcast = () => {}, runner, session, ipcMai
         runner.enqueue({ slug, trigger: "app", text: `${title}: ${text.trim()}` });
         return null;
       }
+      case "net.fetch":
+        return netFetch(grant, args);
       case "tools.define": {
         const tool = str(args.name, "The tool's name");
         if (!manifest(slug, name).app?.tools.some((t) => t.name === tool)) throw new Error(MSG.noTool(tool));
@@ -613,6 +619,54 @@ function createApps({ disk, store, broadcast = () => {}, runner, session, ipcMai
       default:
         throw new Error(`There is no call called ${JSON.stringify(String(op))}.`);
     }
+  }
+
+  /**
+   * A request the page asks Crew to make for it (crew.fetch): sent from here,
+   * so a site that doesn't allow pages from other sites (CORS) still answers.
+   * The address, and every redirect, must be on an origin the app was granted.
+   */
+  async function netFetch(grant, args) {
+    if (typeof args.url !== "string") throw new Error("Give the address as text, like crew.fetch(\"https://api.example.com/data\").");
+    const method = typeof args.method === "string" ? args.method.toUpperCase() : "GET";
+    if (!FETCH_METHODS.includes(method)) throw new Error(`The method must be one of ${FETCH_METHODS.join(", ")}.`);
+    const headers = {};
+    if (args.headers && typeof args.headers === "object") {
+      for (const [k, v] of Object.entries(args.headers)) if (typeof v === "string") headers[k.toLowerCase()] = v;
+    }
+    // Some sites turn away requests that name no browser.
+    if (!headers["user-agent"]) headers["user-agent"] = "Mozilla/5.0";
+    let body;
+    if (args.body !== undefined && args.body !== null) {
+      if (typeof args.body !== "string") throw new Error("The body must be text. Use JSON.stringify for an object.");
+      if (args.body.length > FETCH_BODY_MAX) throw new Error(`The body is over ${mb(FETCH_BODY_MAX)}. Send less.`);
+      body = args.body;
+    }
+    let url = args.url;
+    for (let hop = 0; hop <= FETCH_REDIRECTS; hop++) {
+      let u;
+      try {
+        u = new URL(url);
+      } catch {
+        throw new Error(`${String(url).slice(0, 200)} isn't a web address.`);
+      }
+      if ((u.protocol !== "https:" && u.protocol !== "http:") || !grant.network.includes(u.origin)) {
+        const allowed = grant.network.length ? grant.network.join(", ") : "none yet";
+        throw new Error(`This app may not reach ${u.origin}. Add it to network in app.json, and the person allows it from the install card. Allowed now: ${allowed}.`);
+      }
+      const res = await fetchImpl(u.href, { method, headers, body, redirect: "manual", signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) }).catch((e) => {
+        throw new Error(e && e.name === "TimeoutError" ? `${u.origin} didn't answer within ${FETCH_TIMEOUT_MS / 1000} s.` : `Couldn't reach ${u.origin}: ${e && e.message ? e.message : e}`);
+      });
+      const loc = res.status >= 300 && res.status < 400 ? res.headers.get("location") : null;
+      if (loc) {
+        url = new URL(loc, u.href).href;
+        continue;
+      }
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (buf.length > READ_MAX) throw new Error(`The answer is ${mb(buf.length)}. An app can receive at most ${mb(READ_MAX)} at a time.`);
+      return { url: u.href, status: res.status, ok: res.ok, headers: Object.fromEntries(res.headers), text: buf.toString("utf8") };
+    }
+    throw new Error(`${args.url} redirected more than ${FETCH_REDIRECTS} times.`);
   }
 
   // ── Tools the page defines ───────────────────────────────────────────
