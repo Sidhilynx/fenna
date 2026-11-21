@@ -258,7 +258,9 @@ function createHandlers({ store, runner, waits, approve, browsers, gateway, appH
     async watch(ctx, p) {
       let said = "";
       if (p.action === "add") {
-        const w = await watches.add(ctx.slug, { kind: p.kind, note: p.note, origin: p.origin, match: p.match, url: p.url, every: p.every, ref: p.ref, at: p.at, in: p.in });
+        // A watch wakes the bot in the chat it was set in, so the person sees what it did there.
+        const chat = runner.running(ctx.slug)?.chat;
+        const w = await watches.add(ctx.slug, { kind: p.kind, note: p.note, origin: p.origin, match: p.match, url: p.url, every: p.every, ref: p.ref, at: p.at, in: p.in, chat });
         said = `Watching ${w.id} (${w.kind}). Crew wakes you when it fires; end your turn now.`;
         if (w.kind === "notification") {
           const same = watches.list(ctx.slug).filter((x) => x.id !== w.id && x.kind === "notification" && x.origin === w.origin && (!x.match || !w.match || x.match.toLowerCase() === w.match.toLowerCase()));

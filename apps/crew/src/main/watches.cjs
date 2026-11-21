@@ -207,7 +207,7 @@ function createWatches({ store, runner, browsers, broadcast = () => {}, onFire =
     w.count += 1;
     if (w.kind === "timer" && !w.every) list.splice(list.indexOf(w), 1);
     store.writeWatches(slug, list);
-    bundle(slug, w.note, what);
+    bundle(slug, w.note, what, w.chat);
     changed(slug);
     onFire(slug, w, what);
   }
@@ -220,10 +220,10 @@ function createWatches({ store, runner, browsers, broadcast = () => {}, onFire =
     store.writeWatches(slug, list);
   }
 
-  function bundle(slug, note, what) {
+  function bundle(slug, note, what, chat) {
     let b = bundles.get(slug);
     if (!b) bundles.set(slug, (b = { events: [], dropped: 0 }));
-    b.events.push({ note, what: clip(what, EVENT_MAX) });
+    b.events.push({ note, what: clip(what, EVENT_MAX), chat });
     if (b.events.length > BUNDLE_MAX) {
       b.events.shift();
       b.dropped++;
@@ -250,7 +250,14 @@ function createWatches({ store, runner, browsers, broadcast = () => {}, onFire =
     const text = b.events.map((e) => `${e.note} — ${e.what}`).join("\n") + (b.dropped ? `\n(${b.dropped} earlier events were not kept.)` : "");
     bundles.delete(slug);
     recent.push(t);
-    runner.enqueue({ slug, trigger: "watch", text });
+    // The wake goes to the chat the watch was set in (the newest event's), else the person's current chat: they see it either way.
+    const chat = [...b.events].reverse().map((e) => e.chat).find((c) => typeof c === "string" && chatExists(slug, c)) ?? store.readState(slug)?.current;
+    runner.enqueue({ slug, trigger: "watch", text, ...(chat ? { chat } : {}) });
+  }
+
+  function chatExists(slug, id) {
+    const state = store.readState(slug);
+    return !!state && Array.isArray(state.chats) && state.chats.some((c) => c.id === id);
   }
 
   function wakeAll() {
@@ -326,7 +333,7 @@ function createWatches({ store, runner, browsers, broadcast = () => {}, onFire =
     if (!WATCH_KINDS.includes(input.kind)) throw new Error(`The kind is one of ${WATCH_KINDS.join(", ")}, not "${clip(input.kind ?? "", 40)}".`);
     const note = noteArg(input.note);
     const id = freshId(list);
-    const base = { id, kind: input.kind, note, created: iso(), fired: null, count: 0 };
+    const base = { id, kind: input.kind, note, created: iso(), fired: null, count: 0, ...(typeof input.chat === "string" && input.chat ? { chat: input.chat } : {}) };
     let w;
     if (input.kind === "notification") {
       w = { ...base, origin: siteOrigin(input.origin) };

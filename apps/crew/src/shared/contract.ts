@@ -331,6 +331,8 @@ export type Watch = WatchSpec & {
   count: number;
   /** For element and page: the text seen last (capped at 4 KB). */
   last?: string;
+  /** The chat it was set in: its wake-ups show there. */
+  chat?: string;
   /** For notification and element: whether a tab on its site is open, so Crew can hear it. */
   listening?: boolean;
 };
