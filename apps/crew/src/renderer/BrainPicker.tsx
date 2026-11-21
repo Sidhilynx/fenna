@@ -2,7 +2,7 @@
 // and the effort bars; one menu sets all three. The New bot dialog and the bot
 // panel both use it.
 
-import { AgentLogo, effortLabel, MenuButton, modelLogo, type MenuEntry } from "@opendeck/shell";
+import { AgentLogo, effortLabel, isLocalModel, isSmallModel, localMenuEntries, MenuButton, modelLogo, NEEDS_CODEX, type MenuEntry, SMALL_MODEL_NOTE } from "@opendeck/shell";
 import { CLI_KINDS, CLI_NAMES, type Bot } from "@opendeck/crew";
 import type { CliStatus } from "../shared/contract.ts";
 import { PixelIcon } from "./PixelIcon.tsx";
@@ -23,17 +23,21 @@ function EffortBars({ effort }: { effort: string }) {
   );
 }
 
-/** "Ready", "Sign in" or "Not installed": what a CLI needs before a bot can use it. */
-function cliWord(clis: CliStatus[], kind: Brain["cli"]): string {
+/** "Ready", "Sign in" or "Not installed": what a CLI needs before a bot can use it. A local model needs no sign-in. */
+function cliWord(clis: CliStatus[], kind: Brain["cli"], local: boolean): string {
   const c = clis.find((x) => x.kind === kind);
-  return !c ? "" : !c.installed ? "Not installed" : c.signedIn === false ? "Sign in" : "Ready";
+  return !c ? "" : !c.installed ? "Not installed" : c.signedIn === false && !local ? "Sign in" : "Ready";
 }
 
 export function BrainPicker({ value, clis, onChange }: { value: Brain; clis: CliStatus[]; onChange(next: Brain): void }) {
   const cli = clis.find((c) => c.kind === value.cli);
+  const local = isLocalModel(value.model);
   // The catalog's own "Default" duplicates the menu's Default, which already means "whatever the CLI picks".
-  const models = (cli?.models ?? []).filter((m) => m.value && m.label !== "Default");
-  const model = models.find((m) => m.value === value.model);
+  const all = (cli?.models ?? []).filter((m) => m.value && m.label !== "Default");
+  const models = all.filter((m) => !m.local);
+  // Models this computer serves run through Codex, so they are offered whatever CLI the bot has now.
+  const codex = clis.find((c) => c.kind === "codex");
+  const model = all.find((m) => m.value === value.model);
   const efforts = model ? model.efforts : [...new Set(models.flatMap((m) => m.efforts))];
   const effort = value.effort || model?.defaultEffort || "";
   const modelName = model?.label ?? (value.model || "Default");
@@ -48,7 +52,7 @@ export function BrainPicker({ value, clis, onChange }: { value: Brain; clis: Cli
     ...CLI_KINDS.map((k) => ({
       label: CLI_NAMES[k],
       icon: <AgentLogo kind={k} size={16} />,
-      aside: cliWord(clis, k),
+      aside: cliWord(clis, k, local && k === value.cli),
       checked: k === value.cli,
       onSelect: () => k !== value.cli && onChange({ cli: k, model: "", effort: "" }),
     })),
@@ -62,6 +66,11 @@ export function BrainPicker({ value, clis, onChange }: { value: Brain; clis: Cli
       checked: m.value === value.model,
       onSelect: () => onChange({ ...value, model: m.value, effort: m.efforts.includes(value.effort) ? value.effort : "" }),
     })),
+    ...localMenuEntries(codex?.models.filter((m) => m.value) ?? [], {
+      installed: !!codex?.installed,
+      checked: (m) => m.value === value.model,
+      onSelect: (m) => onChange({ cli: "codex", model: m.value, effort: "" }),
+    }),
     ...(efforts.length
       ? [
           "separator" as const,
@@ -73,21 +82,25 @@ export function BrainPicker({ value, clis, onChange }: { value: Brain; clis: Cli
   ];
 
   return (
-    <MenuButton
-      className="btn brain-row"
-      label={`Brain: ${CLI_NAMES[value.cli]}, ${modelName}${effort ? `, ${effortLabel(effort)}` : ""}`}
-      entries={entries}
-    >
-      <AgentLogo kind={value.cli} size={16} />
-      {model && modelMark(model.label)}
-      <span className="ell brain-model">{modelName}</span>
-      {effort && (
-        <span className="effort-chip">
-          <EffortBars effort={effort} />
-          {effortLabel(effort)}
-        </span>
-      )}
-      <PixelIcon name="chevron-down" size={12} />
-    </MenuButton>
+    <>
+      <MenuButton
+        className="btn brain-row"
+        label={`Brain: ${CLI_NAMES[value.cli]}, ${modelName}${effort ? `, ${effortLabel(effort)}` : ""}`}
+        entries={entries}
+      >
+        <AgentLogo kind={value.cli} size={16} />
+        {model && modelMark(model.label)}
+        <span className="ell brain-model">{modelName}</span>
+        {effort && (
+          <span className="effort-chip">
+            <EffortBars effort={effort} />
+            {effortLabel(effort)}
+          </span>
+        )}
+        <PixelIcon name="chevron-down" size={12} />
+      </MenuButton>
+      {model && isSmallModel(model) && <p className="brain-note">{SMALL_MODEL_NOTE}</p>}
+      {local && !codex?.installed && <p className="brain-note">{NEEDS_CODEX}</p>}
+    </>
   );
 }

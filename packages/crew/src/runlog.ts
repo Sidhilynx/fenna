@@ -53,9 +53,11 @@ export type RunEvent =
   | { type: "app_tool"; at: string; app: string; tool: string; ok: boolean; ms: number }
   | { type: "command"; at: string; project: string; command: string; exitCode: number | null; ms: number; background: boolean; port?: number }
   | { type: "usage"; at: string; used: number; window: number | null }
+  /** What the CLI reported for the whole turn (optional: Antigravity reports none). input counts cached input too; costUsd is the API-equivalent estimate the CLI gives, null when it gives none. */
+  | { type: "tokens"; at: string; input: number; output: number; costUsd: number | null }
   | { type: "end"; at: string; outcome: "done" | "error" | "stopped"; message: string | null };
 
-export const RUN_EVENT_TYPES = ["start", "text", "tool", "ask", "answer", "approval", "decision", "status", "handoff", "handback", "files", "connector", "login", "app_tool", "command", "usage", "end"] as const;
+export const RUN_EVENT_TYPES = ["start", "text", "tool", "ask", "answer", "approval", "decision", "status", "handoff", "handback", "files", "connector", "login", "app_tool", "command", "usage", "tokens", "end"] as const;
 
 /** A run's file name from its start time: colons are not allowed in Windows file names. */
 export function runFileName(start: Date): string {

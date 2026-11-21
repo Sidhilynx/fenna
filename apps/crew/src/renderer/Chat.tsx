@@ -4,7 +4,7 @@
 
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { CLI_NAMES, RUNS_CHAT, type Avatar as AvatarId, type AvatarColor } from "@opendeck/crew";
-import { MenuButton, toast, type MenuEntry } from "@opendeck/shell";
+import { isLocalModel, MenuButton, toast, type MenuEntry } from "@opendeck/shell";
 import { errorText, invoke, on } from "../shared/api.ts";
 import type { BotSummary, ChatSummary, LibraryItem, MeetingView, Waiting } from "../shared/contract.ts";
 import { ApprovalCard, AskCard } from "./Cards.tsx";
@@ -224,7 +224,8 @@ export function BrainNotice({ bot }: { bot: BotSummary }) {
   const { clis, openCli } = useCrew();
   const [error, setError] = useState("");
   const mine = clis.find((c) => c.kind === bot.brain.cli);
-  if (!mine || (mine.installed && mine.signedIn !== false)) return null;
+  // A local model runs through Codex without a sign-in, so its brain is never "not signed in".
+  if (!mine || (mine.installed && (mine.signedIn !== false || isLocalModel(bot.brain.model)))) return null;
   const other = clis.find((c) => c.kind !== bot.brain.cli && c.installed && c.signedIn === true);
   const name = CLI_NAMES[bot.brain.cli];
   const swap = () => {

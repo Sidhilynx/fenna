@@ -66,11 +66,11 @@ export function AgentChoice({ agents, noun, onPick, onMcpGuide }: { agents: Agen
   );
 }
 
-/** Above the composer until the chosen assistant can answer. */
-export function AgentSetup({ agents, kind }: { agents: Agents; kind: AgentKind }) {
+/** Above the composer until the chosen assistant can answer (`local`: its model runs on this computer, no sign-in). */
+export function AgentSetup({ agents, kind, local = false }: { agents: Agents; kind: AgentKind; local?: boolean }) {
   const [code, setCode] = useState("");
   const [sent, setSent] = useState(false);
-  const setup = agents.stepOf(kind);
+  const setup = agents.stepOf(kind, local);
   if (setup.step === "ready") return null;
   const name = AGENTS[kind].name;
 

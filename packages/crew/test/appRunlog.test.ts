@@ -10,3 +10,14 @@ describe("app_tool run events", () => {
     expect(back.events).toEqual([ev]);
   });
 });
+
+describe("tokens run events", () => {
+  it("is a run event type, with a cost that may be null", () => {
+    const reported: RunEvent = { type: "tokens", at: "2026-11-21T10:00:00.000Z", input: 1200, output: 300, costUsd: 0.42 };
+    const unpriced: RunEvent = { type: "tokens", at: "2026-11-21T10:00:00.000Z", input: 5, output: 1, costUsd: null };
+    expect(RUN_EVENT_TYPES).toContain("tokens");
+    const back = parseRunLog(runLine(reported) + runLine(unpriced));
+    expect(back.skipped).toBe(0);
+    expect(back.events).toEqual([reported, unpriced]);
+  });
+});

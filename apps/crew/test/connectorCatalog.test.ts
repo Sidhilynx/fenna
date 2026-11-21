@@ -32,8 +32,8 @@ describe("connector catalog", () => {
     for (const e of CONNECTOR_CATALOG) expect(existsSync(join(logos, `${e.id}.svg`)), e.id).toBe(e.logo);
   });
 
-  it("has 25 entries, with Arsaze as the one featured entry, first", () => {
-    expect(CONNECTOR_CATALOG).toHaveLength(25);
+  it("has 37 entries, with Arsaze as the one featured entry, first", () => {
+    expect(CONNECTOR_CATALOG).toHaveLength(37);
     expect(CONNECTOR_CATALOG[0]!.id).toBe("arsaze");
     expect(CONNECTOR_CATALOG.filter((e) => e.featured).map((e) => e.id)).toEqual(["arsaze"]);
   });
@@ -47,6 +47,10 @@ describe("connector catalog", () => {
   it("gives Arsaze a remote address with sign-in in the Design category", () => {
     const arsaze = CONNECTOR_CATALOG[0]!;
     expect(arsaze).toMatchObject({ name: "Arsaze", vendor: "Sidhilynx", kind: "url", url: "https://api.arsaze.com/mcp", auth: "oauth", category: "Design", logo: true });
+  });
+
+  it("names each required environment value as an upper-case variable", () => {
+    for (const e of CONNECTOR_CATALOG) for (const v of e.env ?? []) expect(v.name, e.id).toMatch(/^[A-Z][A-Z0-9_]*$/);
   });
 
   it("has a known category and a short plain description", () => {

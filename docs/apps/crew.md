@@ -141,6 +141,11 @@ Files, on the `crew` server (`apps/crew/src/main/files.cjs`):
 - Connectors are installed once per machine; bots are granted connectors with
   per-tool levels allow/ask/off, enforced by Crew's gateway on every CLI.
   2026-11-18
+- Skills (the open Agent Skills format, a folder with SKILL.md) are installed
+  once per machine and shown in full before they are added; a bot is granted
+  them by name, and before each run they are copied onto its disk at
+  Files/Skills/<name>/, so every CLI reads them with read_file, and the prompt
+  names only each one's description and path, never its body. 2026-11-21
 - A bot's browser fills its desktop with real tabs; our own chrome. 2026-11-18
 - The bot's browser stays offscreen and sends live frames as GPU textures (up
   to 60 a second), not an on-screen view: offscreen pages keep working when
@@ -263,6 +268,10 @@ Files, on the `crew` server (`apps/crew/src/main/files.cjs`):
   2026-11-21
 - The back button on a bot's computer is named for the bot and goes to its
   chat, not to Home. 2026-11-21
+- Memory comes in from other AI tools only as reviewed data: a prompt to paste
+  into another assistant, a file, or a memory file on this computer (ticked,
+  read on request, never uploaded); the person approves each fact, and the bot
+  reads memory.md as information, not instructions. 2026-11-21
 ## Build summary
 
 (Written by the builders.)
