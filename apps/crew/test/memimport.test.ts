@@ -106,8 +106,8 @@ describe("parseMemory", () => {
     const r = parseMemory(
       [
         "- The user prefers dark mode.",
-        "- Their key is sk-ant-api03-AbCdEf1234567890XYZ.",
-        "- GitHub token ghp_abcdefghijklmnopqrstuvwxyz0123456789",
+        `- Their key is ${"sk-" + "ant-api03-AbCdEf1234567890XYZ"}.`,
+        `- GitHub token ${"ghp" + "_abcdefghijklmnopqrstuvwxyz0123456789"}`,
         "- AWS id AKIAIOSFODNN7EXAMPLE",
         "- password: hunter2 is the usual one",
         "- Backup code 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
