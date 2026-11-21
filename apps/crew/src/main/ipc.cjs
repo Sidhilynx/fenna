@@ -171,6 +171,13 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
     const attached = checkAttachments(files);
     const body = attached.length ? (typeof text === "string" ? text : "") : str(text, "The message", MAX_MESSAGE);
     if (body.length > MAX_MESSAGE) throw new Error(`The message is too long (${body.length} characters; the most is ${MAX_MESSAGE}).`);
+    // The bot is waiting on its question to the person: what they type answers it, rather than waiting behind it.
+    const asked = attached.length ? null : waits.askOf(s);
+    if (asked && body.trim()) {
+      waits.answer(asked.id, [body.trim().slice(0, 2000)]);
+      usage.count("messages");
+      return { runId: asked.runId, queued: false, answered: true };
+    }
     const saved = attached.length ? disk.inbox(s, attached) : [];
     const sent = forRun(saved, attached);
     const r = runner.enqueue({ slug: s, trigger: "person", text: body, chat: chosen, attachments: sent.list, images: sent.images });

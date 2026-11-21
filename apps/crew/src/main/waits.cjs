@@ -58,6 +58,11 @@ function createWaits({ timeoutMs = DEFAULT_TIMEOUT_MS, onChange = () => {}, now 
       return w ? w.record : null;
     },
 
+    /** A question a bot is waiting on the person to answer, if any: a message the person types answers it. */
+    askOf(slug) {
+      return this.list().find((w) => w.kind === "ask" && w.slug === slug) ?? null;
+    },
+
     /** Everything waiting, oldest first. */
     list() {
       return [...open.values()].map((w) => w.record).sort((a, b) => a.at.localeCompare(b.at));

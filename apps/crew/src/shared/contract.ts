@@ -670,7 +670,8 @@ export interface Calls {
   "crew:create": { args: [input: NewBotInput]; result: { slug: string } };
   "crew:update": { args: [slug: string, patch: Partial<Bot>]; result: BotDetail };
   "crew:delete": { args: [slug: string]; result: true };
-  "crew:send": { args: [slug: string, text: string, chat?: string, files?: { name: string; bytes: ArrayBuffer }[]]; result: { runId: string; queued: boolean } };
+  /** A message to the bot; when the bot is waiting on its question, the message answers it (answered: true) instead of starting a run. */
+  "crew:send": { args: [slug: string, text: string, chat?: string, files?: { name: string; bytes: ArrayBuffer }[]]; result: { runId: string; queued: boolean; answered?: boolean } };
   "crew:newChat": { args: [slug: string]; result: string };
   "crew:openChat": { args: [slug: string, chat: string]; result: true };
   "crew:compact": { args: [slug: string, chat: string]; result: { runId: string } };

@@ -339,6 +339,11 @@ function unreadCount(title) {
 }
 
 /** The origin of a tab's address, or "" when it has none (blank, or a destroyed tab). */
+/** Another tab already on this site (not the active one), or null: opening the site switches to it. */
+function otherSiteTab(tabs, origin, activeId) {
+  return tabs.find((t) => t.origin === origin && t.id !== activeId) ?? null;
+}
+
 function originOf(t) {
   if (t.wc.isDestroyed()) return "";
   try {
@@ -1077,6 +1082,21 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
     async open(b, p) {
       const a = webAddress(p.url);
       if (a.error) throw new Error(a.error);
+      // One tab per site: sites like WhatsApp Web run in one tab only, and a second one takes the session from the first
+      // (a watch keeps its site open in a tab of its own). An open site is switched to, not opened again.
+      const same = otherSiteTab(b.tabs.map((x) => ({ id: x.id, origin: originOf(x), tab: x })), a.url.origin, b.active)?.tab;
+      if (same) {
+        setActive(b, same.id);
+        await same.ready;
+        // The site's front page keeps the tab as it is (a reload would sign some sites out); a page on it is opened there.
+        const wantsPage = a.url.pathname !== "/" || a.url.search !== "";
+        if (wantsPage && same.wc.getURL() !== a.url.href) {
+          const r = await cdp(same, "Page.navigate", { url: a.url.href });
+          if (r.errorText) throw new Error(`Couldn't open ${a.url.href}: ${r.errorText}. Check the address, or try again later.`);
+          await waitLoad(b);
+        }
+        return { text: `${a.url.host} was already open in tab ${same.id}, so you're in that tab now (a site runs in one tab).\n${await snapshotText(b)}` };
+      }
       if (p.new_tab) {
         if (b.tabs.length >= MAX_TABS) throw new Error(`${MAX_TABS} tabs are open, the most a bot can have. Close one with close_tab (call tabs to see them), or open without new_tab to use this one.`);
         const t = newTab(b);
@@ -1642,4 +1662,4 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
   };
 }
 
-module.exports = { createBrowsers, unreadCount, parseKey, toElectronInput, viewOf, webAddress, safeDownloadName, uniqueName, overCap, downloadRoom, tooBigText, sizeText, rateLimiter, pushCapped, clipText, KEEP_FREE, MAX_TABS, DEFAULT_VIEW, NOTIFY_PER_MINUTE, NOTICES_KEPT, NOTIFY_TEXT_CAP };
+module.exports = { createBrowsers, otherSiteTab, unreadCount, parseKey, toElectronInput, viewOf, webAddress, safeDownloadName, uniqueName, overCap, downloadRoom, tooBigText, sizeText, rateLimiter, pushCapped, clipText, KEEP_FREE, MAX_TABS, DEFAULT_VIEW, NOTIFY_PER_MINUTE, NOTICES_KEPT, NOTIFY_TEXT_CAP };
