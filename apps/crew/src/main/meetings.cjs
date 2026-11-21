@@ -21,12 +21,21 @@ const LISTEN_WORLD = "fenna-meet";
 const POLL_MS = 2000;
 const JOIN_WAIT_MS = 30_000;
 const ANSWER_WAIT_MS = 12_000;
+const JOIN_ENABLE_MS = 8000;
 const ADMIT_WAIT_MS = 10 * 60_000;
 const ALONE_MS = 5 * 60_000;
 const LONGEST_MS = 4 * 3_600_000;
 const PRESENT_WAIT_MS = 8000;
 const NAME_MAX = 60;
 const NOTE_MAX = 500;
+/** How each state reads in what the model is told. */
+const STATE_WORDS = {
+  joining: "joining",
+  waiting: "asked to join, waiting for someone in the call to let you in",
+  stuck: "stopped at Meet's join screen until the person takes control of your browser and gets past it",
+  incall: "in the call",
+  ended: "ended",
+};
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** The call a link names: Meet's own links, and in tests the extra origins Crew was started with. */
@@ -220,6 +229,13 @@ The whole transcript: Files/Meetings/${m.file}` });
         void admitted(m);
       } else if (s.state === "waiting") setState(m, "waiting");
       else if (s.state === "denied") return finish(m, "Not let in to the call.");
+      else if (s.state === "signin") m.signIn = true;
+      else if (s.state === "prejoin" && m.signIn && !m.pressing) {
+        // The person signed in for the bot: Meet is back at its join screen, and Crew presses join itself.
+        m.signIn = false;
+        m.pressing = true;
+        void pressJoin(m).finally(() => (m.pressing = false));
+      }
       else if (s.state === "ended" && m.state === "incall") return finish(m, "The call ended.");
       if (m.state === "incall") {
         if (s.captions === false && m.captions) {
@@ -235,7 +251,7 @@ The whole transcript: Files/Meetings/${m.file}` });
         if (m.aloneSince && t - m.aloneSince > ALONE_MS) return leave(m, "Left: everyone else had gone.");
       }
     }
-    if (m.state !== "incall" && t - m.startedMs > ADMIT_WAIT_MS) return leave(m, "Left: nobody let the bot in for 10 minutes.");
+    if (m.state !== "incall" && t - m.startedMs > ADMIT_WAIT_MS) return leave(m, m.state === "stuck" ? "Left: nobody got the bot past Meet's join screen in 10 minutes." : "Left: nobody let the bot in for 10 minutes.");
     if (t - m.startedMs > LONGEST_MS) return leave(m, "Left after 4 hours, the longest a bot stays in a call.");
     tell(m);
     m.poll = setTimeout(() => void check(m), POLL_MS);
@@ -253,7 +269,11 @@ The whole transcript: Files/Meetings/${m.file}` });
   }
 
   async function join(slug, { url, name, note }) {
-    if (all.has(slug)) throw new Error(`You are already in the call ${all.get(slug).code}. Leave it first with {action: "leave"}.`);
+    const was = all.get(slug);
+    if (was) {
+      if (was.state === "incall") throw new Error(`You are already in the call ${was.code}. Leave it first with {action: "leave"}.`);
+      throw new Error(`You are already joining ${was.code} (${STATE_WORDS[was.state] || was.state}); Crew carries on by itself. Don't join again: check with {action: "status"}, or {action: "leave"} to give up.`);
+    }
     const link = meetingLink(url, extraOrigins);
     if (link.error) throw new Error(link.error);
     const loaded = store.readBot(slug);
@@ -275,6 +295,7 @@ The whole transcript: Files/Meetings/${m.file}` });
       code: link.code,
       url: link.url,
       botName,
+      shown,
       note: String(note || "").trim().slice(0, NOTE_MAX),
       file,
       path: path.join(dir, file),
@@ -286,6 +307,8 @@ The whole transcript: Files/Meetings/${m.file}` });
       startedAt: at.toISOString(),
       startedMs: at.getTime(),
       aloneSince: 0,
+      signIn: false,
+      pressing: false,
       saying: Promise.resolve(),
       done: false,
       poll: null,
@@ -316,6 +339,16 @@ The whole transcript: Files/Meetings/${m.file}` });
       throw e;
     }
     tell(m);
+    const where = `The transcript goes to Files/Meetings/${file}. When someone says your name, Crew wakes you in the chat "Call ${link.code}" with what was said.`;
+    // The person can finish what Crew couldn't (a sign-in, the Join button) in this same tab: the poll takes the call from there.
+    const handOver = (why) => {
+      setState(m, "stuck");
+      m.poll = setTimeout(() => void check(m), POLL_MS);
+      return {
+        text: `${why} Crew keeps the call's tab open for 10 minutes and joins by itself once the person gets it past that: ask them with ask_human to take control of your browser and do it in the call's tab. Don't call join again, and don't use the browser tools on that tab. ${where}`,
+      };
+    };
+
     // The page before the call: the name, the microphone off, then Join now or Ask to join.
     const until = Date.now() + JOIN_WAIT_MS;
     let first = null;
@@ -325,30 +358,50 @@ The whole transcript: Files/Meetings/${m.file}` });
       await sleep(500);
     }
     if (m.done) throw new Error("The meeting's tab was closed.");
-    if (!first || first.state === "unknown") {
-      finish(m, "Couldn't find Meet's join screen.");
-      throw new Error("Meet didn't show its join screen in 30 seconds. Check the link with the person; if Meet asks for a Google sign-in, ask them to take control of your browser and sign in.");
+    if (!first || first.state === "unknown") return handOver(`Meet didn't show its join screen for ${link.code} in 30 seconds.`);
+    if (first.state === "signin") {
+      m.signIn = true;
+      return handOver(`Meet wants a Google sign-in before it lets anyone into ${link.code}.`);
+    }
+    if (first.state === "denied") {
+      finish(m, "Not let in to the call.");
+      return { text: `Meet says you can't join ${link.code}. Tell the person; the host may have to invite or admit guests.` };
     }
     if (first.state === "prejoin") {
-      const r = await run(m, S.meetPrejoin, { name: shown }).catch(() => null);
-      if (!r || !r.clicked) {
-        finish(m, "Couldn't press join.");
-        throw new Error("Couldn't find Meet's join button. The call may need a Google sign-in: ask the person to take control of your browser and sign in, then join again.");
-      }
+      const r = await pressJoin(m);
+      if (m.done) throw new Error("The meeting's tab was closed.");
+      if (!r || !r.clicked) return handOver(`Crew couldn't press Meet's join button for ${link.code} (${!r ? "the page didn't answer" : r.disabled ? "the button stayed disabled" : "no Join now or Ask to join button"}).`);
     }
     // Wait a little for the answer, then let the poll carry on without the model.
     const answerBy = Date.now() + ANSWER_WAIT_MS;
     let s = first;
     while (Date.now() < answerBy && !m.done) {
       s = await run(m, S.meetState).catch(() => null);
-      if (s && (s.state === "incall" || s.state === "denied")) break;
+      if (s && (s.state === "incall" || s.state === "denied" || s.state === "waiting")) break;
       await sleep(700);
     }
+    if (m.done) throw new Error("The meeting's tab was closed.");
+    if (s && s.state === "denied") {
+      finish(m, "Not let in to the call.");
+      return { text: `Meet didn't let you in to ${link.code}.` };
+    }
+    if (s && s.state === "prejoin") return handOver(`Crew pressed join for ${link.code}, but Meet still shows its join screen.`);
     m.poll = setTimeout(() => void check(m), 0);
-    if (s && s.state === "denied") return { text: `Meet didn't let you in to ${link.code}.` };
-    const where = `The transcript goes to Files/Meetings/${file}. When someone says your name, Crew wakes you in the chat "Call ${link.code}" with what was said.`;
     if (s && s.state === "incall") return { text: `Joined ${link.code} as "${shown}". ${where}` };
-    return { text: `Asked to join ${link.code} as "${shown}"; someone in the call has to let you in. Crew joins when they do. ${where} End your turn now.` };
+    return { text: `Asked to join ${link.code} as "${shown}"; someone in the call has to let you in. Crew joins when they do, and leaves after 10 minutes if nobody does. ${where} Don't call join again; end your turn now.` };
+  }
+
+  /** Types the bot's name for real (Meet ignores a name set from script), then presses Join now or Ask to join once it is enabled. */
+  async function pressJoin(m) {
+    const f = await run(m, S.meetNameFocus).catch(() => null);
+    if (f && f.found && f.value !== m.shown) await m.tab.cdp("Input.insertText", { text: m.shown }).catch(() => {});
+    let r = null;
+    for (const by = Date.now() + JOIN_ENABLE_MS; Date.now() < by && !m.done; ) {
+      r = await run(m, S.meetPrejoin, { name: m.shown }).catch(() => null);
+      if (r && r.clicked) break;
+      await sleep(500);
+    }
+    return r;
   }
 
   async function share(m, item) {
@@ -385,7 +438,7 @@ The whole transcript: Files/Meetings/${m.file}` });
       const m = all.get(ctx.slug);
       if (action === "status") {
         if (!m) return { text: "You aren't in a call." };
-        return { text: `Call ${m.code}: ${m.state}${m.people !== null ? `, ${m.people} people` : ""}${m.sharing ? `, sharing "${m.sharing.title}"` : ""}. Transcript: Files/Meetings/${m.file} (${m.engine.lines().length} lines).` };
+        return { text: `Call ${m.code}: ${STATE_WORDS[m.state] || m.state}${m.people !== null ? `, ${m.people} people` : ""}${m.sharing ? `, sharing "${m.sharing.title}"` : ""}. Transcript: Files/Meetings/${m.file} (${m.engine.lines().length} lines).` };
       }
       if (!m) throw new Error('You aren\'t in a call. Join one with {action: "join", url}.');
       if (action === "say") {

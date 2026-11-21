@@ -65,8 +65,9 @@ label and visible text only, through these constants in `meet-scripts.cjs`
 
 | What | Found by |
 |---|---|
-| Name input (guest, before joining) | `input[aria-label="Your name"]`, else an input whose placeholder matches `/your name/i` |
-| Join buttons | a button whose text is `Join now` or `Ask to join` |
+| Name input (guest, before joining) | `input[aria-label="Your name"]`, else an input whose placeholder matches `/your name/i`. Meet enables the guest's join button only for a name typed for real, so Crew focuses the field (`meetNameFocus`) and types with `Input.insertText`; a value set from script is ignored |
+| Join buttons | a button whose text or aria-label is `Join now` or `Ask to join`; `meetPrejoin` reports one that is there but disabled |
+| Sign-in | the page is on `accounts.google.com` (state `signin`) |
 | Mic / camera toggles | button aria-label starting `Turn off microphone` / `Turn off camera` (on) or `Turn on …` (off) |
 | Waiting room | page text contains `Asking to be let in` or `Please wait until a meeting host brings you into the call` |
 | In the call | a button with aria-label `Leave call` |
@@ -205,6 +206,13 @@ Tests with vitest fake timers cover each rule above and its edges.
 One tool on the `crew` server, `meeting`, shaped like `apps`:
 
 - `{action: "join", url, name?}` → "Asked to join. Crew lets you know when you are in." or "Joined …". Only `https://meet.google.com/<code>` links.
+  When Meet wants a sign-in, or Crew can't press join, the call is `stuck`:
+  its tab stays open for 10 minutes, the result tells the bot to ask the
+  person to take control and do it there (never to join again), and the poll
+  takes the call from there (after a sign-in Crew presses join itself). A
+  second join while one is under way fails and says so. The browser tools
+  never open a call link, and a plain tab on the call's site is closed when
+  the bot joins.
 - `{action: "share", document}` → presents a library document (live).
 - `{action: "stop_sharing"}`, `{action: "leave"}`, `{action: "status"}`.
 - `{action: "say", text}` → posts to the meeting chat (for runs that are

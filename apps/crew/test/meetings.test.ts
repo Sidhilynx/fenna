@@ -1,8 +1,11 @@
+import fs from "node:fs";
 import { createRequire } from "node:module";
-import { describe, expect, it } from "vitest";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const require = createRequire(import.meta.url);
-const { meetingLink, transcriptName, consentText } = require("../src/main/meetings.cjs");
+const { createMeetings, meetingLink, transcriptName, consentText } = require("../src/main/meetings.cjs");
 const { buildPrompt } = require("../src/main/prompt.cjs");
 
 describe("meeting links", () => {
@@ -66,6 +69,159 @@ describe("meeting prompts", () => {
   it("tells every bot how to join a call without driving it", () => {
     const text = buildPrompt({ ...base, trigger: "person", text: "hi" });
     expect(text).toContain('{action: "join", url, note');
-    expect(text).toContain("Never use the browser tools on the call's tab");
+    expect(text).toContain("Never open a call or use the browser tools on its tab");
+    expect(text).toContain("Call join once per call");
+  });
+});
+
+/**
+ * A Meet tab that behaves like the real guest page: Ask to join stays disabled
+ * until the name is typed with real key input (Input.insertText into the
+ * focused field), not set from script.
+ */
+function fakeMeet(start: { state?: string; typedOnly?: boolean } = {}) {
+  const page = { state: start.state ?? "prejoin", name: "", typed: false, focused: false, typedOnly: start.typedOnly ?? true, closed: false, inserted: [] as string[] };
+  const tab = {
+    alive: () => !page.closed,
+    close: () => void (page.closed = true),
+    waitForControl: async () => {},
+    main: async () => false,
+    cdp: async (method: string, p: { text: string }) => {
+      if (method !== "Input.insertText") return {};
+      page.inserted.push(p.text);
+      if (page.focused) {
+        page.name = p.text;
+        page.typed = true;
+      }
+      return {};
+    },
+    evaluate: async (fn: { name: string }, arg: { name?: string } | null) => {
+      switch (fn.name) {
+        case "meetState":
+          return { state: page.state, captions: false, chatOpen: false, presenting: false, people: page.state === "incall" ? 2 : null };
+        case "meetNameFocus":
+          if (page.state !== "prejoin") return { found: false, focused: false, value: "" };
+          page.focused = true;
+          return { found: true, focused: true, value: page.name };
+        case "meetPrejoin":
+          if (page.state !== "prejoin") return { clicked: null, filled: false, disabled: false, nameField: false };
+          if (!page.name && arg && arg.name) page.name = arg.name;
+          if (page.typedOnly && !page.typed) return { clicked: null, filled: true, disabled: true, nameField: true };
+          page.state = "waiting";
+          return { clicked: "ask", filled: true, disabled: false, nameField: true };
+        case "meetCaptionsOn":
+          return { on: true };
+        case "meetChatFocus":
+          return { ok: true };
+        case "meetLeave":
+          page.state = "ended";
+          return { clicked: true };
+        default:
+          return null;
+      }
+    },
+  };
+  return { page, tab };
+}
+
+describe("joining a call", () => {
+  let dir = "";
+  beforeEach(() => {
+    vi.useFakeTimers({ now: new Date(2026, 10, 21, 9, 0) });
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), "crew-meet-"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  function setup(fake: ReturnType<typeof fakeMeet>) {
+    const state = { chats: [] as unknown[] };
+    return createMeetings({
+      store: { readBot: () => ({ bot: { name: "Scout" } }), botDir: () => dir, patchState: (_slug: string, fn: (s: unknown) => void) => fn(state) },
+      runner: { enqueue: () => ({ done: new Promise(() => {}) }), running: () => false, isQueued: () => false },
+      browsers: { openMeeting: async () => fake.tab },
+      stage: null,
+      broadcast: () => {},
+    });
+  }
+
+  /** Runs the fake clock until `p` settles. */
+  async function settle<T>(p: Promise<T>): Promise<T> {
+    let out: { ok: boolean; v: unknown } | null = null;
+    p.then(
+      (v) => (out = { ok: true, v }),
+      (v) => (out = { ok: false, v }),
+    );
+    for (let i = 0; i < 120 && !out; i++) await vi.advanceTimersByTimeAsync(500);
+    const done = out as { ok: boolean; v: unknown } | null;
+    if (!done) throw new Error("still running");
+    if (!done.ok) throw done.v;
+    return done.v as T;
+  }
+
+  const join = (meetings: ReturnType<typeof setup>) => settle<{ text: string }>(meetings.act({ slug: "scout" }, { action: "join", url: "https://meet.google.com/abc-defg-hij" }));
+
+  it("types the guest name for real, so Meet's Ask to join wakes up, and asks once", async () => {
+    const fake = fakeMeet();
+    const meetings = setup(fake);
+    const r = await join(meetings);
+    expect(fake.page.inserted).toEqual(["Scout (Fenna)"]);
+    expect(fake.page.state).toBe("waiting");
+    expect(r.text).toContain('Asked to join abc-defg-hij as "Scout (Fenna)"');
+    expect(r.text).toContain("Don't call join again");
+    expect(meetings.list()[0].state).toBe("waiting");
+    meetings.stopAll();
+  });
+
+  it("when Join can't be pressed, keeps the call's tab, says what the person must do, and joins once they do it", async () => {
+    const fake = fakeMeet();
+    // Typing doesn't reach the field: the button stays disabled.
+    fake.tab.cdp = async () => ({});
+    const meetings = setup(fake);
+    const r = await join(meetings);
+    expect(r.text).toContain("the button stayed disabled");
+    expect(r.text).toContain("take control of your browser");
+    expect(r.text).not.toMatch(/sign-in/);
+    expect(fake.page.closed).toBe(false);
+    expect(meetings.list()[0].state).toBe("stuck");
+
+    await expect(join(meetings)).rejects.toThrow("Don't join again");
+    expect((await meetings.act({ slug: "scout" }, { action: "status" })).text).toContain("join screen");
+
+    // The person takes control and presses Join; the host lets the bot in.
+    fake.page.state = "incall";
+    await vi.advanceTimersByTimeAsync(5000);
+    const view = meetings.list()[0];
+    expect(view.state).toBe("incall");
+    expect(fs.readFileSync(path.join(dir, "workspace", "Meetings", view.transcript.split("/").pop()), "utf8")).toContain("Joined the call.");
+    meetings.stopAll();
+  });
+
+  it("names a real Google sign-in page, and presses join itself once the person has signed in", async () => {
+    const fake = fakeMeet({ state: "signin" });
+    const meetings = setup(fake);
+    const r = await join(meetings);
+    expect(r.text).toContain("Meet wants a Google sign-in");
+    expect(meetings.list()[0].state).toBe("stuck");
+
+    // Signed in: Meet shows its join screen with no name to type, and Crew asks to join.
+    fake.page.state = "prejoin";
+    fake.page.typedOnly = false;
+    await vi.advanceTimersByTimeAsync(6000);
+    expect(fake.page.state).toBe("waiting");
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(meetings.list()[0].state).toBe("waiting");
+    meetings.stopAll();
+  });
+
+  it("gives up after 10 minutes at the join screen and closes the tab", async () => {
+    const fake = fakeMeet();
+    fake.tab.cdp = async () => ({});
+    const meetings = setup(fake);
+    await join(meetings);
+    await vi.advanceTimersByTimeAsync(11 * 60_000);
+    expect(meetings.list()).toEqual([]);
+    expect(fake.page.closed).toBe(true);
   });
 });

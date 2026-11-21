@@ -517,7 +517,7 @@ function ChatHead({ bot, viewing, onView, onPanel }: { bot: BotSummary; viewing:
   );
 }
 
-const CALL_STATE: Record<MeetingView["state"], string> = { joining: "Joining a call", waiting: "Waiting to be let in", incall: "In a call", ended: "Left the call" };
+const CALL_STATE: Record<MeetingView["state"], string> = { joining: "Joining a call", waiting: "Waiting to be let in", stuck: "Take control to join", incall: "In a call", ended: "Left the call" };
 
 /** The bot's call, if it is in one: where it is, and the person's Stop sharing and Leave. */
 function CallStrip({ slug }: { slug: string }) {
