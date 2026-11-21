@@ -361,7 +361,7 @@ export function SignIn({ c, onSignedIn }: { c: ConnectorView; onSignedIn?(c: Con
   );
 }
 
-function Fact({ label, value }: { label: string; value: string }) {
+export function Fact({ label, value }: { label: string; value: string }) {
   return (
     <div className="facts-row">
       <dt className="ell" title={label}>

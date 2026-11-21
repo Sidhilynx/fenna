@@ -42,6 +42,7 @@ Teams are shown to people as group chats; the data stays `team`. A message to on
 | `link.cjs` | The local named pipe / unix socket the MCP servers reach the app on; a secret token per run |
 | `servers.cjs` | Each run's MCP servers: `crew`, `browser`, `fenna` (workspace-mcp in the bot's library), and `gateway` when the bot is granted installed connectors. Every server is trusted; connectors are never handed to the CLI |
 | `connectors.cjs` | Connectors installed on this computer, `<userData>/Crew/connectors/<name>.json`, secret values encrypted with Electron `safeStorage` (async API); a web connector's sign-in in `<name>.auth`, encrypted whole; moves connectors written whole in an older bot.md here (a grant stays in bot.md) |
+| `skills.cjs` | Skills installed on this computer, `<userData>/Crew/skills/<name>/`: reads a folder, file or https address into a preview, adds it on commit, copies granted ones onto a bot's disk before each run (`Files/Skills`), and the grants (who has which skill) |
 | `connections.cjs` | Each connector's program (or web session): started on first use, shared by every bot, restarted if it stops while in use, stopped after 10 idle minutes |
 | `gateway.cjs` | What the `gateway` server asks: the running bot's tools on allow or ask (never off), and every call, asking the person first for ask and logging it |
 | `vault.cjs` | The vault of the person's logins, `<userData>/Crew/vault.dat`: the whole file encrypted with `safeStorage` (async), each password and 2-factor setup key sealed again inside; secrets opened only to fill, copy or reveal |
@@ -98,6 +99,13 @@ Electron's prefix).
 | `crew:connectorSignInCancel` | name | boolean | Stop waiting for that sign-in. |
 | `crew:connectorSignOut` | name | `ConnectorView` | Forget the sign-in (the server is asked to revoke it); bots can't use it until someone signs in again. |
 | `crew:connectorRemove` | name | `{ bots }` | Stops it, takes its grant away from every bot (their names come back) and deletes it with its secrets. |
+| `crew:skills` | | `SkillView[]` | Skills installed on this computer, each with the bots that have it. Also pushed on `crew:skills`. |
+| `crew:skill` | name | `SkillDetail` | One installed skill: its instructions (SKILL.md after the front matter) and its files. |
+| `crew:skillFolder` | | `SkillPreview \| null` | Asks for a folder, then reads it into a preview. Null when the person cancels. Nothing is added yet. |
+| `crew:skillFile` | | `SkillPreview \| null` | The same for a `.md` or `.zip` file. |
+| `crew:skillUrl` | url | `SkillPreview` | The same for an https address: a raw SKILL.md or a GitHub folder. Rejects with what to fix. |
+| `crew:skillAdd` | id | `SkillView` | Adds the previewed skill (replacing one of its name). Rejects when the preview has expired. |
+| `crew:skillRemove` | name | `{ bots }` | Deletes the skill and takes it from every bot that had it (their names come back). |
 | `crew:vault` | | `VaultItemView[]` | The logins in this computer's vault, each with the bots granted it and their level. Never a secret: `password` is `MASK` or "", `hasTotp` says whether it has a setup key. Rejects with why when the vault can't be opened (saved by another user or computer). Also pushed on `crew:vault`. |
 | `crew:vaultSave` | `VaultItemInput`, `{ replace? }` | `VaultItemView` | Add a login (its name comes from the label) or change one (`replace`: its name, which never changes). `origins` must be origins (https; http only on localhost/127.0.0.1/[::1]); the page turns a pasted page address into its origin first. `password` and `totp` (a setup key or otpauth:// address) are sent once in plain text and stored encrypted; `keepPassword` / `keepTotp` keep the saved ones; `totp: ""` removes it. Bad input rejects with what to fix. |
 | `crew:vaultRemove` | name | `{ bots }` | Takes it from every bot granted it (their names come back) and deletes it with its secrets. |
@@ -176,6 +184,34 @@ and off, and a default for tools added later).
 The vault is the computer's too: `<userData>/Crew/vault.dat`. A bot's
 bot.md names the logins it may use (`logins`, each `allow` or `ask`) and
 nothing else of them.
+
+Skills belong to the computer too: `<userData>/Crew/skills/<name>/`, a folder
+with `SKILL.md` (front matter `name` and `description`, then the instructions)
+and any files beside it. A bot's bot.md lists the skills it has (`skills`, by
+name). Before each run Crew copies the granted, installed ones into the bot's
+workspace at `Skills/<name>/`, which is `Files/Skills/<name>/` on its disk:
+`read_file` reads them there, and the prompt names each with its description
+and the path of its SKILL.md. Crew replaces that folder on every run, so
+anything a bot writes into `Files/Skills` is lost. Limits: SKILL.md 100 KB, a
+skill 5 MB and 200 files, no links, no path outside its folder.
+
+## Skills
+
+1. **Added once.** From a folder, a `.md` or `.zip` file, or an https address
+   (a raw SKILL.md, or a GitHub folder `…/tree/<branch>/<path>` read through the
+   GitHub contents API). Nothing is added unseen: the page shows the name, the
+   description, the full SKILL.md and the other files, with "A skill is
+   instructions a bot will follow", and Add skill commits what was read. A
+   preview expires after ten minutes.
+2. **Granted per bot.** The bot's Details, Skills section: a check per
+   installed skill. A name that is granted but no longer installed stays listed
+   and does nothing until it is unchecked.
+3. **Removed.** Remove takes the skill away from every bot that had it (their
+   names come back) and deletes its folder.
+
+`skills.cjs` holds the store (reading sources, the limits, the sync onto a bot's
+disk and the grants); `packages/crew/src/skill.ts` holds the name rule and the
+SKILL.md parser.
 
 ## Connectors and the gateway
 

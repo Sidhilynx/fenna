@@ -1,7 +1,7 @@
 // The sidebar on the overview and in chats. Expanded: Overview, search, "+",
 // every bot with its face and status, and the group chats; its right edge
 // drags to resize. Collapsed (Ctrl+B): a 64px rail of faces, with new,
-// connectors, vault and settings at the bottom.
+// connectors, skills, vault and settings at the bottom.
 
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from "react";
 import { Menu, MenuButton, type MenuEntry } from "@opendeck/shell";
@@ -157,7 +157,7 @@ export function Sidebar() {
     </button>
   );
 
-  const page = (name: "crew" | "connectors" | "vault" | "settings", label: string, icon: PixelIconName) => (
+  const page = (name: "crew" | "connectors" | "skills" | "vault" | "settings", label: string, icon: PixelIconName) => (
     <button type="button" className="icon-btn" aria-label={label} title={label} aria-current={route.name === name ? "page" : undefined} onClick={() => go({ name })}>
       <PixelIcon name={icon} />
     </button>
@@ -223,6 +223,7 @@ export function Sidebar() {
             <PixelIcon name="plus" />
           </MenuButton>
           {page("connectors", "Connectors", "connectors")}
+          {page("skills", "Skills", "skills")}
           {page("vault", "Vault", "vault")}
           {page("settings", "Settings", "settings")}
         </div>
@@ -265,6 +266,10 @@ export function Sidebar() {
       <button type="button" className="row side-overview side-link" aria-current={route.name === "connectors" ? "page" : undefined} onClick={() => go({ name: "connectors" })}>
         <PixelIcon name="connectors" />
         <span className="ell">Connectors</span>
+      </button>
+      <button type="button" className="row side-overview side-link" aria-current={route.name === "skills" ? "page" : undefined} onClick={() => go({ name: "skills" })}>
+        <PixelIcon name="skills" />
+        <span className="ell">Skills</span>
       </button>
       <button type="button" className="row side-overview side-link" aria-current={route.name === "vault" ? "page" : undefined} onClick={() => go({ name: "vault" })}>
         <PixelIcon name="vault" />

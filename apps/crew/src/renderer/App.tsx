@@ -17,6 +17,7 @@ import { CrewMark } from "./Avatar.tsx";
 import { Overview } from "./Overview.tsx";
 import { CrewParade, PixelLoader } from "./PixelMotion.tsx";
 import { SettingsDialog } from "./Settings.tsx";
+import { SkillsPage } from "./Skills.tsx";
 import { Sidebar } from "./Sidebar.tsx";
 import { TeamView } from "./Team.tsx";
 import { VaultPage } from "./Vault.tsx";
@@ -70,7 +71,7 @@ export function App() {
   );
 
   // A bot or team that no longer exists sends the person back to the overview.
-  const gone = overview && route.name !== "crew" && route.name !== "connectors" && route.name !== "vault" && route.name !== "settings" && (route.name === "team" ? !overview.teams.some((t) => t.slug === route.slug) : !botOf(overview, route.slug));
+  const gone = overview && route.name !== "crew" && route.name !== "connectors" && route.name !== "skills" && route.name !== "vault" && route.name !== "settings" && (route.name === "team" ? !overview.teams.some((t) => t.slug === route.slug) : !botOf(overview, route.slug));
   useEffect(() => {
     if (gone) go({ name: "crew" });
   }, [gone]);
@@ -121,6 +122,7 @@ export function App() {
         <ErrorBoundary resetKey={JSON.stringify(view)} onBack={() => go({ name: "crew" })}>
           {(view.name === "crew" || view.name === "settings") && <Overview />}
           {view.name === "connectors" && <ConnectorsPage />}
+          {view.name === "skills" && <SkillsPage />}
           {view.name === "vault" && <VaultPage />}
           {view.name === "chat" && <Chat slug={view.slug} />}
           {view.name === "computer" && <Computer slug={view.slug} open={view.open} launch={view.launch} />}

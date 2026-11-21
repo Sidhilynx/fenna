@@ -20,6 +20,7 @@ const { createServers } = require("./servers.cjs");
 const { createBrowsers } = require("./browser.cjs");
 const { createViews } = require("./views.cjs");
 const { createConnectorStore } = require("./connectors.cjs");
+const { createSkillStore, grantsOf, revokeAll } = require("./skills.cjs");
 const { createConnections } = require("./connections.cjs");
 const { createGateway } = require("./gateway.cjs");
 const { createVault } = require("./vault.cjs");
@@ -146,6 +147,8 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
     }, 80);
   };
   const connections = createConnections({ connectors, client, onChange: onConnectorsChange });
+  // Skills belong to this computer too: <userData>/Crew/skills/<name>/, beside the connectors.
+  const skills = createSkillStore({ dir: path.join(userData, "Crew", "skills") });
   let vaultTimer = null;
   const onVaultChange = () => {
     if (vaultTimer) return;
@@ -218,6 +221,7 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
     onChange,
     maxConcurrent: Math.max(1, Math.min(4, Number(settings && settings().maxConcurrent) || 2)),
     installed: (name) => connectors.has(name),
+    skillsFor: (slug, granted) => skills.syncInto(store.workspaceDir(slug), granted),
     usage,
     onEnd: (runId) => {
       if (gateway) gateway.endRun(runId);
@@ -343,6 +347,11 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
   function connectorViews() {
     const used = grantsByConnector();
     return connectors.list().map((c) => connectorView(c, used));
+  }
+
+  function skillViews() {
+    const used = grantsOf(store);
+    return skills.list().map((s) => ({ ...s, usedBy: used.get(s.name) || [] }));
   }
 
   return {
@@ -485,6 +494,36 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
         onConnectorsChange();
         onChange();
         return { bots: bots.map((b) => b.name) };
+      },
+    },
+
+    skills: {
+      list: skillViews,
+
+      /** One installed skill: its instructions and files, and the bots that have it. */
+      get(name) {
+        const s = skills.get(name);
+        return { ...s, usedBy: grantsOf(store).get(name) || [] };
+      },
+
+      /** Read a folder, a file or an address into a preview to show before anything is added. */
+      prepare: (source) => skills.prepare(source),
+
+      /** Add the previewed skill (replacing one of its name). */
+      commit(id) {
+        const { name } = skills.commit(id);
+        broadcast("crew:skills", skillViews());
+        return skillViews().find((s) => s.name === name);
+      },
+
+      /** Take a skill away from this computer and from every bot that had it. Returns those bots' names. */
+      remove(name) {
+        if (!skills.has(name)) throw new Error(`There is no skill "${name}".`);
+        const bots = revokeAll(store, name);
+        skills.remove(name);
+        broadcast("crew:skills", skillViews());
+        onChange();
+        return { bots };
       },
     },
 

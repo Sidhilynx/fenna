@@ -102,6 +102,7 @@ describe("bot.md", () => {
         { type: "grant", name: "tracker", tools: { "find.issue": "allow", "-odd/name": "allow" }, default: "off" },
       ],
       logins: [],
+      skills: [],
       projects: "off",
       askBefore: ["Signing up for trials", "Sending: anything"],
       wallpaper: "clay",
@@ -117,6 +118,29 @@ describe("bot.md", () => {
     expect(again.bot).toEqual(bot);
     expect(serializeBot(again.bot!)).toBe(text);
     expect(text).toContain('  - "Sending: anything"');
+  });
+
+  it("reads skills granted by name, and writes them back", () => {
+    const text = BOT.replace("askBefore:", "skills:\n  - weekly-report\n  - review-checklist\naskBefore:");
+    const r = parseBot(text);
+    expect(r.diagnostics).toEqual([]);
+    expect(r.bot!.skills).toEqual(["weekly-report", "review-checklist"]);
+    const written = serializeBot(r.bot!);
+    expect(written).toContain("skills:\n  - weekly-report\n  - review-checklist\n");
+    expect(parseBot(written).bot).toEqual(r.bot);
+  });
+
+  it("writes no skills key when none are granted", () => {
+    expect(serializeBot(parseBot(BOT).bot!)).not.toContain("skills:");
+  });
+
+  it("refuses a skill name that can't be one, and keeps a repeated name once", () => {
+    const withSkills = (list: string) => parseBot(BOT.replace("askBefore:", `skills:\n${list}\naskBefore:`));
+    const errors = withSkills("  - Weekly Report").diagnostics.filter((d) => d.severity === "error");
+    expect(errors[0]!.message).toMatch(/skills: .*lowercase letters/);
+    const twice = withSkills("  - weekly\n  - weekly");
+    expect(twice.bot!.skills).toEqual(["weekly"]);
+    expect(twice.diagnostics.map((d) => d.severity)).toEqual(["warning"]);
   });
 
   it("reads Windows line endings and a byte order mark", () => {

@@ -3,10 +3,10 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { errorText, invoke, on } from "../shared/api.ts";
-import type { BotDetail, BotSummary, CliStatus, ConnectorView, Overview, TeamSummary, VaultItemView, Waiting } from "../shared/contract.ts";
+import type { BotDetail, BotSummary, CliStatus, ConnectorView, Overview, SkillView, TeamSummary, VaultItemView, Waiting } from "../shared/contract.ts";
 import { absorbOverview } from "./screens.ts";
 
-export type Route = { name: "crew" } | { name: "connectors" } | { name: "vault" } | { name: "settings" } | { name: "chat"; slug: string } | { name: "computer"; slug: string; open?: string; launch?: { app: string; props?: Record<string, unknown>; key?: string; title?: string } } | { name: "team"; slug: string };
+export type Route = { name: "crew" } | { name: "connectors" } | { name: "skills" } | { name: "vault" } | { name: "settings" } | { name: "chat"; slug: string } | { name: "computer"; slug: string; open?: string; launch?: { app: string; props?: Record<string, unknown>; key?: string; title?: string } } | { name: "team"; slug: string };
 
 export interface Crew {
   overview: Overview;
@@ -101,6 +101,29 @@ export function useConnectors(): { connectors: ConnectorView[] | null; error: st
     };
   }, []);
   return { connectors, error };
+}
+
+/** The skills installed on this computer, kept live. null until the first answer. */
+export function useSkills(): { skills: SkillView[] | null; error: string } {
+  const [skills, setSkills] = useState<SkillView[] | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let alive = true;
+    invoke("crew:skills").then(
+      (list) => {
+        if (!alive) return;
+        setSkills(list);
+        setError("");
+      },
+      (e) => alive && setError(errorText(e)),
+    );
+    const off = on("crew:skills", (list) => alive && setSkills(list));
+    return () => {
+      alive = false;
+      off();
+    };
+  }, []);
+  return { skills, error };
 }
 
 /** The logins in this computer's vault (never a secret), kept live. null until the first answer; error when the vault can't be opened. */
