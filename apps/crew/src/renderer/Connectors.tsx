@@ -477,7 +477,7 @@ export function ConnectorDialog({ editing, preset, onClose }: { editing: Connect
   const [command, setCommand] = useState(editing?.command ?? preset?.command ?? "");
   const [args, setArgs] = useState(editing ? joinWords(editing.args) : joinWords(preset?.args ?? []));
   const [url, setUrl] = useState(editing?.url ?? preset?.url ?? "");
-  const [env, setEnv] = useState<Row[]>(() => toRows(editing?.env ?? [], !!editing));
+  const [env, setEnv] = useState<Row[]>(() => toRows(editing?.env ?? (preset?.env ?? []).map((v) => ({ key: v.name, value: "", secret: v.secret })), !!editing));
   const [headers, setHeaders] = useState<Row[]>(() => toRows(editing?.headers ?? [], !!editing));
   const [origin, setOrigin] = useState(editing?.origin ?? (preset ? "catalog" : ""));
   const [note, setNote] = useState("");
@@ -593,6 +593,7 @@ export function ConnectorDialog({ editing, preset, onClose }: { editing: Connect
             Arguments
             <input className="field" value={args} onChange={(e) => setArgs(e.target.value)} placeholder="-y @example/calendar-mcp" spellCheck={false} />
           </label>
+          {preset?.env && <p className="hint">Needs {preset.env.map((v) => v.label).join(", ")}.</p>}
           <Values label="Environment" what="value" rows={env} setRows={setEnv} keyHint="API_TOKEN" />
         </>
       ) : (
