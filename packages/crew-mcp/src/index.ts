@@ -280,12 +280,13 @@ export function createCrewServer(link: Link, opts: CrewOptions): McpServer {
     {
       title: "Read a file",
       description:
-        'Read a file on your own disk (Files, Downloads): text, code, CSV, TSV, Excel (.xlsx) or an image (PNG, JPEG, GIF, WebP, BMP), which you see. Text and tables come a page at a time: 400 lines or 200 rows, from offset (the first line or row, 1 is the first) with limit more; the reply says where the next page starts. For a workbook, sheet (a sheet\'s name or its number) reads one sheet. PDFs and other binary files can\'t be read yet. Not for Fenna documents in Documents (use the fenna tools) and not to find a file (search_files). Example: {path: "Files/budget.xlsx", sheet: "Q3", offset: 1, limit: 50}',
+        'Read a file on your own disk (Files, Downloads, and attachments in Files/Inbox): text, code, CSV, TSV, Excel (.xlsx), an image (PNG, JPEG, GIF, WebP, BMP), which you see, or the text of a PDF, Word (.docx), PowerPoint (.pptx) or OpenDocument (.odt, .odp) file. A PDF\'s text comes under "--- Page n ---"; a deck\'s under "--- Slide n ---" with its titles, notes, slide size, theme fonts and colors. To see how a PDF page looks (layout, colors, pictures), add page: n and you get that page as an image. Text and tables come a page at a time: 400 lines or 200 rows, from offset (the first line or row, 1 is the first) with limit more; the reply says where the next page starts. For a workbook, sheet (a sheet\'s name or its number) reads one sheet. Not for Fenna documents in Documents (use the fenna tools) and not to find a file (search_files). Example: {path: "Files/Inbox/report.pdf", page: 2}, or {path: "Files/budget.xlsx", sheet: "Q3", offset: 1, limit: 50}',
       inputSchema: {
         path: z.string().min(1).max(4096).describe("a disk path like Files/notes/a.txt"),
         offset: z.number().int().min(1).optional().describe("the first line or row to show, 1 is the first"),
         limit: z.number().int().min(1).max(2000).optional().describe("how many lines or rows to show"),
         sheet: z.union([z.string().min(1).max(200), z.number().int().min(1)]).optional().describe("a workbook's sheet: its name, or its number from 1"),
+        page: z.number().int().min(1).optional().describe("a PDF's page to see as an image, 1 is the first"),
       },
     },
     (args) => call("read_file", { ...args }),

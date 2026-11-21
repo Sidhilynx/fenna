@@ -1,5 +1,7 @@
 // The bot's files as it works with them. read_file shows a file on the bot's
-// disk (text, code, CSV, TSV, Excel and images, a page at a time); write_file
+// disk (text, code, CSV, TSV, Excel, images, and the text of PDF, Word,
+// PowerPoint and OpenDocument files, a page at a time; a PDF page also as an
+// image, with readers.cjs); write_file
 // and edit_file write text files in Files and Downloads and remember the lines
 // they changed (recentEdits, for the Code window); import_sheet makes an .xlsx
 // or .csv on the disk into a Fenna sheet in Documents; and export_file saves a
@@ -14,6 +16,7 @@ const path = require("node:path");
 const electron = require("electron");
 const F = require("./format.cjs");
 const { IMPORT_MAX, sizeText } = require("./disk.cjs");
+const readers = require("./readers.cjs");
 
 const packaged = typeof electron === "object" && electron.app && electron.app.isPackaged;
 const SHEET = packaged ? require(path.join(process.resourcesPath, "mcp", "crew-sheet.cjs")) : require("@opendeck/sheet");
@@ -36,6 +39,27 @@ const IMAGE_TYPES = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", g
 const MCP_IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
 const TEXT_EXT = ["txt", "md", "markdown", "json", "log", "js", "ts", "jsx", "tsx", "py", "html", "htm", "css", "xml", "svg", "yaml", "yml", "ini", "cfg", "conf", "toml", "sh", "bat", "ps1", "sql"];
 const DOC_HOW = { doc: "doc_overview, then read_tab", sheet: "sheet_overview, then read_range", deck: "deck_overview, then read_slides" };
+/** Office files read as text: their kind in words, and the reader. */
+const OFFICE = {
+  docx: { what: "Word document", text: (b) => readers.docxText(b) },
+  pptx: { what: "PowerPoint deck", text: (b) => readers.pptxText(b) },
+  odt: { what: "OpenDocument text", text: (b) => readers.odfText(b, "odt") },
+  odp: { what: "OpenDocument presentation", text: (b) => readers.odfText(b, "odp") },
+};
+/** Files that can't be read here, and the copy to ask the person for. */
+const SAVE_AS = {
+  doc: "an old Word .doc file|.docx or PDF",
+  ppt: "an old PowerPoint .ppt file|.pptx or PDF",
+  xls: "an old .xls workbook|.xlsx",
+  ods: "an OpenDocument spreadsheet|.xlsx or .csv",
+  pages: "an Apple Pages file|.docx or PDF",
+  key: "an Apple Keynote file|.pptx or PDF",
+  numbers: "an Apple Numbers file|.xlsx or .csv",
+};
+/** PDFs, office files and their pages are read up to the size an import takes; a PDF page is drawn from a file up to PAGE_FILE_MAX. */
+const PAGE_FILE_MAX = 60 * MB;
+/** How many PDF and office files keep their text between reads, so paging through one doesn't read it again. */
+const TEXT_CACHE = 4;
 const WINDOWS_RESERVED = /^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?$/i;
 
 const ext = (name) => {
@@ -282,11 +306,25 @@ async function loadSheetFolder(dir) {
  * @param {(channel: string, payload: object) => void} [o.broadcast]  tells the windows the disk changed
  * @param {() => { createFromBuffer(b: Buffer): any } | undefined} [o.nativeImage]  Electron's nativeImage, used to shrink images
  * @param {() => Date} [o.now]
+ * @param {typeof readers.pdfPageImage} [o.pdfPageImage]  draws a PDF page as an image (a hidden window); a fake in tests
  */
-function createFiles({ disk, broadcast = () => {}, nativeImage = () => electron.nativeImage, now = () => new Date() }) {
+function createFiles({ disk, broadcast = () => {}, nativeImage = () => electron.nativeImage, now = () => new Date(), pdfPageImage = readers.pdfPageImage }) {
   /** slug → the bot's recent edits, { path, ms, seq, lines }, oldest first. */
   const edits = new Map();
   let seq = 0;
+  /** "path|size|mtime" → a PDF or office file's text, the most recent last. */
+  const texts = new Map();
+
+  /** The text of a PDF or office file, read once while the file stays the same. */
+  async function cachedText(abs, st, make) {
+    const key = `${abs}|${st.size}|${st.mtimeMs}`;
+    let hit = texts.get(key);
+    if (hit) texts.delete(key);
+    else hit = await make();
+    texts.set(key, hit);
+    while (texts.size > TEXT_CACHE) texts.delete(texts.keys().next().value);
+    return hit;
+  }
 
   function assertRoom(slug, bytes) {
     const free = disk.free(slug, true);
@@ -383,6 +421,33 @@ function createFiles({ disk, broadcast = () => {}, nativeImage = () => electron.
     throw new Error(`${name} is still too big after shrinking. Ask the person for a smaller copy.`);
   }
 
+  /** A PDF's text, a page of lines at a time; a PDF with no text says to look at its pages instead. */
+  async function pdfRead(name, loc, st, paging) {
+    const doc = await cachedText(loc.abs, st, () => readers.pdfText(fs.readFileSync(loc.abs)).catch((err) => {
+      throw new Error(`${name}: ${err.message}`);
+    }));
+    const pages = `${doc.pages} ${doc.pages === 1 ? "page" : "pages"}`;
+    if (!doc.withText) {
+      return `${name} is a PDF of ${pages} with no text in it (it is likely scanned). See each page as an image with page: ${doc.pages === 1 ? "1" : `1 to ${doc.pages}`}.`;
+    }
+    const about = [doc.title && `"${doc.title}"`, doc.author && `by ${doc.author}`].filter(Boolean).join(" ");
+    const head = `PDF: ${pages}${about ? `, ${about}` : ""}. To see a page's layout, colors and pictures, read it with page: n.`;
+    return textPage(name, `${head}\n${doc.text}`, paging.from, paging.count);
+  }
+
+  /** One page of a PDF as an image the model sees. */
+  async function pdfPage(name, loc, st, page) {
+    if (st.size > PAGE_FILE_MAX) throw new Error(`${name} is ${sizeText(st.size)}, too big to draw a page from. Read its text without page, or ask the person for a smaller copy.`);
+    const r = await pdfPageImage(fs.readFileSync(loc.abs), page, { maxSide: IMAGE_SIDE, maxBytes: IMAGE_BYTES }).catch((err) => {
+      throw new Error(`${name}: ${err.message}`);
+    });
+    if (!r.data) throw new Error(`${name} has ${r.pages} ${r.pages === 1 ? "page" : "pages"}, so page ${page} is past its end. Use a page from 1 to ${r.pages}.`);
+    return {
+      text: `${name}, page ${page} of ${r.pages}: shown at ${r.width} × ${r.height} px. Read the file without page for its text.`,
+      image: { data: r.data, mimeType: r.mimeType },
+    };
+  }
+
   /** read_file: a file on the bot's disk, as text, a table or an image. */
   async function read(slug, p) {
     const loc = disk.locate(slug, p.path);
@@ -392,15 +457,31 @@ function createFiles({ disk, broadcast = () => {}, nativeImage = () => electron.
     const st = statFile(loc, p.path);
     const name = loc.segs.at(-1);
     const e = ext(name);
-    if (e === "pdf") return { text: `${name} is a PDF. Text from PDFs isn't supported yet. Ask the person to open it in Files, where the PDF viewer shows it.` };
-    if (e === "xls") throw new Error(`${name} is an old .xls workbook, which can't be read here. Ask the person to save it as .xlsx, then read that.`);
+    if (p.page !== undefined && e !== "pdf") throw new Error(`page shows one page of a PDF as an image, and ${name} isn't a PDF. Read it without page.`);
+    if (SAVE_AS[e]) {
+      const [what, copy] = SAVE_AS[e].split("|");
+      throw new Error(`${name} is ${what}, which can't be read here. Ask the person to save it as ${copy}, then read that.`);
+    }
+    const paging = { from: p.offset ?? 1, count: p.limit, sheet: p.sheet };
+    if (e === "pdf" || OFFICE[e]) {
+      if (st.size > IMPORT_MAX) throw new Error(`${name} is ${sizeText(st.size)}, too big to read. Ask the person for a smaller copy, or for the part you need.`);
+      if (e === "pdf") return p.page !== undefined ? pdfPage(name, loc, st, p.page) : { text: await pdfRead(name, loc, st, paging) };
+      const office = OFFICE[e];
+      const text = await cachedText(loc.abs, st, async () => {
+        try {
+          return office.text(fs.readFileSync(loc.abs));
+        } catch (err) {
+          throw new Error(`${name} can't be read as a ${office.what}. ${err.message}`);
+        }
+      });
+      return { text: text ? textPage(name, text, paging.from, paging.count) : `${name} is a ${office.what} with no text in it.` };
+    }
     if (st.size > READ_MAX) {
-      const how = e === "xlsx" || e === "csv" || e === "tsv" ? "Make it a Fenna sheet with import_sheet, then page it with the sheet tools." : "Look at part of it with terminal (head or grep).";
+      const how = e === "xlsx" || e === "xlsm" || e === "csv" || e === "tsv" ? "Make it a Fenna sheet with import_sheet, then page it with the sheet tools." : "Look at part of it with terminal (head or grep).";
       throw new Error(`${name} is ${sizeText(st.size)}, too big to read at once. ${how}`);
     }
     const bytes = fs.readFileSync(loc.abs);
-    const paging = { from: p.offset ?? 1, count: p.limit, sheet: p.sheet };
-    if (e === "xlsx") {
+    if (e === "xlsx" || e === "xlsm") {
       const wb = await SHEET.importXlsx(new Uint8Array(bytes), stripExt(name)).catch((err) => {
         throw new Error(`${name} isn't a readable .xlsx workbook (${err.message}). Save it again from the spreadsheet app, or read it as .csv.`);
       });
@@ -420,7 +501,7 @@ function createFiles({ disk, broadcast = () => {}, nativeImage = () => electron.
     if (TEXT_EXT.includes(e) || looksText(bytes)) {
       return { text: textPage(name, decodeText(bytes) ?? bytes.toString("utf8"), paging.from, p.limit) };
     }
-    return { text: `${name} is a binary file (${e ? e.toUpperCase() : "no extension"}, ${sizeText(st.size)}). read_file shows text, CSV, Excel and image files only.` };
+    return { text: `${name} is a binary file (${e ? e.toUpperCase() : "no extension"}, ${sizeText(st.size)}). read_file shows text, code, tables, images, PDF, Word, PowerPoint and OpenDocument files.` };
   }
 
   /** import_sheet: an .xlsx or .csv on the bot's disk becomes a Fenna sheet in Documents. */

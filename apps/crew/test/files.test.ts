@@ -9,6 +9,8 @@ const require = createRequire(import.meta.url);
 const { createStore } = require("../src/main/store.cjs");
 const { createDisk } = require("../src/main/disk.cjs");
 const { createFiles } = require("../src/main/files.cjs");
+const { WORD_KINDS } = require("../src/main/attachments.cjs");
+const zip = require("../src/main/ziplite.cjs");
 
 const SLUG = "research";
 const OUTSIDE_MSG = "That file is outside this bot's disk.";
@@ -46,6 +48,75 @@ function budgetXlsx(): Buffer {
   const sheets: SheetData[] = [budget, team];
   return Buffer.from(exportXlsx(index, sheets, evaluateAll(new Map(sheets.map((s) => [s.id, s])), index.timeZone)));
 }
+
+/** A small real PDF: one page per string (an empty string is a page with no text), Helvetica, with a title and author when given. */
+function makePdf(pages: string[], info?: { title: string; author: string }): Buffer {
+  const objs: string[] = [];
+  objs[1] = "<< /Type /Catalog /Pages 2 0 R >>";
+  objs[2] = `<< /Type /Pages /Kids [${pages.map((_, i) => `${4 + i * 2} 0 R`).join(" ")}] /Count ${pages.length} >>`;
+  objs[3] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
+  pages.forEach((t, i) => {
+    const stream = t ? `BT /F1 24 Tf 72 700 Td (${t}) Tj ET` : "";
+    objs[4 + i * 2] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents ${5 + i * 2} 0 R >>`;
+    objs[5 + i * 2] = `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`;
+  });
+  const infoAt = objs.length;
+  if (info) objs[infoAt] = `<< /Title (${info.title}) /Author (${info.author}) >>`;
+  let out = "%PDF-1.4\n";
+  const offsets: number[] = [];
+  for (let i = 1; i < objs.length; i++) {
+    offsets[i] = out.length;
+    out += `${i} 0 obj\n${objs[i]}\nendobj\n`;
+  }
+  const xref = out.length;
+  out += `xref\n0 ${objs.length}\n0000000000 65535 f \n`;
+  for (let i = 1; i < objs.length; i++) out += `${String(offsets[i]).padStart(10, "0")} 00000 n \n`;
+  out += `trailer\n<< /Size ${objs.length} /Root 1 0 R${info ? ` /Info ${infoAt} 0 R` : ""} >>\nstartxref\n${xref}\n%%EOF\n`;
+  return Buffer.from(out, "latin1");
+}
+
+/** A zip of the given parts, as an office file is one. */
+const zipOf = (parts: Record<string, string>): Buffer => zip.createZip(Object.entries(parts).map(([name, s]) => ({ name, data: Buffer.from(s) })));
+
+/** A Word document with a title, a deleted change, a heading, two list items (one with tab stops), a table and a text box with its fallback copy. */
+function docx(): Buffer {
+  const t = (s: string) => `<w:r><w:t>${s}</w:t></w:r>`;
+  const p = (s: string, pPr = "") => `<w:p>${pPr ? `<w:pPr>${pPr}</w:pPr>` : ""}${t(s)}</w:p>`;
+  const tc = (...ps: string[]) => `<w:tc>${ps.map((s) => p(s)).join("")}</w:tc>`;
+  const box = (s: string) => `<w:txbxContent>${p(s)}</w:txbxContent>`;
+  const body = [
+    p("FlowGuard", '<w:pStyle w:val="Title"/>'),
+    `<w:p><w:r><w:t xml:space="preserve">Stops bad payments </w:t></w:r>${t("&amp; fraud.")}<w:del><w:r><w:delText>old words</w:delText></w:r></w:del></w:p>`,
+    "<w:p/>",
+    p("Plan", '<w:pStyle w:val="Heading2"/>'),
+    p("Ship the beta", '<w:numPr><w:ilvl w:val="0"/></w:numPr><w:tabs><w:tab w:val="left" w:pos="720"/></w:tabs>'),
+    p("Tell users", '<w:pStyle w:val="ListParagraph"/>'),
+    `<w:tbl><w:tr>${tc("Quarter")}${tc("Goal")}</w:tr><w:tr>${tc("Q1")}${tc("Beta", "100 users")}</w:tr></w:tbl>`,
+    `<w:p><w:r><mc:AlternateContent><mc:Choice><w:drawing>${box("Inside a box")}</w:drawing></mc:Choice><mc:Fallback><w:pict>${box("Inside a box")}</w:pict></mc:Fallback></mc:AlternateContent></w:r></w:p>`,
+  ].join("");
+  return zipOf({ "[Content_Types].xml": "<Types/>", "word/document.xml": `<w:document><w:body>${body}</w:body></w:document>` });
+}
+
+/** A PowerPoint deck of two slides whose show order is the reverse of their file names, with a theme, a background, a picture, notes and a table. */
+function pptx(): Buffer {
+  const rel = (id: string, type: string, target: string) => `<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/${type}" Target="${target}"/>`;
+  const sp = (ph: string, ...paras: string[]) => `<p:sp><p:nvSpPr><p:nvPr>${ph}</p:nvPr></p:nvSpPr><p:txBody>${paras.join("")}</p:txBody></p:sp>`;
+  const para = (s: string, lvl = 0) => `<a:p>${lvl ? `<a:pPr lvl="${lvl}"/>` : ""}<a:r><a:t>${s}</a:t></a:r></a:p>`;
+  const tc = (s: string) => `<a:tc><a:txBody>${para(s)}</a:txBody></a:tc>`;
+  return zipOf({
+    "ppt/presentation.xml": '<p:presentation><p:sldIdLst><p:sldId id="256" r:id="rId3"/><p:sldId id="257" r:id="rId2"/></p:sldIdLst><p:sldSz cx="12192000" cy="6858000"/></p:presentation>',
+    "ppt/_rels/presentation.xml.rels": `<Relationships>${rel("rId2", "slide", "slides/slide1.xml")}${rel("rId3", "slide", "slides/slide2.xml")}${rel("rId9", "theme", "theme/theme1.xml")}</Relationships>`,
+    "ppt/theme/theme1.xml":
+      '<a:theme name="Night"><a:themeElements><a:clrScheme name="Night"><a:dk1><a:srgbClr val="0B0F19"/></a:dk1><a:lt1><a:sysClr val="window" lastClr="FFFFFF"/></a:lt1><a:accent1><a:srgbClr val="22d3ee"/></a:accent1></a:clrScheme><a:fontScheme name="Night"><a:majorFont><a:latin typeface="Sora"/></a:majorFont><a:minorFont><a:latin typeface="Inter"/></a:minorFont></a:fontScheme></a:themeElements></a:theme>',
+    "ppt/slides/slide2.xml": `<p:sld><p:cSld><p:bg><p:bgPr><a:solidFill><a:srgbClr val="0B0F19"/></a:solidFill></p:bgPr></p:bg><p:spTree>${sp('<p:ph type="ctrTitle"/>', para("FlowGuard"))}${sp('<p:ph type="subTitle" idx="1"/>', para("Payments that check themselves"))}${sp('<p:ph type="sldNum"/>', "<a:p><a:fld><a:t>1</a:t></a:fld></a:p>")}<p:pic><p:nvPicPr/></p:pic></p:spTree></p:cSld></p:sld>`,
+    "ppt/slides/_rels/slide2.xml.rels": `<Relationships>${rel("rId1", "notesSlide", "../notesSlides/notesSlide1.xml")}</Relationships>`,
+    "ppt/notesSlides/notesSlide1.xml": `<p:notes><p:cSld><p:spTree>${sp('<p:ph type="sldImg"/>')}${sp('<p:ph type="body" idx="1"/>', para("Open with the fraud number."))}</p:spTree></p:cSld></p:notes>`,
+    "ppt/slides/slide1.xml": `<p:sld><p:cSld><p:spTree>${sp('<p:ph type="title"/>', para("Why now"))}${sp('<p:ph idx="1"/>', para("Fraud is up"), para("Mostly card-not-present", 1))}<p:graphicFrame><a:graphic><a:graphicData><a:tbl><a:tr h="1">${tc("Year")}${tc("Loss")}</a:tr><a:tr h="1">${tc("2025")}${tc("$10B")}</a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame></p:spTree></p:cSld></p:sld>`,
+  });
+}
+
+/** An OpenDocument file whose body is the given markup. */
+const odf = (body: string): Buffer => zipOf({ mimetype: "application/vnd.oasis.opendocument", "content.xml": `<office:document-content><office:body>${body}</office:body></office:document-content>` });
 
 /** Loads a Fenna sheet folder with the sheet package, as the app's own check does. */
 async function loadFolder(dir: string) {
@@ -146,12 +217,152 @@ describe("read_file: text", () => {
     expect((await read("Files/data.bin")).text).toMatch(/data\.bin is a binary file \(BIN, 1 KB\)/);
   });
 
-  it("says text from PDFs is not supported and where to open them", async () => {
-    write("Files/offer.pdf", "%PDF-1.4");
-    const r = await read("Files/offer.pdf");
-    expect(r.text).toContain("Text from PDFs isn't supported yet");
-    expect(r.text).toContain("PDF viewer");
+});
+
+describe("read_file: PDF", () => {
+  it("reads each page's text under its number, with the title and how to see a page", async () => {
+    write("Files/Inbox/cryptlog.pdf", makePdf(["Cryptlog (pitch)", "Market size", ""], { title: "Cryptlog deck", author: "Ada" }));
+    const r = await read("Files/Inbox/cryptlog.pdf");
+    expect(r.text).toContain('PDF: 3 pages, "Cryptlog deck" by Ada. To see a page\'s layout, colors and pictures, read it with page: n.');
+    expect(r.text).toMatch(/--- Page 1 ---\n\s*\d+  Cryptlog \(pitch\)/);
+    expect(r.text).toContain("Market size");
+    expect(r.text).toMatch(/--- Page 3 ---\n\s*\d+  \(no text on this page\)/);
+    expect(r.image).toBeUndefined();
   });
+
+  it("pages a long PDF's text with offset and limit", async () => {
+    write("Files/long.pdf", makePdf(Array.from({ length: 30 }, (_, i) => `Body of page ${i + 1}`)));
+    const first = await read("Files/long.pdf", { limit: 10 });
+    expect(first.text).toMatch(/long\.pdf: lines 1-10 of \d+\./);
+    expect(first.text).toMatch(/more lines\. Read them with offset: 11\./);
+    expect((await read("Files/long.pdf", { offset: 11, limit: 200 })).text).toContain("Body of page 30");
+  });
+
+  it("says a PDF with no text is likely scanned, and to look at its pages", async () => {
+    write("Files/scan.pdf", makePdf(["", ""]));
+    expect((await read("Files/scan.pdf")).text).toBe("scan.pdf is a PDF of 2 pages with no text in it (it is likely scanned). See each page as an image with page: 1 to 2.");
+  });
+
+  it("says what to do with a broken PDF, and keeps page for PDFs", async () => {
+    write("Files/broken.pdf", "%PDF-1.4 not really");
+    await expect(read("Files/broken.pdf")).rejects.toThrow(/broken\.pdf: It isn't a readable PDF .* Ask the person to save or print it to PDF again\./);
+    write("Files/notes.txt", "hi\n");
+    await expect(read("Files/notes.txt", { page: 1 })).rejects.toThrow("page shows one page of a PDF as an image, and notes.txt isn't a PDF. Read it without page.");
+  });
+
+  it("shows a page as an image the model sees, and says when the page is past the end", async () => {
+    const calls: { page: number; size: number; maxSide: number }[] = [];
+    const pages = createFiles({
+      disk,
+      pdfPageImage: async (buf: Buffer, page: number, o: { maxSide: number; maxBytes: number }) => {
+        calls.push({ page, size: buf.length, maxSide: o.maxSide });
+        return page > 2 ? { pages: 2 } : { pages: 2, width: 1210, height: 1568, mimeType: "image/png", data: TINY_PNG.toString("base64") };
+      },
+    });
+    const pdf = makePdf(["One", "Two"]);
+    write("Files/deck.pdf", pdf);
+    const r = await pages.read(SLUG, { path: "Files/deck.pdf", page: 2 });
+    expect(r.text).toBe("deck.pdf, page 2 of 2: shown at 1210 × 1568 px. Read the file without page for its text.");
+    expect(r.image).toEqual({ data: TINY_PNG.toString("base64"), mimeType: "image/png" });
+    expect(calls).toEqual([{ page: 2, size: pdf.length, maxSide: 1568 }]);
+    await expect(pages.read(SLUG, { path: "Files/deck.pdf", page: 3 })).rejects.toThrow("deck.pdf has 2 pages, so page 3 is past its end. Use a page from 1 to 2.");
+  });
+});
+
+describe("read_file: Word, PowerPoint and OpenDocument", () => {
+  it("reads a .docx: headings, lists, tables and text boxes, without deleted text", async () => {
+    write("Files/Inbox/brief.docx", docx());
+    const r = await read("Files/Inbox/brief.docx");
+    expect(r.text).toContain("brief.docx: lines 1-");
+    const body = r.text.split("\n").slice(1).map((l: string) => l.replace(/^\s*\d+ {2}/, "")).join("\n");
+    expect(body).toBe(["# FlowGuard", "Stops bad payments & fraud.", "", "## Plan", "- Ship the beta", "- Tell users", "", "| Quarter | Goal |", "| Q1 | Beta / 100 users |", "", "Inside a box"].join("\n"));
+    expect(r.text).not.toContain("old words");
+  });
+
+  it("reads a .pptx in show order: size, theme, titles, levels, tables, pictures, background and notes", async () => {
+    write("Files/Inbox/flowguard.pptx", pptx());
+    const r = await read("Files/Inbox/flowguard.pptx");
+    const body = r.text.split("\n").slice(1).map((l: string) => l.replace(/^\s*\d+ {2}/, "")).join("\n");
+    expect(body).toBe(
+      [
+        "PowerPoint deck: 2 slides, 16:9 (13.33 × 7.5 in).",
+        'Theme "Night" fonts: Sora (headings), Inter (body).',
+        "Theme colors: dk1 #0B0F19, lt1 #FFFFFF, accent1 #22D3EE.",
+        "",
+        "--- Slide 1 ---",
+        "Background: #0B0F19.",
+        "# FlowGuard",
+        "Payments that check themselves",
+        "[1 picture]",
+        "Notes: Open with the fraud number.",
+        "",
+        "--- Slide 2 ---",
+        "# Why now",
+        "Fraud is up",
+        "  Mostly card-not-present",
+        "| Year | Loss |",
+        "| 2025 | $10B |",
+      ].join("\n"),
+    );
+  });
+
+  it("reads .odt and .odp files", async () => {
+    write("Files/memo.odt", odf("<office:text><text:h text:outline-level=\"2\">Plan</text:h><text:p>Ship<text:s text:c=\"2\"/>it<text:tab/>now</text:p></office:text>"));
+    expect((await read("Files/memo.odt")).text).toMatch(/1 {2}## Plan\n\s*2 {2}Ship {2}it\tnow/);
+    write(
+      "Files/talk.odp",
+      odf(
+        '<office:presentation><draw:page draw:name="p1"><draw:frame presentation:class="title"><draw:text-box><text:p>Hello</text:p></draw:text-box></draw:frame><draw:frame><draw:text-box><text:p>World</text:p></draw:text-box></draw:frame><presentation:notes><draw:frame><draw:text-box><text:p>Say hi</text:p></draw:text-box></draw:frame></presentation:notes></draw:page></office:presentation>',
+      ),
+    );
+    const odp = (await read("Files/talk.odp")).text;
+    expect(odp).toContain("Presentation: 1 slide.");
+    expect(odp).toMatch(/--- Slide 1 ---\n\s*\d+ {2}# Hello\n\s*\d+ {2}World\n\s*\d+ {2}Notes: Say hi/);
+  });
+
+  it("says what to do with a broken office file", async () => {
+    write("Files/broken.docx", "not a zip");
+    await expect(read("Files/broken.docx")).rejects.toThrow(/broken\.docx can't be read as a Word document\. It isn't a readable Word file .* Save it again from the app that made it\./);
+    write("Files/empty.pptx", zipOf({ "ppt/presentation.xml": "<p:presentation/>" }));
+    expect((await read("Files/empty.pptx")).text).toContain("PowerPoint deck: 0 slides.");
+  });
+
+  it("refuses page for a deck, which has no page images", async () => {
+    write("Files/flowguard.pptx", pptx());
+    await expect(read("Files/flowguard.pptx", { page: 1 })).rejects.toThrow("flowguard.pptx isn't a PDF");
+  });
+});
+
+describe("read_file: every document a person can attach", () => {
+  // A new kind added to the attachment list is checked here, so a bot never meets a document it can only give up on.
+  const kinds = { ...WORD_KINDS, pdf: ["pdf"] } as Record<string, string[]>;
+  const samples: Record<string, () => Buffer> = {
+    xlsx: budgetXlsx,
+    xlsm: budgetXlsx,
+    csv: () => Buffer.from("a,b\n1,2\n"),
+    tsv: () => Buffer.from("a\tb\n1\t2\n"),
+    docx: docx,
+    pptx: pptx,
+    odt: () => odf("<office:text><text:p>Hi</text:p></office:text>"),
+    odp: () => odf('<office:presentation><draw:page><draw:frame><draw:text-box><text:p>Hi</text:p></draw:text-box></draw:frame></draw:page></office:presentation>'),
+    rtf: () => Buffer.from("{\\rtf1\\ansi Hello}"),
+    pdf: () => makePdf(["Hello"]),
+  };
+  for (const [word, exts] of Object.entries(kinds)) {
+    for (const e of exts) {
+      it(`reads a .${e} (${word}), or names the copy to ask the person for`, async () => {
+        const make = samples[e];
+        write(`Files/Inbox/file.${e}`, make ? make() : Buffer.from([0, 1, 2]));
+        const r = read(`Files/Inbox/file.${e}`);
+        if (make) {
+          const { text } = await r;
+          expect(text).not.toMatch(/binary file|can't be read|isn't supported/);
+        } else {
+          await expect(r).rejects.toThrow(/can't be read here\. Ask the person to save it as \S+/);
+        }
+      });
+    }
+  }
 });
 
 describe("read_file: tables", () => {

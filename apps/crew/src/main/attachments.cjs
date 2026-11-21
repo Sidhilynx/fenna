@@ -66,4 +66,4 @@ function messageWith(text, list) {
   return text.trim() ? `${text}\n\n${block}` : block;
 }
 
-module.exports = { MAX_FILES, INLINE_MAX_IMAGES, INLINE_MAX_BYTES, IMAGE_MIME, kindWord, checkAttachments, forRun, messageWith };
+module.exports = { MAX_FILES, INLINE_MAX_IMAGES, INLINE_MAX_BYTES, IMAGE_MIME, WORD_KINDS, kindWord, checkAttachments, forRun, messageWith };

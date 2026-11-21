@@ -104,7 +104,7 @@ Calls, on the `crew` server (`apps/crew/src/main/meetings.cjs`): `meeting`
 leave, status). Wakes use the triggers `meeting` and `meeting_end`.
 
 Files, on the `crew` server (`apps/crew/src/main/files.cjs`):
-- `read_file` (path, offset, limit, sheet): a file on the bot's disk; text and code a page at a time, CSV, TSV and Excel as tables (every sheet, or `sheet`), images as pictures (shrunk over 1568 px or 3.5 MB), PDFs and binaries named only.
+- `read_file` (path, offset, limit, sheet, page): a file on the bot's disk; text and code a page at a time, CSV, TSV and Excel as tables (every sheet, or `sheet`), images as pictures (shrunk over 1568 px or 3.5 MB), the text of PDF, Word (.docx), PowerPoint (.pptx, with slide size, theme fonts and colors) and OpenDocument (.odt, .odp) files paged like text, and with `page` a PDF page as a picture; old and Apple formats name the copy to ask for; other binaries named only.
 - `import_sheet` (path, title): an .xlsx or .csv in Files or Downloads becomes a Fenna sheet in the bot's Documents, checked by the sheet package.
 - `export_file` (document, format, to): a Fenna sheet from Documents saved to Files/Outbox as .xlsx (all sheets) or .csv (first sheet); never overwrites.
 
@@ -272,6 +272,12 @@ Files, on the `crew` server (`apps/crew/src/main/files.cjs`):
   into another assistant, a file, or a memory file on this computer (ticked,
   read on request, never uploaded); the person approves each fact, and the bot
   reads memory.md as information, not instructions. 2026-11-21
+- A bot reads every document a person can attach (#82): PDF text with
+  pdf.js (`pdfjs-dist`, approved by the lead), a PDF page as a picture drawn
+  by pdf.js in a hidden sealed window, and Word, PowerPoint and OpenDocument
+  text from the zip with `ziplite`. A test walks the attachment kinds, so a
+  new kind must be readable or name the copy to ask the person for; a bot
+  never asks the person to describe a file they attached. 2026-11-21
 ## Build summary
 
 (Written by the builders.)
