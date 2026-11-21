@@ -770,7 +770,7 @@ function ComputerDesk({ slug, open, launch }: { slug: string; open?: string; lau
   const control = !!screen.browser?.control;
   const controlRef = useRef(control);
   controlRef.current = control;
-  const seq0 = useRef(screen.cursorSeq);
+  const seen = useRef({ seq: screen.cursorSeq, url: screen.browser?.url ?? "" });
   const library = detail?.library ?? [];
   const focused = wins.windows.find((w) => w.id === wins.focus) ?? null;
   const focusedApp = useRef<string | null>(null);
@@ -814,12 +814,14 @@ function ComputerDesk({ slug, open, launch }: { slug: string; open?: string; lau
     else openApp("viewer", { entry }, `viewer:${entry.path}`, entry.name);
   };
 
-  // The bot's browser comes to the front when it starts browsing, unless the person is editing a document.
+  // The bot's browser comes to the front when the bot acts in it or goes to a new page, unless the person is editing a document.
+  // A run starting, or a page already open, is not browsing.
   useEffect(() => {
-    if (screen.cursorSeq !== seq0.current || (running && url)) {
-      if (focusedApp.current !== "editor") openApp("browser");
-    }
-  }, [screen.cursorSeq, running, url]);
+    const was = seen.current;
+    seen.current = { seq: screen.cursorSeq, url };
+    const browsing = screen.cursorSeq !== was.seq || (running && !!url && url !== was.url);
+    if (browsing && focusedApp.current !== "editor") openApp("browser");
+  }, [screen.cursorSeq, url]);
 
   // A document card in the chat opens its document here.
   useEffect(() => {

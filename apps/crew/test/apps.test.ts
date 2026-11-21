@@ -119,6 +119,16 @@ function writeApp(manifest: unknown, files: Record<string, string> = { "index.ht
   return dir;
 }
 
+/** The requests crew.fetch sent, and what the fake web answers: a redirect from /moved, an error page for /missing. */
+let fetched: Array<{ url: string; init: any }> = [];
+async function fakeFetch(url: string, init: any) {
+  fetched.push({ url, init });
+  const u = new URL(url);
+  if (u.pathname === "/moved") return new Response(null, { status: 302, headers: { location: String(init.headers.to ?? "/data") } });
+  if (u.pathname === "/missing") return new Response("gone", { status: 404 });
+  return new Response(JSON.stringify({ price: 125.53 }), { status: 200, headers: { "content-type": "application/json" } });
+}
+
 function setup() {
   mkdirSync(path.join(botsDir, SLUG), { recursive: true });
   writeFileSync(path.join(botsDir, SLUG, "bot.md"), "---\nname: Research\n---\n");
@@ -128,7 +138,8 @@ function setup() {
   electronSession = fakeSession();
   ipc = fakeIpc();
   disk = createDisk({ store, broadcast: () => {}, starterFiles: () => ({}), settingsFile: path.join(root, "quotas.json") });
-  svc = createApps({ disk, store, broadcast, runner, session: electronSession, ipcMain: ipc, now: () => clock.t });
+  fetched = [];
+  svc = createApps({ disk, store, broadcast, runner, session: electronSession, ipcMain: ipc, now: () => clock.t, fetch: fakeFetch });
 }
 
 beforeEach(() => {
@@ -469,6 +480,27 @@ describe("calls from the page", () => {
   it("refuses a write with no text or bytes, and one that is too big", async () => {
     await expect(call("files.write", { path: "a.txt" })).rejects.toThrow(/Give the file's text/);
     await expect(call("files.write", { path: "a.txt", text: "x".repeat(10 * 1024 * 1024 + 1) })).rejects.toThrow(/at most 10\.0 MB/);
+  });
+
+  it("fetches a granted origin from main, and follows redirects on it", async () => {
+    svc.setGrant(SLUG, NAME, MANIFEST.permissions);
+    const r = await call("net.fetch", { url: `${ORIGIN}/moved`, headers: { to: "/data" } });
+    expect(r).toMatchObject({ url: `${ORIGIN}/data`, status: 200, ok: true, text: '{"price":125.53}' });
+    expect(r.headers["content-type"]).toBe("application/json");
+    expect(fetched.map((f) => f.url)).toEqual([`${ORIGIN}/moved`, `${ORIGIN}/data`]);
+    expect(fetched[0].init.headers["user-agent"]).toBe("Mozilla/5.0");
+    expect(await call("net.fetch", { url: `${ORIGIN}/missing` })).toMatchObject({ status: 404, ok: false, text: "gone" });
+  });
+
+  it("refuses an origin the app wasn't granted, before and after a redirect", async () => {
+    await expect(call("net.fetch", { url: `${ORIGIN}/data` })).rejects.toThrow(/may not reach .*Allowed now: none yet/);
+    svc.setGrant(SLUG, NAME, MANIFEST.permissions);
+    await expect(call("net.fetch", { url: "https://evil.example.com/x" })).rejects.toThrow(/may not reach https:\/\/evil\.example\.com/);
+    await expect(call("net.fetch", { url: `${ORIGIN}/moved`, headers: { to: "https://evil.example.com/x" } })).rejects.toThrow(/may not reach/);
+    expect(fetched.map((f) => f.url)).toEqual([`${ORIGIN}/moved`]);
+    await expect(call("net.fetch", { url: "file:///etc/passwd" })).rejects.toThrow(/may not reach/);
+    await expect(call("net.fetch", { url: `${ORIGIN}/data`, method: "TRACE" })).rejects.toThrow(/method must be one of/);
+    await expect(call("net.fetch", { url: `${ORIGIN}/data`, method: "POST", body: { a: 1 } })).rejects.toThrow(/JSON\.stringify/);
   });
 
   it("refuses to read a missing file with a fix", async () => {
