@@ -767,6 +767,7 @@ export interface RunStats {
   weeks: UsageBucket[];
   /** Newest first, at most 200. */
   limitHits: LimitHit[];
+}
 
 /** One fact to bring into a bot's memory. category is one of the import categories, or "other". */
 export interface MemoryFact {
