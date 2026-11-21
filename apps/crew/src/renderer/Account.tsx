@@ -71,7 +71,11 @@ export function AccountSection({ bot, account, save }: { bot: BotSummary; accoun
       <>
         <p className="hint">A Google account of its own lets {bot.name} join Meet calls and use Gmail, Calendar and Drive as itself.</p>
         <span className="inline">
-          {logins.length ? (
+          {logins.length === 1 ? (
+            <button type="button" className="btn primary" onClick={() => save(logins[0]!.name)}>
+              Use {logins[0]!.username || logins[0]!.label}
+            </button>
+          ) : logins.length ? (
             <MenuButton className="btn" label="Choose an account" entries={entries}>
               Choose an account
             </MenuButton>
