@@ -296,6 +296,28 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
   handle("crew:connectorSignInCancel", (_e, name) => crew.connectors.signInCancel(str(name, "The connector's name", 40)));
   handle("crew:connectorSignOut", (_e, name) => crew.connectors.signOut(str(name, "The connector's name", 40)));
   handle("crew:connectorRemove", (_e, name) => crew.connectors.remove(str(name, "The connector's name", 40)));
+  handle("crew:skills", () => crew.skills.list());
+  handle("crew:skill", (_e, name) => crew.skills.get(str(name, "The skill's name", 40)));
+  // The pickers are the person's own clicks, so they are the yes; the preview still has to be read and added.
+  handle("crew:skillFolder", async (e) => {
+    const { BrowserWindow, dialog } = require("electron");
+    const win = BrowserWindow.fromWebContents(e.sender);
+    const options = { title: "Choose a skill folder", properties: ["openDirectory"] };
+    const r = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+    if (r.canceled || !r.filePaths.length) return null;
+    return crew.skills.prepare({ kind: "folder", path: r.filePaths[0] });
+  });
+  handle("crew:skillFile", async (e) => {
+    const { BrowserWindow, dialog } = require("electron");
+    const win = BrowserWindow.fromWebContents(e.sender);
+    const options = { title: "Choose a skill", properties: ["openFile"], filters: [{ name: "Skill", extensions: ["md", "zip"] }] };
+    const r = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+    if (r.canceled || !r.filePaths.length) return null;
+    return crew.skills.prepare({ kind: "file", path: r.filePaths[0] });
+  });
+  handle("crew:skillUrl", (_e, url) => crew.skills.prepare({ kind: "address", url: str(url, "The address", 2000) }));
+  handle("crew:skillAdd", (_e, id) => crew.skills.commit(str(id, "The preview", 100)));
+  handle("crew:skillRemove", (_e, name) => crew.skills.remove(str(name, "The skill's name", 40)));
   handle("crew:vault", () => {
     const problem = crew.vault.problem();
     if (problem) throw new Error(problem);

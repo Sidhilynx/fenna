@@ -18,6 +18,7 @@ import { Glyph } from "./Glyph.tsx";
 import { PixelIcon } from "./PixelIcon.tsx";
 import { ProjectsSection } from "./ProjectsSection.tsx";
 import { ReposSection } from "./ReposSection.tsx";
+import { SkillGrants } from "./Skills.tsx";
 import { Thumb } from "./Thumb.tsx";
 import { BotWatches } from "./Watches.tsx";
 import { KIND_ICON } from "./pixelIcons.ts";
@@ -547,6 +548,10 @@ function Advanced({ bot, detail, setDetail, loadError }: { bot: BotSummary; deta
           </span>
         </div>
         <Grants botName={bot.name} connectors={connectors} save={(next) => void save({ connectors: next })} />
+      </Section>
+
+      <Section title="Skills">
+        <SkillGrants botName={bot.name} granted={cfg.skills ?? []} save={(next) => void save({ skills: next })} />
       </Section>
 
       <Section title="Logins">

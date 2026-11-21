@@ -34,8 +34,9 @@ const localTime = (d) => `${DAYS[d.getDay()]} ${d.getFullYear()}-${pad(d.getMont
  * @param {string[]} [o.files]  a hand-off's files, as their paths on this bot's disk
  * @param {Date} o.now
  * @param {(name: string) => boolean} [o.installed]  whether a granted connector is installed on this computer
+ * @param {{ name: string, description: string, path: string }[]} [o.skills]  the granted skills installed on this computer, each with its SKILL.md's path on the bot's disk
  */
-function buildPrompt({ slug, bot, memory, library, watches = [], todos = [], others, team, trigger, text, earlier = "", from, files = [], now, installed = () => true, repos = [], teamNotes = "" }) {
+function buildPrompt({ slug, bot, memory, library, watches = [], todos = [], others, team, trigger, text, earlier = "", from, files = [], now, installed = () => true, repos = [], teamNotes = "", skills = [] }) {
   const fenna = bot.connectors.filter((c) => c.type === "fenna");
   const granted = bot.connectors.filter((c) => c.type === "grant" && installed(c.name));
   const s = F.parseSchedule(bot.schedule);
@@ -82,6 +83,7 @@ function buildPrompt({ slug, bot, memory, library, watches = [], todos = [], oth
   const mem = memory.trim();
   out.push(`Your memory (memory.md):\n<memory>\n${mem ? (mem.length > MEMORY_SHOWN ? "…" + mem.slice(-MEMORY_SHOWN) : mem) : "(empty)"}\n</memory>`);
   out.push(`Your library (path, kind, title):\n${library.length ? library.map((l) => `- ${l.path} (${l.kind}): ${l.title}`).join("\n") : "(empty)"}`);
+  if (skills.length) out.push(`Skills you have:\n${skills.map((s) => `- ${s.name}: ${s.description} (read ${s.path} before that kind of task)`).join("\n")}`);
   const openTodos = todos.filter((t) => !t.done).map((t) => `- ${t.id}  ${t.text}`);
   out.push(`Your open to-dos (todo):\n${openTodos.length ? capLines(openTodos, TODOS_SHOWN).join("\n") : "(none)"}`);
   out.push(`Your watches (each wakes you when it fires):\n${watches.length ? watches.map((w) => `- ${watchLine(w)}`).join("\n") : "(none)"}`);

@@ -15,6 +15,7 @@ export type PixelIconName =
   | "search"
   | "settings"
   | "connectors"
+  | "skills"
   | "vault"
   | "site"
   | "browser"
@@ -150,6 +151,20 @@ export const PIXEL_ICONS: Record<PixelIconName, readonly string[]> = {
     ".....xx.....",
     ".....xx.....",
     ".....xx.....",
+    "............",
+  ],
+  skills: [
+    "............",
+    "....xxxx....",
+    "...x....x...",
+    "..x......x..",
+    "..x......x..",
+    "..x......x..",
+    "...x....x...",
+    "....x..x....",
+    "....x..x....",
+    "....xxxx....",
+    "............",
     "............",
   ],
   vault: [

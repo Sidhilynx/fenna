@@ -616,6 +616,43 @@ export interface ConnectorSignInResult {
   needsClientId: boolean;
 }
 
+// ── Skills ─────────────────────────────────────────────────────────────
+// Skills installed on this computer (<userData>/Crew/skills/<name>/): the open
+// Agent Skills format, a folder with SKILL.md. A bot is granted some by name
+// in bot.md; before its run they are copied onto its disk at Files/Skills/<name>/.
+
+export interface SkillFile {
+  path: string;
+  size: number;
+}
+
+/** An installed skill as the page sees it. */
+export interface SkillView {
+  name: string;
+  description: string;
+  files: SkillFile[];
+  size: number;
+  /** Bots granted it. */
+  usedBy: { slug: string; name: string }[];
+}
+
+/** An installed skill in full: its instructions (SKILL.md after its front matter) as well. */
+export interface SkillDetail extends SkillView {
+  body: string;
+}
+
+/** A skill read from a folder, a file or an address, shown in full before it is added. Add it with crew:skillAdd(id). */
+export interface SkillPreview {
+  id: string;
+  name: string;
+  description: string;
+  body: string;
+  files: SkillFile[];
+  size: number;
+  /** A skill of this name is installed; adding replaces it. */
+  replaces: boolean;
+}
+
 // ── The vault ──────────────────────────────────────────────────────────
 // The person's site logins, once per computer (<userData>/Crew/vault.dat,
 // encrypted). Bots are granted them by name in bot.md (LoginGrant: allow or
@@ -769,6 +806,15 @@ export interface Calls {
   "crew:connectorSignInCancel": { args: [name: string]; result: boolean };
   "crew:connectorSignOut": { args: [name: string]; result: ConnectorView };
   "crew:connectorRemove": { args: [name: string]; result: { bots: string[] } };
+  "crew:skills": { args: []; result: SkillView[] };
+  "crew:skill": { args: [name: string]; result: SkillDetail };
+  /** The pickers: the preview of what the person chose, or null when they cancel. */
+  "crew:skillFolder": { args: []; result: SkillPreview | null };
+  "crew:skillFile": { args: []; result: SkillPreview | null };
+  /** An https address: a raw SKILL.md, or a GitHub folder (…/tree/…). */
+  "crew:skillUrl": { args: [url: string]; result: SkillPreview };
+  "crew:skillAdd": { args: [id: string]; result: SkillView };
+  "crew:skillRemove": { args: [name: string]; result: { bots: string[] } };
   "crew:vault": { args: []; result: VaultItemView[] };
   "crew:vaultSave": { args: [input: VaultItemInput, opts?: { replace?: string }]; result: VaultItemView };
   "crew:vaultRemove": { args: [name: string]; result: { bots: string[] } };
@@ -914,6 +960,8 @@ export interface Events {
   "crew:frame": FrameEvent;
   "crew:browser": { slug: string; state: BrowserState };
   "crew:connectors": ConnectorView[];
+  /** The skills installed on this computer changed (added, replaced or removed). */
+  "crew:skills": SkillView[];
   "crew:vault": VaultItemView[];
   /** The person clicked a notification: show this bot's chat. */
   "crew:open": { slug: string };
