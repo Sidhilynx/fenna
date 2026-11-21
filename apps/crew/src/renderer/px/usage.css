@@ -1,0 +1,46 @@
+/* The Usage page: a stat row, plain tables, the bar chart and the limit list.
+   Colors are the shell's and Crew's tokens (text, text-2, text-3, line, line-strong).
+   Bars are the text color; the accent is for the selected range only. */
+
+.usage-page > * { max-width: 920px; width: 100%; }
+
+.usage-muted { color: var(--text-3); }
+.usage-note { margin: 0; font-size: var(--fs-xs); color: var(--text-3); font-variant-numeric: tabular-nums; }
+
+.usage-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin: 0; }
+.usage-stat { display: flex; flex-direction: column; gap: 4px; padding-top: 12px; border-top: 2px solid var(--line-strong); min-width: 0; }
+.usage-stat dt { font-size: var(--fs-sm); font-weight: 500; color: var(--text-2); }
+.usage-stat dd { margin: 0; font-size: var(--fs-lg); font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.usage-stat dd.usage-muted { font-size: var(--fs-md); font-weight: 500; }
+@media (max-width: 720px) { .usage-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.usage-section { display: flex; flex-direction: column; gap: 12px; }
+.usage-section h2 { margin: 0; font-size: var(--fs-sm); font-weight: 500; color: var(--text-2); }
+.usage-section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+.usage-table { width: 100%; border-collapse: collapse; font-size: var(--fs-md); font-variant-numeric: tabular-nums; }
+.usage-table th, .usage-table td { padding: 8px 16px 8px 0; text-align: left; vertical-align: top; border-top: 1px solid var(--line); font-weight: 400; color: var(--text-2); }
+.usage-table thead th { padding-top: 0; border-top: 0; font-size: var(--fs-sm); font-weight: 500; color: var(--text-3); }
+.usage-table tbody th { font-weight: 500; color: var(--text); }
+.usage-table th:last-child, .usage-table td:last-child { padding-right: 0; }
+.usage-table .num { text-align: right; white-space: nowrap; }
+.usage-table .usage-name { overflow-wrap: anywhere; min-width: 120px; }
+.usage-table .usage-note { display: block; }
+.usage-share-cell { display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
+.usage-share { display: block; width: 96px; height: 6px; background: var(--line-strong); }
+.usage-share > span { display: block; height: 100%; background: var(--text-2); }
+.usage-pct { min-width: 36px; text-align: right; }
+
+.usage-bars { display: flex; gap: 4px; height: 176px; margin: 0 0 24px; padding: 0; list-style: none; }
+.usage-col { position: relative; flex: 1 1 0; min-width: 0; height: 100%; display: flex; align-items: flex-end; border-bottom: 1px solid var(--line-strong); }
+.usage-fill { display: block; width: 100%; max-width: 40px; height: 0; margin: 0 auto; background: var(--text-2); transition: height 160ms var(--ease); }
+.usage-label { position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%); font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.usage-label.first { left: 0; transform: none; }
+.usage-label.last { left: auto; right: 0; transform: none; }
+
+.usage-hits { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.usage-hit { display: flex; flex-direction: column; gap: 4px; padding: 12px 0; border-top: 1px solid var(--line); font-size: var(--fs-md); color: var(--text); }
+.usage-hit p { margin: 0; overflow-wrap: anywhere; }
+.usage-hit-head { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: var(--fs-sm); color: var(--text-2); font-variant-numeric: tabular-nums; }
+
+@media (prefers-reduced-motion: reduce) { .usage-fill { transition: none; } }

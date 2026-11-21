@@ -50,6 +50,7 @@ Teams are shown to people as group chats; the data stays `team`. A message to on
 | `browser.cjs`, `page-scripts.cjs` | Each bot's offscreen browser, `persist:crew-<slug>`: up to 8 tabs (pages that open a window open a tab), driven over CDP on the active tab; pages lay out at the person's view size while they watch; live frames as GPU textures at up to 60 a second, thumbnails as JPEGs; take control (and, while in control, catching a password form the person sends, to offer saving it); filling vault logins in one in-page step that checks the origin; sound only while its computer is open; downloads save to the bot's `workspace/downloads/` without a dialog (500 MB cap, unique names), and the next successful browser call says which finished |
 | `scheduler.cjs` | Wakes bots on their schedules (checks every 30 s; a run missed by under a day runs once on start) |
 | `views.cjs` | Overview, bot detail and history in the contract's shapes; mood and status line |
+| `runstats.cjs` | The Usage page's numbers from every bot's run logs: runs, time, tokens and API value per assistant and per bot, day and week buckets, limit hits. Reads only `start`, `end` and `tokens` lines, cached per file |
 | `registry.cjs` | MCP Registry search, each result turned into a connector to fill in and install when it can be |
 | `labels.cjs` | Tool calls in plain words for step lines |
 | `ipc.cjs` | The page's calls, each argument checked |
@@ -91,6 +92,7 @@ Electron's prefix).
 | `crew:teamSend` | slug, text | `{ runId, queued }` | A message in a group chat (a team). See "Group chats and mentions". `runId` is the first run. |
 | `crew:teamThread` | slug | `ThreadMessage[]` | `from` is "person" or a bot slug; `to` on hand-offs. |
 | `crew:registrySearch` | query | `RegistryEntry[]` | `connector` is a `ConnectorInput` to fill in (the values it needs listed empty, secret when the registry says so) and pass to `crew:connectorSave`; `note` says what is still needed. |
+| `crew:runStats` | range (`7d`, `30d`, `12w`) | `RunStats` | The Usage page: totals per assistant and per bot, runs per day and week, limit hits with the reset time when the CLI stated one. Tokens and API value are `null` where a CLI doesn't report them. |
 | `crew:connectors` | | `ConnectorView[]` | Connectors installed on this computer: status, tools as last seen, the bots granted it. Secret values are never sent (`value: ""`; `set` says whether one is saved). Also pushed on `crew:connectors`. |
 | `crew:connectorSave` | `ConnectorInput`, `{ replace?, force? }` | `ConnectorSaveResult` | Add one (or change `replace`; a name can't change). Crew starts it and lists its tools first; if that fails nothing is saved (`connector: null`, `error` says how to fix it) unless `force`. A secret is sent once in plain text and stored encrypted; `keep: true` keeps the saved one. Bad input rejects. |
 | `crew:connectorTest` | name | `ConnectorView` | Start it again (apart from the bots' copy), list its tools, keep the outcome. |

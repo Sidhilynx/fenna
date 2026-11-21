@@ -42,6 +42,7 @@ const { createShell } = require("./shell.cjs");
 const { createSearch } = require("./search.cjs");
 const { createFiles } = require("./files.cjs");
 const { createReplay } = require("./replay.cjs");
+const { createRunStats } = require("./runstats.cjs");
 const { noUsage } = require("./usage.cjs");
 const F = require("./format.cjs");
 
@@ -231,6 +232,7 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
     },
   });
   const replay = createReplay({ store, runner });
+  const runStats = createRunStats({ store });
   const approve = createApprover({ store, runner, waits, usage });
   gateway = createGateway({ store, connectors, connections, approve, runner, onChange, apps, appHost });
   logins = createLogins({ store, vault, browsers, approve, runner, onChange });
@@ -355,6 +357,7 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
     shell,
     search,
     replay,
+    runStats,
     waits,
     browsers,
     logins,

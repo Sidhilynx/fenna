@@ -662,6 +662,75 @@ export interface CliStatus {
   models: { value: string; label: string; description: string; efforts: string[]; defaultEffort: string | null }[];
 }
 
+/** The Usage page's range: the last 7 days, the last 30 days, or the last 12 weeks. */
+export type UsageRange = "7d" | "30d" | "12w";
+
+/** Numbers from the runs' logs (runstats.cjs). A null means no run reported it, never zero. */
+export interface UsageRow {
+  runs: number;
+  ok: number;
+  failed: number;
+  stopped: number;
+  /** Runs with no end line: still running, or cut off when Crew quit. */
+  unfinished: number;
+  /** Time from start to end, over the runs that ended. */
+  ms: number;
+  /** Input (cached input included) and output tokens, summed over the runs that reported them. */
+  tokens: { input: number; output: number } | null;
+  /** How many runs reported tokens. */
+  tokenRuns: number;
+  /** The CLI's API-equivalent cost estimate, summed over the runs that reported one. Not what a plan bills. */
+  costUsd: number | null;
+}
+
+export interface UsageCli extends UsageRow {
+  cli: CliKind;
+  name: string;
+}
+
+export interface UsageBot {
+  slug: string;
+  name: string;
+  runs: number;
+  ms: number;
+  /** The CLI this bot ran with most often in the range. */
+  cli: CliKind | null;
+}
+
+export interface UsageBucket {
+  /** Local midnight of the day, or of the Monday of the week. */
+  start: number;
+  runs: number;
+  ms: number;
+}
+
+export interface LimitHit {
+  /** When the run stopped. */
+  at: string;
+  slug: string;
+  name: string;
+  cli: CliKind;
+  message: string;
+  /** When the message states a reset time, the next such time; else null. */
+  resetsAt: string | null;
+}
+
+export interface RunStats {
+  range: UsageRange;
+  generatedAt: string;
+  /** Every run the bots have, in all time (not only the range). */
+  runsEver: number;
+  totals: UsageRow & { limitHits: number };
+  clis: UsageCli[];
+  bots: UsageBot[];
+  /** The last 30 days, oldest first. */
+  days: UsageBucket[];
+  /** The last 12 weeks, oldest first. */
+  weeks: UsageBucket[];
+  /** Newest first, at most 200. */
+  limitHits: LimitHit[];
+}
+
 // ── Calls ──────────────────────────────────────────────────────────────
 
 /** Every invoke channel: arguments and what it resolves to. Errors reject with a message to show. */
@@ -727,6 +796,8 @@ export interface Calls {
   "crew:workspaceWrite": { args: [slug: string, relPath: string, content: string]; result: { path: string; size: number; edited: string } };
   "crew:workspaceReveal": { args: [slug: string, relPath?: string]; result: boolean };
   "crew:clis": { args: [fresh?: boolean]; result: CliStatus[] };
+  /** The Usage page: runs, time, tokens and cost per CLI and bot, the day and week buckets, and limit hits. */
+  "crew:runStats": { args: [range?: UsageRange]; result: RunStats };
   "crew:desktop": { args: [slug: string]; result: DesktopShortcut[] };
   "crew:watches": { args: [slug: string]; result: { watches: Watch[]; todos: Todo[]; notifications: SiteNotification[] } };
   "crew:disk": { args: [slug: string, dir: string]; result: DiskListing };

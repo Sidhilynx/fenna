@@ -985,6 +985,8 @@ function makeParser(profile, kind, emit, { raw = false } = {}) {
           st.finished = true;
           const windows = Object.values(msg.modelUsage || {}).map((m) => Number(m && m.contextWindow) || 0);
           if (st.context) emit({ type: "usage", used: st.context, window: Math.max(0, ...windows) || null });
+          const u = msg.usage;
+          if (u && (Number.isFinite(u.input_tokens) || Number.isFinite(u.output_tokens))) emit({ type: "tokens", input: (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0), output: u.output_tokens || 0, costUsd: Number.isFinite(msg.total_cost_usd) ? msg.total_cost_usd : null });
           if (msg.is_error || st.lastError) emit({ type: "error", message: st.lastError || String(msg.result || "The assistant stopped with an error.") });
           else emit({ type: "done", sessionId: msg.session_id || null });
         }
@@ -1006,6 +1008,7 @@ function makeParser(profile, kind, emit, { raw = false } = {}) {
       else if (msg.type === "error") st.lastError = String(msg.message || "");
       else if (msg.type === "turn.completed") {
         st.finished = true;
+        if (msg.usage && (Number.isFinite(msg.usage.input_tokens) || Number.isFinite(msg.usage.output_tokens))) emit({ type: "tokens", input: Number(msg.usage.input_tokens) || 0, output: Number(msg.usage.output_tokens) || 0, costUsd: null });
         emit({ type: "done", sessionId: null });
       } else if (msg.type === "turn.failed") {
         st.finished = true;
@@ -1019,7 +1022,12 @@ function makeParser(profile, kind, emit, { raw = false } = {}) {
 function friendly(kind, raw) {
   const t = String(raw || "");
   if (/not (signed|logged) in|login|unauthor|401|auth/i.test(t)) return { message: `${NAMES[kind]} needs you to sign in again.`, fix: "signin" };
-  if (/rate.?limit|quota|429|usage limit/i.test(t)) return { message: `${NAMES[kind]} hit its usage limit. Try again later or pick another assistant.`, fix: null };
+  if (/rate.?limit|quota|429|usage limit/i.test(t)) {
+    // Keep the CLI's own reset time ("resets 3pm", "try again at 14:30"): Crew's Usage page reads it from the message.
+    const reset = /\b(?:resets?|try again)\s+(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm)?\b/i.exec(t);
+    const when = reset ? ` It ${/^try/i.test(reset[0]) ? "says to try again" : "resets"} at ${reset[0].replace(/^(?:resets?|try again)\s+(?:at\s+)?/i, "").trim()}.` : "";
+    return { message: `${NAMES[kind]} hit its usage limit.${when || " Try again later or pick another assistant."}`, fix: null };
+  }
   if (/ENOENT|not found/i.test(t)) return { message: `${NAMES[kind]} isn’t installed on this computer.`, fix: "install" };
   return { message: t.length > 300 ? t.slice(0, 300) + "…" : t || "The assistant stopped with an error.", fix: null };
 }
@@ -1099,7 +1107,8 @@ const SERVER_NAME = /^[a-z][a-z0-9-]{0,31}$/;
  * One turn of the user's CLI with no window attached (Fenna Crew's bots).
  * Events go to onEvent as { runId, type, … }, the same events a chat gets:
  * session, delta, text, tool (also naming server and tool), usage (Claude Code:
- * tokens in the context and the model's window), done, error
+ * tokens in the context and the model's window), tokens (Claude Code and Codex,
+ * when the CLI reports them: input, output, costUsd or null), done, error
  * ({ message, fix }), stopped. Exactly one of done, error or stopped ends
  * every run.
  *
