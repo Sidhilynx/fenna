@@ -203,6 +203,7 @@ body.chat-resizing * {
 .as-setup-body { margin: 6px 0 0; color: var(--text-2); font-size: var(--fs-sm); line-height: 1.5; }
 .as-setup.row .as-setup-body { flex: 1; margin: 0; }
 .as-setup-note { margin: 8px 0 0; overflow: hidden; color: var(--text-3); font-size: var(--fs-sm); line-height: 1.45; text-overflow: ellipsis; }
+.as-local-note { margin: 0 0 6px; color: var(--text-3); font-size: var(--fs-sm); line-height: 1.45; }
 .as-setup-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
 .as-setup-acts:empty { display: none; }
 .as-setup-btn {

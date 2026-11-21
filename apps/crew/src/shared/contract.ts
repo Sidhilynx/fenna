@@ -696,7 +696,8 @@ export interface CliStatus {
   signedIn: boolean | null;
   version: string | null;
   account: { email: string | null; plan: string | null } | null;
-  models: { value: string; label: string; description: string; efforts: string[]; defaultEffort: string | null }[];
+  /** `local`: a model this computer serves (Ollama, LM Studio), run through Codex. */
+  models: { value: string; label: string; description: string; efforts: string[]; defaultEffort: string | null; local?: { provider: "ollama" | "lmstudio"; sizeBytes: number | null; paramsB: number | null } }[];
 }
 
 /** The Usage page's range: the last 7 days, the last 30 days, or the last 12 weeks. */
