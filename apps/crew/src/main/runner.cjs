@@ -42,6 +42,7 @@ const isLibraryCall = (server, tool) => server === "fenna" || tool === "new_docu
  * @param {ReturnType<import("./store.cjs").createStore>} o.store
  * @param {Function} o.startRun     the shell's startRun
  * @param {(slug: string) => string[]} [o.repoNames]  the bot's repos, named in its prompt
+ * @param {(slug: string) => string} [o.teamNotes]  the bot's roles on its repos' teams, for its prompt
  * @param {(o: { slug: string, bot: object, token: string }) => object} o.serversFor  servers, trusted, home, env
  * @param {{ issue(ctx: object): string, revoke(token: string): void }} o.link
  * @param {ReturnType<import("./waits.cjs").createWaits>} o.waits
@@ -58,7 +59,7 @@ function withCwd(o, botDir) {
   return { ...rest, cwd: cwd || botDir };
 }
 
-function createRunner({ store, startRun, serversFor, link, waits, emitLive, onChange, toolLabel, installed, repoNames = () => [], onEnd = () => {}, usage = noUsage, now = () => new Date(), maxConcurrent = 2, runTimeoutMs = RUN_TIMEOUT_MS }) {
+function createRunner({ store, startRun, serversFor, link, waits, emitLive, onChange, toolLabel, installed, repoNames = () => [], teamNotes = () => "", onEnd = () => {}, usage = noUsage, now = () => new Date(), maxConcurrent = 2, runTimeoutMs = RUN_TIMEOUT_MS }) {
   /** @type {Map<string, object>} slug → its running run */
   const active = new Map();
   /** @type {object[]} */
@@ -203,6 +204,7 @@ function createRunner({ store, startRun, serversFor, link, waits, emitLive, onCh
       now: now(),
       installed,
       repos: repoNames(run.slug),
+      teamNotes: teamNotes(run.slug),
     });
     if (!run.token) run.token = link.issue({ slug: run.slug, runId: run.runId, team: run.team, chain: run.chain });
     try {

@@ -81,7 +81,7 @@ function createApprover({ store, runner, waits, usage = noUsage, now = () => new
  * @param {{ command(ctx: object, p: object): Promise<{ text: string }>, processes(ctx: object, p: object): { text: string } }} o.projects  node, npm and npx in the bot's projects (projects.cjs)
  * @param {() => Date} [o.now]
  */
-function createHandlers({ store, runner, waits, approve, browsers, gateway, appHost, logins = null, onChange, onDesktop, watches, search, files, shell, projects, repos = null, disk, usage = noUsage, now = () => new Date() }) {
+function createHandlers({ store, runner, waits, approve, browsers, gateway, appHost, logins = null, onChange, onDesktop, watches, search, files, shell, projects, repos = null, github = null, teams = null, appWindows = null, disk, usage = noUsage, now = () => new Date() }) {
   const iso = () => now().toISOString();
   const botName = (slug) => botNameOf(store, slug);
 
@@ -338,6 +338,51 @@ function createHandlers({ store, runner, waits, approve, browsers, gateway, appH
     repo(ctx, p) {
       if (!repos) throw new Error("Repos are not available on this computer yet.");
       return repos.handle(ctx, p);
+    },
+
+    /** Issues and pull requests on GitHub for one of the bot's repos (github.cjs). Pull requests and merges go in the shipped log. */
+    async github(ctx, p) {
+      if (!repos || !github) throw new Error("GitHub is not available on this computer yet.");
+      const repo = repos.whereOf(ctx.slug, p.name);
+      if (!repo.origin) throw new Error(`${repo.name} has no origin. Link a folder whose origin is on GitHub, or clone from GitHub.`);
+      const r = await github.handle(ctx, p, { name: repo.name, origin: repo.origin, policy: repo.policy });
+      if (teams && (p.action === "pr_create" || p.action === "merge")) {
+        const url = (/https:\/\/github\.com\/\S+/.exec(r.text) || [repo.origin])[0];
+        teams.ship({ repoKey: repo.key, slug: ctx.slug, kind: p.action === "merge" ? "merge" : "pr", title: p.title || `#${p.number}`, url });
+      }
+      return r;
+    },
+
+    /** The bot's team on a repo (teams.cjs): roles, and what the crew shipped. */
+    async team(ctx, p) {
+      if (!repos || !teams) throw new Error("Teams are not available on this computer yet.");
+      if (p.action === "shipped") {
+        const repoKey = p.name ? repos.whereOf(ctx.slug, p.name).key : undefined;
+        const list = teams.shipped({ repoKey, limit: p.limit });
+        return { text: list.length ? list.map((e) => `${e.at.slice(0, 10)}  ${e.kind}  ${e.title}  ${e.url}  (${e.slug})`).join("\n") : "Nothing shipped yet." };
+      }
+      const repo = repos.whereOf(ctx.slug, p.name);
+      if (p.action === "show") {
+        const team = teams.teamOf(repo.key);
+        return { text: team.length ? `Team on ${repo.key}:\n${team.map((m) => `${m.role}  ${m.slug}`).join("\n")}` : `No team on ${repo.key} yet. Assign roles with {action: "assign", name, bot, role}.` };
+      }
+      const bot = typeof p.bot === "string" ? p.bot.trim() : "";
+      if (!bot || !store.readBot(bot)) throw new Error(`There is no bot "${bot}". Use a bot's id, as message_bot lists them.`);
+      if (p.action === "assign" || p.action === "unassign") {
+        const what = p.action === "assign" ? `Make ${bot} the ${p.role} on ${repo.name}` : `Take ${bot} off the team on ${repo.name}`;
+        const r = await approve(ctx, { action: what, details: `Team on ${repo.key}. Roles decide what each bot does on this repo.`, source: "bot", tool: null });
+        if (!r.allowed) throw new Error("Not approved by the person. Don't try another way.");
+        if (p.action === "assign") teams.assign(repo.key, bot, p.role);
+        else teams.unassign(repo.key, bot);
+        return { text: `Done. Team on ${repo.key}:\n${teams.teamOf(repo.key).map((m) => `${m.role}  ${m.slug}`).join("\n") || "nobody"}` };
+      }
+      throw new Error(`Use the action show, assign, unassign or shipped, not "${String(p.action).slice(0, 20)}".`);
+    },
+
+    /** See a desktop app the bot ran (appwindows.cjs): list its windows, capture one. */
+    app_windows(ctx, p) {
+      if (!appWindows) throw new Error("Seeing app windows needs the Crew app.");
+      return appWindows.handle(ctx, p);
     },
 
     /** Claude Code's question about one of its own tool calls in a coding run: the answer is its permission JSON. */

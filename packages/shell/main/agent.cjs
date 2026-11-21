@@ -746,7 +746,8 @@ function promptFor(profile, text, context, first, images) {
  *                   ("mcp__crew__approve_tool"); without it those calls are refused
  *   home            Antigravity only: its home folder for this run, so runs at the
  *                   same time don't share one mcp_config.json
- *   coding          { dir }: a coding run. The CLI's own tools come back, inside `dir`:
+ *   coding          { dir, env?, wrap? }: a coding run. The CLI's own tools come back, inside `dir`;
+ *                   env is added to the CLI's, and wrap(command, args) may run it in an OS sandbox.
  *                   Claude Code asks permissionTool about each call; Codex and
  *                   Antigravity run their shells in their own sandboxes, writing only in `dir`
  */
@@ -1024,14 +1025,16 @@ const findCli = (kind) => {
 let locate = findCli;
 
 /** Spawn a CLI for one turn and pass its events to emit. */
-function launch({ profile, kind, runId, emit, args, cwd, env, input, raw = false, cleanup = () => {} }) {
+function launch({ profile, kind, runId, emit, args, cwd, env, input, raw = false, cleanup = () => {}, wrap = null }) {
   const fail = (rawError) => emit({ type: "error", ...friendly(kind, rawError) });
   const cmd = locate(kind);
   if (!cmd) {
     setTimeout(() => fail("ENOENT"), 0);
     return;
   }
-  const child = spawn(cmd[0], [...cmd.slice(1), ...args], { cwd, env, windowsHide: true, stdio: ["pipe", "pipe", "pipe"] });
+  // A coding run may run the whole CLI inside the OS sandbox the caller chose.
+  const run = wrap ? wrap(cmd[0], [...cmd.slice(1), ...args]) : { command: cmd[0], args: [...cmd.slice(1), ...args] };
+  const child = spawn(run.command, run.args, { cwd, env, windowsHide: true, stdio: ["pipe", "pipe", "pipe"] });
   const entry = { child, kind, stopped: false };
   runs.set(runId, entry);
   const parser = makeParser(profile, kind, (ev) => (ev.type === "error" ? fail(ev.message) : emit(ev)), { raw });
@@ -1140,6 +1143,7 @@ function startRun({ kind, prompt, cwd, servers, trusted, permissionTool, home, c
     raw: true,
     env: { ...envFor(kind, { home: agyHomeDir }), ...env, ...(coding ? coding.env : {}) },
     input: inputFor(kind, prompt, images),
+    wrap: coding && typeof coding.wrap === "function" ? coding.wrap : null,
     cleanup: () => {
       if (cfg) fs.rmSync(cfg, { force: true });
     },

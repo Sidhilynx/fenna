@@ -49,7 +49,7 @@ describe("crew server", () => {
   it("offers the brief's tools, each described for the model with an example", async () => {
     const c = await connect("crew");
     const { tools } = await c.listTools();
-    expect(tools.map((t) => t.name).sort()).toEqual(["app", "approve_tool", "ask_human", "command", "create_bot", "desktop", "edit_file", "export_file", "import_sheet", "message_bot", "new_document", "processes", "read_file", "remember", "repo", "request_approval", "search_files", "set_status", "terminal", "todo", "watch", "write_file"]);
+    expect(tools.map((t) => t.name).sort()).toEqual(["app", "app_windows", "approve_tool", "ask_human", "command", "create_bot", "desktop", "edit_file", "export_file", "github", "import_sheet", "message_bot", "new_document", "processes", "read_file", "remember", "repo", "request_approval", "search_files", "set_status", "team", "terminal", "todo", "watch", "write_file"]);
     for (const t of tools) expect(t.description, t.name).toMatch(/Example: \{/);
   });
 

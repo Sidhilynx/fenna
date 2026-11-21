@@ -117,8 +117,10 @@ function programOf(cmd) {
  * @param {(ctx: object, a: { action: string, details: string, source: string, tool: string|null }) => Promise<{ allowed: boolean, always: boolean, by: string }>} o.approve
  * @param {(channel: string, payload: unknown) => void} [o.broadcast]
  * @param {(args: string[], opts: { cwd?: string, env?: object }) => Promise<{ code: number, out: string }>} [o.git]  runs git (tests put a fake here)
+ * @param {(dir: string) => ((command: string, args: string[]) => { command: string, args: string[] }) | null} [o.sandboxFor]  the OS sandbox a coding run's CLI runs in (os-sandbox.cjs), or none
+ * @param {(e: { slug: string, name: string, kind: string, title: string, url: string }) => void} [o.onShip]  something left the bot's repo (a push)
  */
-function createRepos({ disk, store, approve, broadcast = () => {}, git = runGit }) {
+function createRepos({ disk, store, approve, broadcast = () => {}, git = runGit, sandboxFor = () => null, onShip = () => {} }) {
   const rootOf = (slug) => disk.locate(slug, "Files/Repos").abs;
   const dirOf = (slug, name) => path.join(rootOf(slug), repoName(name));
   const settingsFile = (slug) => path.join(store.botDir(slug), "repos.json");
@@ -134,14 +136,14 @@ function createRepos({ disk, store, approve, broadcast = () => {}, git = runGit 
     const repos = {};
     for (const [n, r] of Object.entries(v.repos && typeof v.repos === "object" ? v.repos : {})) {
       if (!NAME_RE.test(n) || !r || typeof r !== "object") continue;
-      repos[n] = { source: typeof r.source === "string" ? r.source : null, origin: typeof r.origin === "string" ? r.origin : null };
+      repos[n] = { source: typeof r.source === "string" ? r.source : null, origin: typeof r.origin === "string" ? r.origin : null, ...(r.policy && typeof r.policy === "object" ? { policy: r.policy } : {}) };
     }
     return { programs: Array.isArray(v.programs) ? v.programs.filter((x) => typeof x === "string") : [], shell: v.shell === true, repos };
   }
 
   function setRepo(slug, name, where) {
     const s = settings(slug);
-    if (where) s.repos[name] = where;
+    if (where) s.repos[name] = { ...s.repos[name], ...where };
     else delete s.repos[name];
     saveSettings(slug, s);
   }
@@ -296,6 +298,7 @@ function createRepos({ disk, store, approve, broadcast = () => {}, git = runGit 
     // Crew's push, not the brain's: the person's git and credentials.
     await g(dir, ["push", "--no-verify", t.url, `refs/heads/${branch}:refs/heads/${branch}`], "Pushing");
     await quiet(dir, ["update-ref", `refs/remotes/${t.remote}/${branch}`, local]);
+    onShip({ slug: ctx.slug, name, kind: "push", title: `${branch} → ${t.remote}`, url: t.url });
     return { text: `Pushed ${branch} to ${t.remote} (${t.url}).${t.remote === ORIGIN ? " Open a pull request with the GitHub connector if you have it, or ask the person to." : ""}` };
   }
 
@@ -340,7 +343,34 @@ function createRepos({ disk, store, approve, broadcast = () => {}, git = runGit 
     const r = store.readBot(slug);
     const text = gitConfigText(r && r.bot ? r.bot.name : slug, slug);
     if (!fs.existsSync(file) || fs.readFileSync(file, "utf8") !== text) fs.writeFileSync(file, text);
-    return { dir: rootOf(slug), env: { ...GIT_ENV, GIT_CONFIG_GLOBAL: file } };
+    const dir = rootOf(slug);
+    const wrap = sandboxFor(dir);
+    return { dir, env: { ...GIT_ENV, GIT_CONFIG_GLOBAL: file }, ...(wrap ? { wrap } : {}) };
+  }
+
+  /** What the GitHub loop may do on its own for one repo; the person approves each change of it. */
+  async function setPolicy(ctx, p) {
+    const name = repoName(p.name);
+    existing(ctx.slug, name);
+    const next = {};
+    if (p.comment !== undefined) next.comment = p.comment === "auto" ? "auto" : "ask";
+    if (p.draftOnly !== undefined) next.draftOnly = p.draftOnly !== false;
+    if (p.merge !== undefined) next.merge = p.merge === "never" ? "never" : "ask";
+    if (!Object.keys(next).length) {
+      const cur = settings(ctx.slug).repos[name]?.policy || {};
+      return { text: `Policy for ${name}: ${JSON.stringify(cur)}. Change it with comment ("auto" or "ask"), draftOnly (true or false), merge ("ask" or "never").` };
+    }
+    await ask(ctx, `Change what the bot may do on GitHub for ${name}`, `New rules: ${JSON.stringify(next)}. Merges and pull requests still ask you each time.`);
+    const cur = settings(ctx.slug).repos[name]?.policy || {};
+    setRepo(ctx.slug, name, { policy: { ...cur, ...next } });
+    return { text: `Policy for ${name}: ${JSON.stringify({ ...cur, ...next })}.` };
+  }
+
+  /** Where one of the bot's repos came from, and its GitHub policy: for the GitHub loop and teams. */
+  function whereOf(slug, name) {
+    existing(slug, name);
+    const w = settings(slug).repos[repoName(name)] || { source: null, origin: null };
+    return { name: repoName(name), source: w.source, origin: w.origin, policy: w.policy || {}, key: w.origin || w.source || `${slug}/${name}` };
   }
 
   /** Let the bot's own shell run without a sandbox (only for brains that can't sandbox here). Asks the person; kept until they take it back. */
@@ -355,6 +385,7 @@ function createRepos({ disk, store, approve, broadcast = () => {}, git = runGit 
   return {
     names,
     codingFor,
+    whereOf,
     /** The repo tool. */
     async handle(ctx, p) {
       const action = String(p.action ?? "");
@@ -365,8 +396,9 @@ function createRepos({ disk, store, approve, broadcast = () => {}, git = runGit 
       if (action === "push") return push(ctx, p);
       if (action === "sync") return sync(ctx, p);
       if (action === "allow_shell") return allowShell(ctx);
+      if (action === "policy") return setPolicy(ctx, p);
       if (action === "remove") return remove(ctx, p);
-      throw new Error(`Use the action list, status, link, clone, sync, push, remove or allow_shell, not "${action.slice(0, 20)}".`);
+      throw new Error(`Use the action list, status, link, clone, sync, push, remove, policy or allow_shell, not "${action.slice(0, 20)}".`);
     },
 
     /** One of the brain's own tool calls (Claude Code's approve_tool): allowed, refused with why, or the person's decision. */
