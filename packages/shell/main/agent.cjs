@@ -1022,7 +1022,12 @@ function makeParser(profile, kind, emit, { raw = false } = {}) {
 function friendly(kind, raw) {
   const t = String(raw || "");
   if (/not (signed|logged) in|login|unauthor|401|auth/i.test(t)) return { message: `${NAMES[kind]} needs you to sign in again.`, fix: "signin" };
-  if (/rate.?limit|quota|429|usage limit/i.test(t)) return { message: `${NAMES[kind]} hit its usage limit. Try again later or pick another assistant.`, fix: null };
+  if (/rate.?limit|quota|429|usage limit/i.test(t)) {
+    // Keep the CLI's own reset time ("resets 3pm", "try again at 14:30"): Crew's Usage page reads it from the message.
+    const reset = /\b(?:resets?|try again)\s+(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm)?\b/i.exec(t);
+    const when = reset ? ` It ${/^try/i.test(reset[0]) ? "says to try again" : "resets"} at ${reset[0].replace(/^(?:resets?|try again)\s+(?:at\s+)?/i, "").trim()}.` : "";
+    return { message: `${NAMES[kind]} hit its usage limit.${when || " Try again later or pick another assistant."}`, fix: null };
+  }
   if (/ENOENT|not found/i.test(t)) return { message: `${NAMES[kind]} isn’t installed on this computer.`, fix: "install" };
   return { message: t.length > 300 ? t.slice(0, 300) + "…" : t || "The assistant stopped with an error.", fix: null };
 }

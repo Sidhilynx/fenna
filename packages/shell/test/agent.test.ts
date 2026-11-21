@@ -100,6 +100,8 @@ describe("assistant host: event parsing", () => {
   it("explains common failures in plain words, with what would fix them", () => {
     expect(_test.friendly("claude", "Error: 401 Unauthorized")).toEqual({ message: "Claude Code needs you to sign in again.", fix: "signin" });
     expect(_test.friendly("codex", "rate limit exceeded (429)").message).toMatch(/usage limit/);
+    expect(_test.friendly("claude", "5-hour limit reached ∙ resets 3pm (usage limit)").message).toBe("Claude Code hit its usage limit. It resets at 3pm.");
+    expect(_test.friendly("codex", "You've hit your usage limit. Try again at 14:30.").message).toBe("Codex hit its usage limit. It says to try again at 14:30.");
     expect(_test.friendly("antigravity", "spawn agy ENOENT").fix).toBe("install");
     expect(_test.friendly("codex", "x".repeat(400)).message.length).toBe(301);
   });
