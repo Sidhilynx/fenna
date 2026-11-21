@@ -1,7 +1,8 @@
 // A bot's own Google account, in its Details: the vault login it is signed
-// in with, and what the bot's browser is signed in as. Crew signs the browser
-// in from the vault; this section only shows the state (as the last check
-// saw it) and the buttons for it. Never a password.
+// in with, and what the bot's Chrome profile is signed in as. The person signs
+// the account in by hand, in a Chrome window of its own; this section only
+// shows the state (as the last check saw it) and the buttons for it. Never a
+// password.
 import { useEffect, useState } from "react";
 import { MenuButton, toast, type MenuEntry } from "@opendeck/shell";
 import { errorText, invoke, on } from "../shared/api.ts";
@@ -20,22 +21,22 @@ function stateLine(view: AccountView | null): string {
   switch (view.state) {
     case "missing":
       return "Not in the vault on this computer";
+    case "no_chrome":
+      return "Google Chrome isn't installed. Install it to use this account.";
     case "unknown":
       return "Not checked yet";
     case "signed_out":
       return "Signed out";
     case "signing_in":
-      return "Signing in";
+      return view.message;
     case "signed_in":
       return "Signed in";
     case "other_account":
       return view.signedInAs ? `Signed in as ${view.signedInAs} instead` : "Signed in as someone else";
-    case "needs_you":
-      return view.message;
   }
 }
 
-const NEEDS_YOU: AccountState[] = ["missing", "needs_you"];
+const NEEDS_YOU: AccountState[] = ["missing", "no_chrome", "signing_in"];
 
 /** The bot's Google account: pick a vault login, and see and change its sign-in. */
 export function AccountSection({ bot, account, save }: { bot: BotSummary; account: string | null; save(next: string | null): void }) {
@@ -69,7 +70,7 @@ export function AccountSection({ bot, account, save }: { bot: BotSummary; accoun
     ];
     return (
       <>
-        <p className="hint">A Google account of its own lets {bot.name} join Meet calls and use Gmail, Calendar and Drive as itself.</p>
+        <p className="hint">A Google account of its own lets {bot.name} join Meet calls as itself. It lives in a Google Chrome window of its own.</p>
         <span className="inline">
           {logins.length === 1 ? (
             <button type="button" className="btn primary" onClick={() => save(logins[0]!.name)}>
@@ -95,22 +96,24 @@ export function AccountSection({ bot, account, save }: { bot: BotSummary; accoun
   const run = (action: Action) => {
     setBusy(action);
     invoke("crew:account", bot.slug, action).then(
-      (v) => setView(v),
+      (v) => {
+        setView(v);
+        if (action === "sign_in" && v?.state !== "signed_in") toast("Sign in in the Chrome window that opened, then close it.");
+      },
       (e) => toast(errorText(e)),
     ).finally(() => setBusy(null));
   };
   const check = { label: "Check", onClick: () => run("check") };
   const signIn = { label: "Sign in", onClick: () => run("sign_in") };
   const signOut = { label: "Sign out", onClick: () => run("sign_out") };
-  const computer = { label: "Open computer", onClick: () => go({ name: "computer", slug: bot.slug }) };
   const buttons: { label: string; onClick(): void }[] = {
     missing: [],
+    no_chrome: [],
     unknown: [check],
     signed_out: [signIn],
-    signing_in: [],
+    signing_in: [check],
     signed_in: [check, signOut],
     other_account: [signOut],
-    needs_you: [computer, check],
   }[state];
 
   return (

@@ -11,7 +11,7 @@ import { PixelIcon } from "./PixelIcon.tsx";
 import type { PixelIconName } from "./pixelIcons.ts";
 import { clock, when } from "./util.ts";
 
-const KIND_ICON: Record<Notice["kind"], PixelIconName> = { site: "site", download: "download", run: "run", watch: "eye", reminder: "clock", account: "lock" };
+const KIND_ICON: Record<Notice["kind"], PixelIconName> = { site: "site", download: "download", run: "run", watch: "eye", reminder: "clock" };
 
 /** Whether an ISO time falls on the same local day as `now`. */
 export function isToday(iso: string, now: Date): boolean {

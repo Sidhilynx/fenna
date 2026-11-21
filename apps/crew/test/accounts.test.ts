@@ -1,487 +1,440 @@
 import { createRequire } from "node:module";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
 const { createAccounts } = require("../src/main/accounts.cjs");
-const G = require("../src/main/google-scripts.cjs");
 
 const LOGIN = "Scout Gmail";
-const EMAIL = "scout@example.com";
-const PASSWORD = "correct-horse-9";
-const CODE = "482913";
-const TOTP = "JBSWY3DPEHPK3PXP";
+const BOT_EMAIL = "scout@gmail.com";
+const SIGNING_IN = "Sign in to Google in the Chrome window that opened, then close it.";
+const LIST_URL = "https://accounts.google.com/ListAccounts?gpsia=1&source=ChromiumBrowser&json=standard";
+const NOW_ISO = "2026-11-22T09:00:00.000Z";
+const THIRTY_MIN = 30 * 60_000;
 
-type Session = { signedIn: boolean; accounts: { email: string; name: string | null }[] };
-const SIGNED_OUT: Session = { signedIn: false, accounts: [] };
+type Cookie = { name: string; domain: string; expires: number };
+type World = ReturnType<typeof world>["w"];
 
-/**
- * A Google sign-in in a fake browser tab. `flow` is the list of pages Google
- * shows in order; each Next (or account pick) moves to the next one, and the
- * last one stays. Typed text goes where the page's field is. Reaching a
- * "signed_in" page signs the browser in as the bot's account.
- */
-function fakeWorld(opts: { flow?: string[]; session?: Session; error?: string | null; password?: string; totp?: string | null; secondsLeft?: number } = {}) {
+/** The body Google's ListAccounts returns, with its anti-hijacking prefix. */
+function listing(...emails: string[]) {
+  return `)]}'\n${JSON.stringify(["gaia.l.a.r", emails.map((e) => ["gaia.l.a", 1, "Name", e])])}`;
+}
+
+/** A Google sign-in cookie that expires in an hour (seconds, as Chrome reports it). */
+function sid(expires = Date.parse(NOW_ISO) / 1000 + 3600): Cookie {
+  return { name: "SID", domain: ".google.com", expires };
+}
+
+function world() {
   const w = {
-    flow: opts.flow ?? ["email", "password", "code", "signed_in"],
-    index: 0,
-    session: opts.session ?? SIGNED_OUT,
-    failSession: false,
-    error: opts.error ?? null,
-    password: opts.password ?? PASSWORD,
-    totp: opts.totp === undefined ? TOTP : opts.totp,
-    secondsLeft: opts.secondsLeft ?? 20,
-    items: { [LOGIN]: { name: LOGIN, label: LOGIN, username: "Scout@Example.com", origins: ["https://accounts.google.com"] } } as Record<string, { name: string; label: string; username: string; origins: string[] }>,
-    typedEmail: "",
-    closed: false,
-    inserted: [] as { stage: string; text: string }[],
-    picks: [] as unknown[],
-    nexts: 0,
-    opened: [] as string[],
-    sessionCalls: 0,
-    signOuts: 0,
-    codeCalls: 0,
-    openError: null as Error | null,
+    nowMs: Date.parse(NOW_ISO),
+    bots: {
+      scout: { name: "Scout", account: LOGIN as string | null },
+      pine: { name: "Pine", account: LOGIN as string | null },
+    } as Record<string, { name: string; account: string | null }>,
+    vault: {
+      [LOGIN]: { name: LOGIN, label: "Scout Gmail", username: "Scout@Gmail.com" },
+    } as Record<string, { name: string; label: string; username: string }>,
+    available: true,
+    running: {} as Record<string, "plain" | "driven" | null>,
+    cookies: [] as Cookie[],
+    cookiesThrow: false,
+    cookieCalls: [] as string[],
+    listing: listing(BOT_EMAIL),
+    fetchReject: false,
+    fetchCalls: [] as string[],
+    openThrows: false,
+    opened: [] as { slug: string; url: string }[],
+    cleared: [] as string[],
+    broadcasts: [] as { channel: string; payload: { slug: string; account: unknown } }[],
+    changes: 0,
+    timers: [] as { fn: () => Promise<void>; ms: number; handle: { id: number } }[],
+    clearedTimers: [] as { id: number }[],
   };
-  const stage = () => w.flow[Math.min(w.index, w.flow.length - 1)];
-  const advance = () => {
-    w.index++;
-    if (stage() === "signed_in") w.session = { signedIn: true, accounts: [{ email: EMAIL, name: "Scout" }] };
-  };
-  const tab = {
-    alive: () => !w.closed,
-    close: async () => {
-      w.closed = true;
+  const chrome = {
+    available: () => w.available,
+    running: (slug: string) => w.running[slug] ?? null,
+    cookies: async (slug: string) => {
+      w.cookieCalls.push(slug);
+      if (w.cookiesThrow) throw new Error("profile is locked");
+      return w.cookies.map((c) => ({ ...c }));
     },
-    waitForControl: async () => {},
-    cdp: async (method: string, p: { text: string }) => {
-      if (method === "Input.insertText") {
-        w.inserted.push({ stage: stage(), text: p.text });
-        if (stage() === "email") w.typedEmail = p.text;
-      }
-      return {};
+    fetchText: async (_slug: string, url: string) => {
+      w.fetchCalls.push(url);
+      if (w.fetchReject) throw new Error("offline");
+      return w.listing;
     },
-    evaluate: async (fn: { name: string }, arg: { field?: string; email?: string } | null) => {
-      switch (fn.name) {
-        case "googleStage":
-          return { stage: stage(), error: w.error };
-        case "googleFocus":
-          return { found: true, focused: true, value: arg?.field === "email" ? w.typedEmail : "" };
-        case "googleNext":
-          w.nexts++;
-          advance();
-          return { clicked: true };
-        case "googlePick":
-          w.picks.push(arg);
-          advance();
-          return { picked: "account" };
-        default:
-          throw new Error(`unexpected page function ${fn.name}`);
-      }
+    openForPerson: async (slug: string, url: string) => {
+      if (w.openThrows) throw new Error("Chrome could not start");
+      w.opened.push({ slug, url });
+      w.running[slug] = "plain";
     },
-  };
-  const browsers = {
-    googleSession: async () => {
-      w.sessionCalls++;
-      if (w.failSession) throw new Error("browser is busy");
-      return w.session;
-    },
-    openTask: async (_slug: string, o: { url: string }) => {
-      if (w.openError) throw w.openError;
-      w.opened.push(o.url);
-      return tab;
-    },
-    signOutGoogle: async () => {
-      w.signOuts++;
-      w.session = SIGNED_OUT;
-    },
-  };
-  const vault = {
-    get: (name: string) => w.items[name] ?? null,
-    // Shaped like the real vault: the 2-factor setup as an object, its key in `secret`.
-    secrets: async () => ({ password: w.password, totp: w.totp ? { secret: w.totp, digits: 6, period: 30, algorithm: "SHA1" } : null }),
-    code: async () => {
-      w.codeCalls++;
-      return { code: CODE, secondsLeft: w.secondsLeft };
+    clearCookies: async (slug: string) => {
+      w.cleared.push(slug);
+      w.cookies = [];
     },
   };
   const store = {
-    readBot: () => ({ bot: { name: "Scout", account: LOGIN } }),
-    slugs: () => ["scout"],
+    readBot: (slug: string) => (w.bots[slug] ? { bot: { ...w.bots[slug] } } : null),
+    slugs: () => Object.keys(w.bots),
   };
-  return { w, tab, browsers, vault, store };
-}
-
-/** Accounts over a fake world, with every broadcast and notice collected in `log`. */
-function setup(world: ReturnType<typeof fakeWorld>, log: unknown[] = []) {
-  const notices: unknown[][] = [];
-  const broadcasts: unknown[][] = [];
+  const vault = {
+    get: (name: string) => (w.vault[name] ? { ...w.vault[name] } : null),
+  };
+  let nextId = 1;
   const accounts = createAccounts({
-    store: world.store,
-    vault: world.vault,
-    browsers: world.browsers,
-    notify: (...args: unknown[]) => {
-      notices.push(args);
-      log.push(args);
+    store,
+    vault,
+    chrome,
+    broadcast: (channel: string, payload: { slug: string; account: unknown }) => w.broadcasts.push({ channel, payload }),
+    onChange: () => {
+      w.changes += 1;
     },
-    broadcast: (...args: unknown[]) => {
-      broadcasts.push(args);
-      log.push(args);
+    now: () => new Date(w.nowMs),
+    setTimer: (fn: () => Promise<void>, ms: number) => {
+      const handle = { id: nextId++ };
+      w.timers.push({ fn, ms, handle });
+      return handle;
+    },
+    clearTimer: (h: { id: number }) => {
+      w.clearedTimers.push(h);
     },
   });
-  return { accounts, notices, broadcasts };
+  return { w, a: accounts };
 }
 
-/** Runs the fake clock until `p` settles. */
-async function settle<T>(p: Promise<T>): Promise<T> {
-  let out: { ok: boolean; v: unknown } | null = null;
-  p.then(
-    (v) => (out = { ok: true, v }),
-    (v) => (out = { ok: false, v }),
-  );
-  for (let i = 0; i < 400 && !out; i++) await vi.advanceTimersByTimeAsync(500);
-  const done = out as { ok: boolean; v: unknown } | null;
-  if (!done) throw new Error("still running");
-  if (!done.ok) throw done.v;
-  return done.v as T;
-}
-
-/** Follows a promise without waiting for it. */
-function track<T>(p: Promise<T>) {
-  const r = { done: false, value: undefined as T | undefined };
-  p.then((v) => {
-    r.done = true;
-    r.value = v;
-  });
-  return r;
-}
-
-describe("the account view", () => {
-  beforeEach(() => vi.useFakeTimers({ now: new Date(2026, 10, 22, 9, 0) }));
-  afterEach(() => vi.useRealTimers());
-
-  it("is null for a bot without an account, and unknown until the first check", () => {
-    const world = fakeWorld();
-    world.store.readBot = () => ({ bot: { name: "Scout", account: null } });
-    const { accounts } = setup(world);
-    expect(accounts.view("scout")).toBeNull();
-    expect(accounts.list()).toEqual([]);
-    expect(accounts.promptLine("scout")).toBe("");
-
-    const fresh = setup(fakeWorld());
-    expect(fresh.accounts.view("scout")).toEqual({ slug: "scout", login: LOGIN, email: EMAIL, state: "unknown", signedInAs: null, message: "", checkedAt: null });
-    expect(fresh.accounts.list()).toHaveLength(1);
+describe("view", () => {
+  it("is null for a bot without an account", () => {
+    const { w, a } = world();
+    w.bots.scout.account = null;
+    expect(a.view("scout")).toBeNull();
   });
 
-  it("says missing when the login isn't in the vault, without asking the browser", async () => {
-    const world = fakeWorld();
-    world.w.items = {};
-    const { accounts } = setup(world);
-    const v = await accounts.check("scout");
-    expect(v).toMatchObject({ state: "missing", email: "" });
-    expect(world.w.sessionCalls).toBe(0);
-  });
-
-  it("reads signed out, signed in (any letter case), and another account, with the first email it sees", async () => {
-    const world = fakeWorld({ session: SIGNED_OUT });
-    const { accounts } = setup(world);
-    expect((await accounts.check("scout"))?.state).toBe("signed_out");
-
-    world.w.session = { signedIn: true, accounts: [{ email: "SCOUT@example.com", name: null }] };
-    expect(await accounts.check("scout")).toMatchObject({ state: "signed_in", signedInAs: null });
-
-    world.w.session = { signedIn: true, accounts: [{ email: "sam@example.com", name: null }, { email: "x@example.com", name: null }] };
-    expect(await accounts.check("scout")).toMatchObject({ state: "other_account", signedInAs: "sam@example.com" });
-
-    world.w.session = { signedIn: true, accounts: [] };
-    expect(await accounts.check("scout")).toMatchObject({ state: "other_account", signedInAs: null });
-  });
-
-  it("keeps the last state and says when it tried when the browser can't be asked", async () => {
-    vi.setSystemTime(new Date(2026, 10, 22, 9, 0));
-    const world = fakeWorld({ session: { signedIn: true, accounts: [{ email: EMAIL, name: null }] } });
-    const { accounts } = setup(world);
-    const first = await accounts.check("scout");
-    expect(first?.state).toBe("signed_in");
-
-    vi.setSystemTime(new Date(2026, 10, 22, 9, 5));
-    world.w.failSession = true;
-    const second = await accounts.check("scout");
-    expect(second?.state).toBe("signed_in");
-    expect(second?.checkedAt).not.toBe(first?.checkedAt);
-  });
-
-  it("broadcasts each change of the view, with onChange, and not an unchanged one", async () => {
-    const world = fakeWorld({ session: SIGNED_OUT });
-    const changes: number[] = [];
-    const accounts = createAccounts({
-      store: world.store,
-      vault: world.vault,
-      browsers: world.browsers,
-      notify: () => {},
-      broadcast: (name: string, payload: unknown) => broadcasts.push([name, payload]),
-      onChange: () => changes.push(1),
+  it("is unknown before any check, with the login and its email", () => {
+    const { a } = world();
+    expect(a.view("scout")).toEqual({
+      slug: "scout",
+      login: LOGIN,
+      email: "scout@gmail.com",
+      state: "unknown",
+      signedInAs: null,
+      message: "",
+      checkedAt: null,
     });
-    const broadcasts: unknown[] = [];
-    await accounts.check("scout");
-    expect(broadcasts).toEqual([["crew:account", { slug: "scout", account: expect.objectContaining({ state: "signed_out" }) }]]);
-    expect(changes).toHaveLength(1);
+  });
+
+  it("is missing when the vault lacks the login", () => {
+    const { w, a } = world();
+    w.vault = {};
+    expect(a.view("scout").state).toBe("missing");
+  });
+
+  it("is no_chrome when Chrome isn't installed", () => {
+    const { w, a } = world();
+    w.available = false;
+    expect(a.view("scout").state).toBe("no_chrome");
+  });
+
+  it("is signing_in with the exact message while the plain window is open", () => {
+    const { w, a } = world();
+    w.running.scout = "plain";
+    const v = a.view("scout");
+    expect(v.state).toBe("signing_in");
+    expect(v.message).toBe(SIGNING_IN);
   });
 });
 
-describe("signing in", () => {
-  beforeEach(() => {
-    vi.useFakeTimers({ now: new Date(2026, 10, 22, 9, 0) });
-  });
-  afterEach(() => vi.useRealTimers());
-
-  it("types the email, the password and the code, and closes the tab once signed in", async () => {
-    const world = fakeWorld();
-    const { accounts, notices } = setup(world);
-    const r = await settle(accounts.signIn("scout"));
-    expect(r).toEqual({ state: "signed_in", text: `Signed in as ${EMAIL}.` });
-    expect(world.w.opened).toEqual([G.signInUrl(EMAIL)]);
-    expect(world.w.inserted).toEqual([
-      { stage: "email", text: EMAIL },
-      { stage: "password", text: PASSWORD },
-      { stage: "code", text: CODE },
-    ]);
-    expect(world.w.closed).toBe(true);
-    expect(notices).toEqual([]);
-    expect(accounts.view("scout")?.state).toBe("signed_in");
+describe("check", () => {
+  it("is signed_out with no Google cookie", async () => {
+    const { w, a } = world();
+    const v = await a.check("scout");
+    expect(v.state).toBe("signed_out");
+    expect(v.checkedAt).toBe(NOW_ISO);
+    expect(w.fetchCalls).toEqual([]);
   });
 
-  it("does not retype an email that Google's field already holds", async () => {
-    const world = fakeWorld({ flow: ["password", "signed_in"] });
-    world.w.typedEmail = EMAIL;
-    const { accounts } = setup(world);
-    await settle(accounts.signIn("scout"));
-    expect(world.w.inserted.map((i) => i.text)).toEqual([PASSWORD]);
+  it("is signed_out for a Google cookie on another domain", async () => {
+    const { w, a } = world();
+    w.cookies = [{ name: "SID", domain: ".example.com", expires: Date.parse(NOW_ISO) / 1000 + 3600 }];
+    expect((await a.check("scout")).state).toBe("signed_out");
   });
 
-  it("picks the bot's account on the chooser before the password", async () => {
-    const world = fakeWorld({ flow: ["chooser", "password", "signed_in"] });
-    const { accounts } = setup(world);
-    const r = await settle(accounts.signIn("scout"));
-    expect(r.state).toBe("signed_in");
-    expect(world.w.picks).toEqual([{ email: EMAIL }]);
+  it("treats an expired sign-in cookie as signed out", async () => {
+    const { w, a } = world();
+    w.cookies = [sid(Date.parse(NOW_ISO) / 1000 - 60)];
+    expect((await a.check("scout")).state).toBe("signed_out");
   });
 
-  it("stops after one wrong password, leaves the tab open, and says so with Google's text", async () => {
-    const world = fakeWorld({ flow: ["email", "password", "password"], error: "Wrong password. Try again." });
-    const { accounts, notices } = setup(world);
-    const r = await settle(accounts.signIn("scout"));
-    expect(r.state).toBe("needs_you");
-    expect(r.text).toBe(`Google didn't take the password saved for ${LOGIN}. Fix it in the vault, or take control and sign in. Google said: Wrong password. Try again.`);
-    expect(world.w.inserted.filter((i) => i.stage === "password")).toHaveLength(1);
-    expect(world.w.closed).toBe(false);
-    expect(accounts.view("scout")).toMatchObject({ state: "needs_you", message: r.text });
-    expect(notices).toEqual([["scout", "Google sign-in needs you", r.text]]);
+  it("counts a session cookie (expires -1) as signed in", async () => {
+    const { w, a } = world();
+    w.cookies = [sid(-1)];
+    expect((await a.check("scout")).state).toBe("signed_in");
   });
 
-  it("keeps saying what the person must do while the browser is still signed out, and moves on once they sign in", async () => {
-    const world = fakeWorld({ flow: ["email", "password", "password"], error: "Wrong password. Try again." });
-    const { accounts } = setup(world);
-    const r = await settle(accounts.signIn("scout"));
-    expect((await accounts.check("scout"))?.state).toBe("needs_you");
-    expect(accounts.view("scout")?.message).toBe(r.text);
-    world.w.session = { signedIn: true, accounts: [{ email: EMAIL, name: "Scout" }] };
-    expect((await accounts.check("scout"))?.state).toBe("signed_in");
+  it("is signed_in when ListAccounts lists the bot's email, asking Google's list URL", async () => {
+    const { w, a } = world();
+    w.cookies = [sid()];
+    const v = await a.check("scout");
+    expect(v.state).toBe("signed_in");
+    expect(w.fetchCalls).toEqual([LIST_URL]);
+    expect(w.cookieCalls).toEqual(["scout"]);
   });
 
-  it("scrubs the 2-factor key from an error that echoes it", async () => {
-    const world = fakeWorld();
-    world.w.openError = new Error(`setup key ${TOTP} rejected`);
-    const { accounts } = setup(world);
-    const r = await settle(accounts.signIn("scout"));
-    expect(r.text).not.toContain(TOTP);
+  it("matches the bot's email in any letter case", async () => {
+    const { w, a } = world();
+    w.cookies = [sid()];
+    w.listing = listing("SCOUT@gmail.COM");
+    expect((await a.check("scout")).state).toBe("signed_in");
   });
 
-  it("stops at two codes, and does not send a third", async () => {
-    const world = fakeWorld({ flow: ["email", "code", "code", "code"] });
-    const { accounts } = setup(world);
-    const r = await settle(accounts.signIn("scout"));
-    expect(r.state).toBe("needs_you");
-    expect(r.text).toBe(`Google keeps asking for a sign-in code for ${LOGIN}. Take control and enter one yourself.`);
-    expect(world.w.inserted.filter((i) => i.stage === "code")).toHaveLength(2);
+  it("reads a ListAccounts body without the prefix too", async () => {
+    const { w, a } = world();
+    w.cookies = [sid()];
+    w.listing = JSON.stringify(["gaia.l.a.r", [["gaia.l.a", 1, "Scout", BOT_EMAIL]]]);
+    expect((await a.check("scout")).state).toBe("signed_in");
   });
 
-  it("stops at a sign-in code when the login has no 2-factor key", async () => {
-    const world = fakeWorld({ flow: ["email", "code"], totp: null });
-    const { accounts } = setup(world);
-    const r = await settle(accounts.signIn("scout"));
-    expect(r).toEqual({
-      state: "needs_you",
-      text: `Google asks for a sign-in code and ${LOGIN} has no 2-factor setup key. Take control and enter it, or add the key in the vault.`,
-    });
-    expect(world.w.inserted.some((i) => i.stage === "code")).toBe(false);
+  it("is other_account, with the email signed in, when ListAccounts lists someone else", async () => {
+    const { w, a } = world();
+    w.cookies = [sid()];
+    w.listing = listing("other@gmail.com");
+    const v = await a.check("scout");
+    expect(v.state).toBe("other_account");
+    expect(v.signedInAs).toBe("other@gmail.com");
   });
 
-  it("waits for a fresh code when the current one is about to expire", async () => {
-    const world = fakeWorld({ flow: ["code", "signed_in"], secondsLeft: 2 });
-    const { accounts } = setup(world);
-    const r = await settle(accounts.signIn("scout"));
-    expect(r.state).toBe("signed_in");
-    expect(world.w.codeCalls).toBe(2);
+  it("is signed_in when fetchText fails, since nothing says it is someone else", async () => {
+    const { w, a } = world();
+    w.cookies = [sid()];
+    w.fetchReject = true;
+    expect((await a.check("scout")).state).toBe("signed_in");
   });
 
-  it("stops when Google blocks the browser", async () => {
-    const world = fakeWorld({ flow: ["email", "blocked"] });
-    const { accounts } = setup(world);
-    const r = await settle(accounts.signIn("scout"));
-    expect(r).toEqual({ state: "needs_you", text: "Google won't sign in from this browser right now. Take control and sign in yourself." });
+  it("is signed_in when ListAccounts lists nothing", async () => {
+    const { w, a } = world();
+    w.cookies = [sid()];
+    w.listing = listing();
+    expect((await a.check("scout")).state).toBe("signed_in");
   });
 
-  it("gives a challenge 15 seconds, then stops and leaves the tab open", async () => {
-    const world = fakeWorld({ flow: ["challenge"] });
-    const { accounts, notices } = setup(world);
-    const r = track(accounts.signIn("scout"));
-    await vi.advanceTimersByTimeAsync(14_000);
-    expect(r.done).toBe(false);
-    await vi.advanceTimersByTimeAsync(3_000);
-    expect(r.value).toEqual({
-      state: "needs_you",
-      text: "Google wants something only you can give (a phone prompt or a puzzle). Take control of Scout's browser and finish signing in.",
-    });
-    expect(world.w.closed).toBe(false);
-    expect(notices).toHaveLength(1);
+  it("keeps the old state and sets checkedAt when the profile can't be read", async () => {
+    const { w, a } = world();
+    w.cookies = [sid()];
+    await a.check("scout");
+    w.cookiesThrow = true;
+    w.nowMs += 60_000;
+    const v = await a.check("scout");
+    expect(v.state).toBe("signed_in");
+    expect(v.checkedAt).toBe(new Date(w.nowMs).toISOString());
   });
 
-  it("stops at 90 seconds even when Google keeps moving on", async () => {
-    const world = fakeWorld({ flow: ["email"] });
-    const { accounts } = setup(world);
-    const r = track(accounts.signIn("scout"));
-    await vi.advanceTimersByTimeAsync(89_000);
-    expect(r.done).toBe(false);
-    await vi.advanceTimersByTimeAsync(2_000);
-    expect(r.done).toBe(true);
-    expect(r.value?.state).toBe("needs_you");
-    expect(world.w.nexts).toBeGreaterThan(20);
-  });
-
-  it("runs one sign-in at a time per bot", async () => {
-    const world = fakeWorld();
-    const { accounts } = setup(world);
-    const first = accounts.signIn("scout");
-    const second = accounts.signIn("scout");
-    expect(second).toBe(first);
-    await settle(first);
-    expect(world.w.opened).toHaveLength(1);
-  });
-
-  it("refuses when the browser is signed in as someone else, and opens no tab", async () => {
-    const world = fakeWorld({ session: { signedIn: true, accounts: [{ email: "someone@example.com", name: null }] } });
-    const { accounts } = setup(world);
-    const r = await settle(accounts.signIn("scout"));
-    expect(r.text).toBe(`The browser is signed in as someone@example.com, not ${EMAIL}. Ask the person to sign it out in your Details, then try again.`);
-    expect(world.w.opened).toEqual([]);
-  });
-
-  it("says a missing or empty vault entry when the password isn't there", async () => {
-    const world = fakeWorld({ password: "" });
-    const { accounts } = setup(world);
-    const r = await settle(accounts.signIn("scout"));
-    expect(r).toEqual({ state: "needs_you", text: `The vault has no password for ${LOGIN}. Add it, or take control and sign in.` });
-    expect(world.w.opened).toEqual([]);
-  });
-
-  it("says a missing login, and asks for nothing when there is no account", async () => {
-    const missing = fakeWorld();
-    missing.w.items = {};
-    expect((await settle(setup(missing).accounts.signIn("scout"))).text).toBe(`${LOGIN} isn't in the vault on this computer. Add it, then try again.`);
-
-    const none = fakeWorld();
-    none.store.readBot = () => ({ bot: { name: "Scout", account: null } });
-    expect((await settle(setup(none).accounts.signIn("scout"))).state).toBeNull();
-  });
-
-  it("says what went wrong when the sign-in fails, and never echoes a secret in it", async () => {
-    const world = fakeWorld();
-    world.w.openError = new Error(`Chrome refused ${PASSWORD}`);
-    const { accounts } = setup(world);
-    const r = await settle(accounts.signIn("scout"));
-    expect(r.text).toBe("Couldn't sign in: Chrome refused ….");
-    expect(r.text).not.toContain(PASSWORD);
-    expect(accounts.view("scout")?.state).toBe("signed_out");
+  it.each<[string, (w: World) => void]>([
+    ["signing_in", (w) => (w.running.scout = "plain")],
+    ["missing", (w) => (w.vault = {})],
+    ["no_chrome", (w) => (w.available = false)],
+  ])("does not read cookies while %s", async (_name, setup) => {
+    const { w, a } = world();
+    setup(w);
+    await a.check("scout");
+    expect(w.cookieCalls).toEqual([]);
   });
 });
 
-describe("the other actions", () => {
-  beforeEach(() => vi.useFakeTimers({ now: new Date(2026, 10, 22, 9, 0) }));
-  afterEach(() => vi.useRealTimers());
-
-  it("signs the bot's browser out and reads the result", async () => {
-    const world = fakeWorld({ session: { signedIn: true, accounts: [{ email: EMAIL, name: null }] } });
-    const { accounts } = setup(world);
-    expect((await accounts.check("scout"))?.state).toBe("signed_in");
-    expect((await accounts.signOut("scout"))?.state).toBe("signed_out");
-    expect(world.w.signOuts).toBe(1);
+describe("broadcasts", () => {
+  it("sends one per change, and none for an unchanged check", async () => {
+    const { w, a } = world();
+    await a.check("scout");
+    expect(w.broadcasts).toEqual([{ channel: "crew:account", payload: { slug: "scout", account: a.view("scout") } }]);
+    expect(w.changes).toBe(1);
+    await a.check("scout");
+    expect(w.broadcasts).toHaveLength(1);
+    expect(w.changes).toBe(1);
   });
 
-  it("ensure signs in only when the browser is signed out", async () => {
-    const signedIn = fakeWorld({ session: { signedIn: true, accounts: [{ email: EMAIL, name: null }] } });
-    const a = setup(signedIn).accounts;
-    expect((await a.ensure("scout"))?.state).toBe("signed_in");
-    expect(signedIn.w.opened).toEqual([]);
+  it("sends again when the state changes", async () => {
+    const { w, a } = world();
+    await a.check("scout");
+    w.cookies = [sid()];
+    await a.check("scout");
+    expect(w.broadcasts).toHaveLength(2);
+    expect(w.broadcasts[1].payload.account).toMatchObject({ state: "signed_in" });
+    expect(w.changes).toBe(2);
+  });
+});
 
-    const signedOut = fakeWorld();
-    const b = setup(signedOut).accounts;
-    const v = await settle(b.ensure("scout"));
-    expect(v?.state).toBe("signed_in");
-    expect(signedOut.w.opened).toHaveLength(1);
+describe("signIn", () => {
+  it("says there is no account and opens nothing", async () => {
+    const { w, a } = world();
+    w.bots.scout.account = null;
+    const r = await a.signIn("scout");
+    expect(r.state).toBeNull();
+    expect(r.text).toContain("You have no Google account");
+    expect(w.opened).toEqual([]);
   });
 
-  it("writes one prompt line that names the account and its state, and never a password", () => {
-    const world = fakeWorld({ session: { signedIn: true, accounts: [{ email: "sam@example.com", name: null }] } });
-    const { accounts } = setup(world);
-    expect(accounts.promptLine("scout")).toBe(
-      'Your own Google account is scout@example.com (not checked yet). Your browser stays signed in to it, so Gmail, Calendar, Drive and Meet open as you. Never sign in to any other Google account, and never type its password: if Google asks you to sign in, call account with {action: "sign_in"}.',
-    );
+  it("says the login is missing and opens nothing", async () => {
+    const { w, a } = world();
+    w.vault = {};
+    const r = await a.signIn("scout");
+    expect(r.state).toBe("missing");
+    expect(r.text).toContain("isn't in the vault");
+    expect(w.opened).toEqual([]);
   });
 
-  it("checks every bot's account 20 seconds after start, then every 30 minutes, until stop", async () => {
-    const world = fakeWorld({ session: SIGNED_OUT });
-    const { accounts } = setup(world);
-    accounts.start();
-    await vi.advanceTimersByTimeAsync(19_000);
-    expect(world.w.sessionCalls).toBe(0);
-    await vi.advanceTimersByTimeAsync(1_000);
-    expect(world.w.sessionCalls).toBe(1);
-    await vi.advanceTimersByTimeAsync(30 * 60_000);
-    expect(world.w.sessionCalls).toBe(2);
-    accounts.stop();
-    await vi.advanceTimersByTimeAsync(60 * 60_000);
-    expect(world.w.sessionCalls).toBe(2);
+  it("says Chrome isn't installed and opens nothing", async () => {
+    const { w, a } = world();
+    w.available = false;
+    const r = await a.signIn("scout");
+    expect(r.state).toBe("no_chrome");
+    expect(r.text).toContain("Google Chrome isn't installed");
+    expect(w.opened).toEqual([]);
+  });
+
+  it("says it is already signed in and opens nothing", async () => {
+    const { w, a } = world();
+    w.cookies = [sid()];
+    const r = await a.signIn("scout");
+    expect(r.state).toBe("signed_in");
+    expect(r.text).toBe(`Signed in as ${BOT_EMAIL}.`);
+    expect(w.opened).toEqual([]);
+  });
+
+  it("says another account is signed in and opens nothing", async () => {
+    const { w, a } = world();
+    w.cookies = [sid()];
+    w.listing = listing("other@gmail.com");
+    const r = await a.signIn("scout");
+    expect(r.state).toBe("other_account");
+    expect(r.text).toContain("other@gmail.com");
+    expect(w.opened).toEqual([]);
+  });
+
+  it("opens the bot's Chrome on the sign-in page for its email when signed out", async () => {
+    const { w, a } = world();
+    const r = await a.signIn("scout");
+    expect(w.opened).toHaveLength(1);
+    expect(w.opened[0].slug).toBe("scout");
+    expect(w.opened[0].url).toContain("Email=");
+    expect(w.opened[0].url).toContain(encodeURIComponent(BOT_EMAIL));
+    expect(r.state).toBe("signing_in");
+    expect(r.text).toMatch(/the person/i);
+    expect(r.text).toContain("ask_human");
+    expect(a.view("scout").state).toBe("signing_in");
+  });
+
+  it("does not open a second window while signing in", async () => {
+    const { w, a } = world();
+    await a.signIn("scout");
+    const cookieCalls = w.cookieCalls.length;
+    const r = await a.signIn("scout");
+    expect(w.opened).toHaveLength(1);
+    expect(w.cookieCalls).toHaveLength(cookieCalls);
+    expect(r.state).toBe("signing_in");
+  });
+
+  it("rejects when the window can't open", async () => {
+    const { w, a } = world();
+    w.openThrows = true;
+    await expect(a.signIn("scout")).rejects.toThrow("Chrome could not start");
+  });
+});
+
+describe("plainClosed", () => {
+  it("checks again after the person signed in and closed the window", async () => {
+    const { w, a } = world();
+    await a.signIn("scout");
+    expect(a.view("scout").state).toBe("signing_in");
+    w.running.scout = null;
+    w.cookies = [sid()];
+    const v = await a.plainClosed("scout");
+    expect(v.state).toBe("signed_in");
+    expect(a.view("scout").state).toBe("signed_in");
+  });
+});
+
+describe("signOut", () => {
+  it("clears the profile's cookies, then reports signed_out", async () => {
+    const { w, a } = world();
+    w.cookies = [sid()];
+    await a.check("scout");
+    const v = await a.signOut("scout");
+    expect(w.cleared).toEqual(["scout"]);
+    expect(w.cookies).toEqual([]);
+    expect(v.state).toBe("signed_out");
+    expect(a.view("scout").state).toBe("signed_out");
+  });
+});
+
+describe("ensure", () => {
+  it("leaves a signed-out account signed out and opens no window", async () => {
+    const { w, a } = world();
+    const v = await a.ensure("scout");
+    expect(v.state).toBe("signed_out");
+    expect(w.opened).toEqual([]);
+  });
+});
+
+describe("promptLine", () => {
+  it("is empty without an account", () => {
+    const { w, a } = world();
+    w.bots.scout.account = null;
+    expect(a.promptLine("scout")).toBe("");
+  });
+
+  it("names the email and the state before a check", () => {
+    const { a } = world();
+    const line = a.promptLine("scout");
+    expect(line).toContain(BOT_EMAIL);
+    expect(line).toContain("not checked yet");
+  });
+
+  it("names the email and the state after a check", async () => {
+    const { a } = world();
+    await a.check("scout");
+    expect(a.promptLine("scout")).toContain("signed out");
+  });
+
+  it("says never to type the password and points at the account sign_in action", () => {
+    const { a } = world();
+    const line = a.promptLine("scout");
+    expect(line).toContain("never type its password");
+    expect(line).toContain('{action: "sign_in"}');
+  });
+});
+
+describe("start and stop", () => {
+  it("checks only bots whose Chrome is driven, then reschedules every 30 minutes", async () => {
+    const { w, a } = world();
+    w.running.scout = "driven";
+    w.running.pine = null;
+    a.start();
+    expect(w.timers).toHaveLength(1);
+    expect(w.timers[0].ms).toBe(THIRTY_MIN);
+    await w.timers[0].fn();
+    expect(w.cookieCalls).toEqual(["scout"]);
+    expect(w.timers).toHaveLength(2);
+    expect(w.timers[1].ms).toBe(THIRTY_MIN);
+  });
+
+  it("clears the pending timer on stop, once", () => {
+    const { w, a } = world();
+    a.start();
+    const handle = w.timers[0].handle;
+    a.stop();
+    a.stop();
+    expect(w.clearedTimers).toEqual([handle]);
   });
 });
 
 describe("secrets", () => {
-  beforeEach(() => vi.useFakeTimers({ now: new Date(2026, 10, 22, 9, 0) }));
-  afterEach(() => vi.useRealTimers());
-
-  it("keeps the password and the code out of every view, broadcast, notice and returned text", async () => {
-    const log: unknown[] = [];
-
-    const happy = fakeWorld();
-    const h = setup(happy, log);
-    log.push(await settle(h.accounts.signIn("scout")));
-    log.push(h.accounts.view("scout"), h.accounts.list(), h.accounts.promptLine("scout"));
-
-    const wrong = fakeWorld({ flow: ["email", "password", "password"], error: "Wrong password. Try again." });
-    const w = setup(wrong, log);
-    log.push(await settle(w.accounts.signIn("scout")));
-    log.push(w.accounts.view("scout"), w.accounts.list(), w.accounts.promptLine("scout"));
-
-    const chrome = fakeWorld();
-    chrome.w.openError = new Error(`Chrome refused ${PASSWORD}`);
-    const c = setup(chrome, log);
-    log.push(await settle(c.accounts.signIn("scout")));
-    log.push(c.accounts.view("scout"));
-
-    expect(h.broadcasts.length).toBeGreaterThan(0);
-    const all = JSON.stringify(log);
-    expect(all).toContain(EMAIL);
-    expect(all).not.toContain(PASSWORD);
-    expect(all).not.toContain(CODE);
-    expect(all).not.toContain(TOTP);
+  it("never puts the word password in a view or a broadcast", async () => {
+    const { w, a } = world();
+    await a.signIn("scout");
+    w.running.scout = null;
+    w.cookies = [sid()];
+    await a.plainClosed("scout");
+    await a.signOut("scout");
+    const shown = JSON.stringify([a.list(), w.broadcasts]);
+    expect(shown).not.toMatch(/password/i);
+    expect(a.promptLine("scout").match(/password/gi)).toHaveLength(1);
   });
 });

@@ -38,14 +38,7 @@ const path = require("node:path");
 const { BrowserWindow, screen, session, sharedTexture } = require("electron");
 const { pageSnapshot, pageTarget, pageSelectAll, pageChoose, pageScroll, pageFillLogin, pageFillCode, pageSecretShown, CAPTURE_SOURCE, NOTIFY_SOURCE, pageWatchTarget, pageWatchArm, pageWatchStop } = require("./page-scripts.cjs");
 const { LIMITS } = require("./format.cjs");
-const { parseListAccounts } = require("./google-scripts.cjs");
 
-/** The cookies a Google sign-in sets on google.com; any one, unexpired, means the browser is signed in. */
-const GOOGLE_SIGN_IN_COOKIES = ["SID", "__Secure-1PSID", "__Secure-3PSID"];
-/** Google's list of the accounts signed in to this browser. */
-const GOOGLE_LIST_ACCOUNTS = "https://accounts.google.com/ListAccounts?gpsia=1&source=ChromiumBrowser&json=standard";
-/** Hosts whose cookies hold a Google sign-in. */
-const GOOGLE_COOKIE_HOST = /(^|\.)(google\.com|youtube\.com)$/;
 
 /** The page size when nobody watches live, in CSS pixels. */
 const DEFAULT_VIEW = { width: 1280, height: 800 };
@@ -371,7 +364,6 @@ function originOf(t) {
  * @param {(slug: string, cursor: object) => void} o.onCursor
  * @param {(slug: string, state: object) => void} o.onState
  * @param {() => Electron.WebFrameMain | null} [o.liveTarget]  the page's frame that GPU live frames go to
- * @param {(slug: string, on: boolean) => void} [o.onControl]  the person took control of a bot's browser, or gave it back
  * @param {(slug: string, login: { origin: string, username: string, password: string }) => void} [o.onCapture]
  *   the person sent a form with a password while in control
  * @param {number} [o.controlWaitMs]  how long a bot's tool waits for the person to give control back
@@ -388,7 +380,7 @@ function originOf(t) {
  * @param {(slug: string, step: { at: string, action: string, url: string, jpeg: Buffer }) => void} [o.onStep]
  *   a bot action finished: a small JPEG of the active tab after it, for the replay (at most one a bot per 700 ms)
  */
-function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, onCapture = () => {}, controlWaitMs = 15_000, workspaceDir = null, diskFree = null, driveFree = null, onSiteNotification = () => {}, onTitleCount = () => {}, onElementChange = () => {}, onStep = () => {}, onDownload = () => {}, onControl = () => {} }) {
+function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, onCapture = () => {}, controlWaitMs = 15_000, workspaceDir = null, diskFree = null, driveFree = null, onSiteNotification = () => {}, onTitleCount = () => {}, onElementChange = () => {}, onStep = () => {}, onDownload = () => {} }) {
   /** @type {Map<string, object>} slug → the bot's browser */
   const all = new Map();
   /** @type {Map<string, Map<number, "live"|"thumb">>} slug → watcher → mode */
@@ -966,7 +958,7 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
 
   /** The bot's browser with an active tab ready for the protocol. */
   /**
-   * What meetings.cjs and accounts.cjs drive a tab of their own with: page
+   * What meetings.cjs drives a call's tab with: page
    * functions in an isolated world of its own, the DevTools protocol, and
    * close. The bot's browser tools never act through it.
    */
@@ -975,7 +967,7 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
       if (method === "Page.frameNavigated" && params && params.frame && !params.frame.parentId) t.meetWorld = null;
     });
     const alive = () => !t.wc.isDestroyed();
-    /** A page function (meet-scripts, google-scripts) in the tab's own isolated world. */
+    /** A meet-scripts page function in the tab's own isolated world. */
     async function evaluateIn(fn, arg) {
       for (let attempt = 0; attempt < 2; attempt++) {
         if (!t.meetWorld) {
@@ -1659,7 +1651,6 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
       // A password form the person sends while in control can be saved to the vault.
       await Promise.all(b.tabs.map((t) => (on ? arm(t) : disarm(t))));
       tell(b);
-      onControl(slug, b.control);
       return stateOf(b);
     },
 
@@ -1748,61 +1739,6 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
       }
       tell(b);
       return tabHandle(b, t);
-    },
-
-    /**
-     * A tab Crew drives itself for a job of its own (signing the bot in to
-     * its Google account, accounts.cjs): a new active tab on `url`, with the
-     * same handle as a meeting's tab.
-     */
-    async openTask(slug, { url }) {
-      const b = await get(slug);
-      await waitForControl(b);
-      if (b.tabs.length >= MAX_TABS) throw new Error(`${MAX_TABS} tabs are open, the most a bot can have. Close one first.`);
-      const t = newTab(b);
-      await t.ready;
-      const r = await cdp(t, "Page.navigate", { url });
-      if (r.errorText) {
-        t.win.destroy();
-        dropTab(b, t.id);
-        throw new Error(`Couldn't open ${url}: ${r.errorText}.`);
-      }
-      tell(b);
-      return tabHandle(b, t);
-    },
-
-    /**
-     * Whether the bot's browser is signed in to Google, and as whom: the
-     * session's Google sign-in cookies, then Google's own list of the
-     * accounts signed in (the one Chrome reads). The list is empty when
-     * Google doesn't answer.
-     */
-    async googleSession(slug) {
-      const ses = sessionOf(slug);
-      const cookies = await ses.cookies.get({ domain: "google.com" });
-      const nowS = Date.now() / 1000;
-      const signedIn = cookies.some((c) => GOOGLE_SIGN_IN_COOKIES.includes(c.name) && (!c.expirationDate || c.expirationDate > nowS));
-      if (!signedIn) return { signedIn: false, accounts: [] };
-      let accounts = [];
-      try {
-        const res = await ses.fetch(GOOGLE_LIST_ACCOUNTS, { method: "POST", credentials: "include", signal: AbortSignal.timeout(10_000) });
-        if (res.ok) accounts = parseListAccounts(await res.text());
-      } catch {
-        /* Google didn't answer: signed in, as someone unknown */
-      }
-      return { signedIn: true, accounts };
-    },
-
-    /** Signs the bot's browser out of Google: every Google cookie, and the sign-in pages' storage. */
-    async signOutGoogle(slug) {
-      const ses = sessionOf(slug);
-      const cookies = await ses.cookies.get({});
-      for (const c of cookies) {
-        const host = String(c.domain || "").replace(/^\./, "");
-        if (!GOOGLE_COOKIE_HOST.test(host)) continue;
-        await ses.cookies.remove(`https://${host}${c.path || "/"}`, c.name).catch(() => {});
-      }
-      await ses.clearStorageData({ origin: "https://accounts.google.com" }).catch(() => {});
     },
 
     close(slug) {

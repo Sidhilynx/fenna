@@ -60,10 +60,12 @@ function transcriptName(at, code) {
 
 /** Why a bot with an account of its own can't join yet, and what to do. */
 function accountBlocker(a) {
-  if (a.state === "needs_you") return `Your Google account (${a.email}) isn't signed in: ${a.message} Ask the person with ask_human, then join again.`;
+  if (a.state === "signed_out") return `Your Google account (${a.email}) is signed out. Call account with {action: "sign_in"}: it opens the window where the person signs you in. Join again once they have.`;
+  if (a.state === "signing_in") return `The person is signing your Google account (${a.email}) in right now. Join again once they have closed that window.`;
+  if (a.state === "no_chrome") return "Google Chrome isn't installed on this computer, and your Google account and calls run in it. Ask the person to install it from google.com/chrome.";
   if (a.state === "other_account") return `Your browser is signed in to Google as ${a.signedInAs || "someone else"}, not your own account ${a.email}. Ask the person to sign it out in your Details, then join again.`;
   if (a.state === "missing") return `Your Google account's login isn't in the vault on this computer. Ask the person to add it, then join again.`;
-  return `Your Google account (${a.email}) isn't signed in, and Crew couldn't sign it in. Ask the person to check it in your Details, then join again.`;
+  return `Crew couldn't tell whether your Google account (${a.email}) is signed in. Ask the person to press Check in your Details, then join again.`;
 }
 
 /** What a bot posts in the chat when it is let in. */
@@ -75,14 +77,15 @@ function consentText(botName) {
  * @param {object} o
  * @param {object} o.store
  * @param {{ enqueue: Function, running: (slug: string) => boolean, isQueued: (slug: string) => boolean }} o.runner
- * @param {{ openMeeting: Function }} o.browsers
+ * @param {{ openMeeting: Function }} o.browsers  the built-in browser: calls run there only when Google Chrome isn't installed
+ * @param {{ available(): boolean, openTab: Function, show(slug: string): Promise<boolean> } | null} [o.chrome]  the bot's own Chrome (chrome.cjs), where calls run
  * @param {{ ensure(slug: string): Promise<object | null> } | null} [o.accounts]  the bot's own Google account (accounts.cjs): signed in before it joins
  * @param {{ start: Function } | null} o.stage
  * @param {(channel: string, payload: unknown) => void} o.broadcast
  * @param {() => void} [o.onChange]
  * @param {string[]} [o.extraOrigins]  test pages that count as calls (OPENDECK_MEET_ORIGINS)
  */
-function createMeetings({ store, runner, browsers, accounts = null, stage, broadcast, onChange = () => {}, extraOrigins = [], now = () => new Date() }) {
+function createMeetings({ store, runner, browsers, chrome = null, accounts = null, stage, broadcast, onChange = () => {}, extraOrigins = [], now = () => new Date() }) {
   /** slug → its meeting */
   const all = new Map();
 
@@ -97,6 +100,7 @@ function createMeetings({ store, runner, browsers, accounts = null, stage, broad
     transcript: `Files/Meetings/${m.file}`,
     chat: m.chat,
     startedAt: m.startedAt,
+    inChrome: m.inChrome,
   });
 
   function tell(m) {
@@ -326,6 +330,8 @@ The whole transcript: Files/Meetings/${m.file}` });
       poll: null,
       tab: null,
       engine: null,
+      // Google lets a call in from real Chrome, not from the built-in browser.
+      inChrome: !!(chrome && chrome.available()),
     };
     fs.writeFileSync(m.path, `# Call ${link.code}\n\n${link.url}\nStarted ${at.toLocaleString()}\n\n`, "utf8");
     m.engine = createMeetingEngine({
@@ -338,7 +344,8 @@ The whole transcript: Files/Meetings/${m.file}` });
     });
     all.set(slug, m);
     try {
-      m.tab = await browsers.openMeeting(slug, {
+      const open = m.inChrome ? (s, o) => chrome.openTab(s, o) : (s, o) => browsers.openMeeting(s, o);
+      m.tab = await open(slug, {
         url: link.url,
         bindings: [{ name: LISTEN_BINDING, executionContextName: LISTEN_WORLD }],
         scripts: [{ source: S.meetMediaSource({ hosts: [link.origin], name: shown }) }, { source: S.meetListenSource({ binding: LISTEN_BINDING }), worldName: LISTEN_WORLD }],
@@ -357,7 +364,7 @@ The whole transcript: Files/Meetings/${m.file}` });
       setState(m, "stuck");
       m.poll = setTimeout(() => void check(m), POLL_MS);
       return {
-        text: `${why} Crew keeps the call's tab open for 10 minutes and joins by itself once the person gets it past that: ask them with ask_human to take control of your browser and do it in the call's tab. Don't call join again, and don't use the browser tools on that tab. ${where}`,
+        text: `${why} Crew keeps the call's tab open for 10 minutes and joins by itself once the person gets it past that: ask them with ask_human to ${m.inChrome ? "press Show call in your chat with them and do it in that Chrome window" : "take control of your browser and do it in the call's tab"}. Don't call join again, and don't use the browser tools on that tab. ${where}`,
       };
     };
 
@@ -483,6 +490,7 @@ The whole transcript: Files/Meetings/${m.file}` });
       const m = all.get(slug);
       if (!m) return null;
       if (action === "leave") await leave(m, "The person took the bot out of the call.");
+      else if (action === "show" && m.inChrome) await chrome.show(slug).catch(() => false);
       else if (action === "stop_sharing" && m.sharing) {
         await run(m, S.meetStopPresenting).catch(() => {});
         m.sharing.stop();

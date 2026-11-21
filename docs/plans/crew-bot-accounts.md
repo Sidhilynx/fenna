@@ -3,6 +3,99 @@
 Written 2026-11-22 by Claude Opus (product and integration). Issue #87. Read
 AGENTS.md, docs/process.md and docs/apps/crew.md first.
 
+## Revision, 2026-11-22: the account lives in real Chrome
+
+Tested with a real account the same day:
+
+| Where | Google sign-in | Meet |
+|---|---|---|
+| Crew's built-in browser (Electron) | refused: "This browser or app may not be secure" | refused, even as a guest |
+| Real Chrome, a profile of the bot's own, no automation | works | works |
+| Real Chrome driven over `--remote-debugging-pipe` (Chrome says `navigator.webdriver: true`) | refused | |
+| The same profile, signed in by hand first, then driven over the pipe | still signed in | "Ready to join?" as the account |
+
+So Google's rule is: a password is typed only in a browser nothing is
+driving. Crew keeps that rule and hides nothing:
+
+1. **The person signs the bot in, by hand, once.** "Sign in" opens the
+   bot's own Chrome profile (`<userData>/Crew/chrome/<slug>`, never the
+   person's) as a plain Chrome window on Google's sign-in page, with no
+   debugging at all. The person types the bot's Gmail and password (the
+   vault's Copy helps) and closes the window. **Crew never types a Google
+   password**, so the sign-in driver of section C is gone.
+2. **Crew drives that profile openly** for checks and calls: Chrome started
+   with `--remote-debugging-pipe` (a pipe only Crew holds, no network port),
+   so the page says it is automated. Crew never patches `navigator.webdriver`
+   or any other signal.
+3. **Calls run there.** A bot with an account joins Meet in its Chrome
+   profile, with the same page scripts (fake camera, microphone and screen,
+   captions and chat listener). The window opens minimized; the person can
+   show it.
+4. Google Chrome must be installed. Without it the account section says so.
+
+New pieces (these replace the Crew sign-in of section C and the browser
+primitives of section E):
+
+| Piece | Files | Who |
+|---|---|---|
+| F. CDP over a pipe | `apps/crew/src/main/cdp-pipe.cjs`, `apps/crew/test/cdp-pipe.test.ts` | Haiku |
+| G. Finding Chrome | `apps/crew/src/main/chrome-find.cjs`, `apps/crew/test/chrome-find.test.ts` | Haiku |
+| H. The bot's Chrome (launch, plain window, session, tabs) | `apps/crew/src/main/chrome.cjs` | Opus |
+| I. Accounts: person-led sign-in, checks through H | `accounts.cjs`, its tests | Opus |
+| J. UI: Chrome states and buttons | `Account.tsx` | Haiku |
+| K. Calls in the bot's Chrome | `meetings.cjs`, `crew.cjs` | Opus |
+
+### F. CDP over a pipe (`cdp-pipe.cjs`)
+
+`createPipeConnection(out, inn)`: `out` is the writable stream Chrome reads
+(child stdio 3), `inn` the readable it writes (stdio 4). Chrome's framing:
+each message is one JSON object followed by a NUL byte (`\0`), both ways.
+
+- `send(method, params = {}, sessionId = undefined)` → `Promise<result>`:
+  writes `{ id, method, params, sessionId? }` + `\0` with a fresh integer
+  id; resolves with the response's `result`; rejects with an `Error` whose
+  message is `<method>: <error.message>` when the response has `error`.
+- `on(fn)` → `off()`: `fn({ method, params, sessionId })` for every message
+  without an `id` (events). Several listeners; a throwing one doesn't stop
+  the others.
+- `closed` → a promise that resolves once, when `inn` ends or errors or
+  `close()` is called; every pending `send` then rejects with
+  `Error("Chrome closed.")`, and later `send`s reject at once the same way.
+- `close()`: stops reading and ends `out`; safe to call twice.
+- Reads are buffered across chunks: a message may arrive split over several
+  chunks, or several messages in one chunk, and UTF-8 characters may be
+  split between chunks (decode with a `StringDecoder`).
+- A line that isn't JSON is skipped, never throws.
+
+Tests with `node:stream` `PassThrough` pairs: request/response matching by
+id (out of order), session ids passed through, errors, events to several
+listeners, split and merged chunks, a multi-byte character split across
+chunks, junk skipped, close rejecting pending and later sends.
+
+### G. Finding Chrome (`chrome-find.cjs`)
+
+`findChrome({ platform = process.platform, env = process.env, exists = fs.existsSync })` → the path of Google Chrome's executable, or `null`. Candidates, in order:
+
+- `win32`: `%ProgramFiles%\Google\Chrome\Application\chrome.exe`,
+  `%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe`,
+  `%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe` (skip a variable
+  that isn't set; use `path.win32.join`).
+- `darwin`: `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`,
+  then the same under `$HOME` (`~/Applications/...`).
+- `linux`: `/usr/bin/google-chrome`, `/usr/bin/google-chrome-stable`,
+  `/opt/google/chrome/chrome`.
+- `env.OPENDECK_CHROME`, when set and existing, wins over all of them (for
+  tests and odd installs).
+
+Only Google Chrome, not Chromium or Edge: Google's sign-in rules are about
+Chrome. Tests with a fake `exists` for each platform, the override, unset
+variables and nothing found.
+
+The sections below are the first plan. Where they say Crew signs in from
+the vault (rules 1 and 3, the sign-in steps of C, the `needs_you` state,
+Google page functions other than `signInUrl` and `parseListAccounts`, and the
+browser primitives of E), the revision above replaces them.
+
 ## What the person gets
 
 A bot can have its own Google account. The person makes the account (Crew

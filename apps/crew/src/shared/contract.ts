@@ -866,7 +866,7 @@ export interface Calls {
   "crew:browserGo": { args: [slug: string, what: "back" | "forward" | "reload" | "stop"]; result: BrowserState };
   "crew:mute": { args: [slug: string, tab: number | null, muted: boolean]; result: BrowserState };
   "crew:meetings": { args: []; result: MeetingView[] };
-  "crew:meeting": { args: [slug: string, action: "leave" | "stop_sharing"]; result: MeetingView | null };
+  "crew:meeting": { args: [slug: string, action: "leave" | "stop_sharing" | "show"]; result: MeetingView | null };
   "crew:accounts": { args: []; result: AccountView[] };
   "crew:account": { args: [slug: string, action: "check" | "sign_in" | "sign_out"]; result: AccountView | null };
   "crew:closeBrowser": { args: [slug: string]; result: boolean };
@@ -1068,7 +1068,7 @@ export interface ProcessInfo {
 // ── Notices: a bot's notification center ──────────────────────────────
 
 /** What a notice is about: a site's notification, a finished download, an ended run, a fired watch, a reminder (a timer watch). */
-export const NOTICE_KINDS = ["site", "download", "run", "watch", "reminder", "account"] as const;
+export const NOTICE_KINDS = ["site", "download", "run", "watch", "reminder"] as const;
 export type NoticeKind = (typeof NOTICE_KINDS)[number];
 
 export interface Notice {
@@ -1090,10 +1090,10 @@ export interface NoticeState {
   unread: number;
 }
 
-/** Where a bot's own Google account stands in its browser (accounts.cjs). */
-export type AccountState = "missing" | "unknown" | "signed_out" | "signing_in" | "signed_in" | "other_account" | "needs_you";
+/** Where a bot's own Google account stands in its own Chrome profile (accounts.cjs). no_chrome: Google Chrome isn't installed; signing_in: the person's sign-in window is open. */
+export type AccountState = "missing" | "no_chrome" | "unknown" | "signed_out" | "signing_in" | "signed_in" | "other_account";
 
-/** A bot's own Google account: the vault login bot.md names, and its browser's sign-in. Never holds a secret. */
+/** A bot's own Google account: the vault login bot.md names, and its Chrome profile's sign-in. Never holds a secret. */
 export interface AccountView {
   slug: string;
   /** The vault login's name (bot.md `account`). */
@@ -1103,9 +1103,9 @@ export interface AccountView {
   state: AccountState;
   /** other_account: who the browser is signed in as, when Google says. */
   signedInAs: string | null;
-  /** needs_you: what the person has to do, in one sentence; "" otherwise. */
+  /** signing_in: what the person has to do, in one sentence; "" otherwise. */
   message: string;
-  /** When the browser was last checked, ISO; null before the first check. */
+  /** When the Chrome profile was last checked, ISO; null before the first check. */
   checkedAt: string | null;
 }
 
@@ -1125,4 +1125,6 @@ export interface MeetingView {
   /** The chat its wakes go to. */
   chat: string;
   startedAt: string;
+  /** The call runs in the bot's own Chrome window (minimized), not its built-in browser; "show" brings it up. */
+  inChrome: boolean;
 }

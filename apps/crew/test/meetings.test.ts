@@ -135,10 +135,11 @@ describe("joining a call", () => {
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
-  function setup(fake: ReturnType<typeof fakeMeet>, accounts: unknown = null) {
+  function setup(fake: ReturnType<typeof fakeMeet>, accounts: unknown = null, chrome: unknown = null) {
     const state = { chats: [] as unknown[] };
     return createMeetings({
       accounts,
+      chrome,
       store: { readBot: () => ({ bot: { name: "Scout" } }), botDir: () => dir, patchState: (_slug: string, fn: (s: unknown) => void) => fn(state) },
       runner: { enqueue: () => ({ done: new Promise(() => {}) }), running: () => false, isQueued: () => false },
       browsers: { openMeeting: async () => fake.tab },
@@ -226,12 +227,27 @@ describe("joining a call", () => {
     meetings.stopAll();
   });
 
-  it("doesn't join when the bot's own account needs the person, and says what to do", async () => {
+  it("doesn't join while the bot's own account is signed out, and says how the person signs it in", async () => {
     const fake = fakeMeet();
-    const meetings = setup(fake, { ensure: async () => ({ state: "needs_you", email: "scout@gmail.com", message: "Take control and finish signing in." }) });
-    await expect(join(meetings)).rejects.toThrow("Take control and finish signing in. Ask the person with ask_human");
+    const meetings = setup(fake, { ensure: async () => ({ state: "signed_out", email: "scout@gmail.com", message: "" }) });
+    await expect(join(meetings)).rejects.toThrow('Your Google account (scout@gmail.com) is signed out. Call account with {action: "sign_in"}');
     expect(meetings.list()).toEqual([]);
     expect(fake.page.inserted).toEqual([]);
+  });
+
+  it("runs the call in the bot's own Chrome when Chrome is installed, and Show call brings it up", async () => {
+    const fake = fakeMeet();
+    const shown: string[] = [];
+    const opened: string[] = [];
+    const chrome = { available: () => true, openTab: async (_slug: string, o: { url: string }) => (opened.push(o.url), fake.tab), show: async (slug: string) => (shown.push(slug), true) };
+    const meetings = setup(fake, null, chrome);
+    const r = await join(meetings);
+    expect(opened).toEqual(["https://meet.google.com/abc-defg-hij"]);
+    expect(r.text).toContain("Asked to join abc-defg-hij");
+    expect(meetings.list()[0].inChrome).toBe(true);
+    await meetings.person("scout", "show");
+    expect(shown).toEqual(["scout"]);
+    meetings.stopAll();
   });
 
   it("tells a bot without an account why Meet refused it as a guest", async () => {

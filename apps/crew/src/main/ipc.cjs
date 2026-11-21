@@ -100,6 +100,7 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
     slugArg(slug);
     runner.stop(slug);
     crew.meetings.forget(slug);
+    await crew.chrome.forget(slug).catch(() => {});
     browsers.close(slug);
     crew.logins.forget(slug);
     crew.watches.forget(slug);
@@ -443,7 +444,7 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
   // The bots in calls, and the person's buttons on a call: leave, stop sharing.
   handle("crew:meetings", () => crew.meetings.list());
   handle("crew:meeting", (_e, slug, action) => {
-    if (action !== "leave" && action !== "stop_sharing") throw new Error('A call action is "leave" or "stop_sharing".');
+    if (action !== "leave" && action !== "stop_sharing" && action !== "show") throw new Error('A call action is "leave", "stop_sharing" or "show".');
     return crew.meetings.person(slugArg(slug), action);
   });
   // Each bot's own Google account: its state, and the person's Check, Sign in and Sign out.

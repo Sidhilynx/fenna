@@ -41,6 +41,7 @@ const { createDisk, freeOnDrive } = require("./disk.cjs");
 const { createNotices } = require("./notices.cjs");
 const { createMeetings } = require("./meetings.cjs");
 const { createAccounts } = require("./accounts.cjs");
+const { createChrome } = require("./chrome.cjs");
 const { createShell } = require("./shell.cjs");
 const { createSearch } = require("./search.cjs");
 const { createFiles } = require("./files.cjs");
@@ -195,13 +196,16 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
     onDownload: (slug, rec) => notices.add(slug, rec.state === "done" ? { kind: "download", title: rec.name, path: rec.path } : { kind: "download", title: "Download failed", body: `${rec.name}: ${rec.reason}` }),
     onElementChange: (slug, watchId, text) => watches.onElementChange(slug, watchId, text),
     onStep: (slug, step) => replay.onStep(slug, step),
-    // The person may have just finished a Google sign-in for the bot.
-    onControl: (slug, on) => {
-      if (!on && accounts) void accounts.controlReturned(slug);
-    },
     liveTarget,
   });
-  accounts = createAccounts({ store, vault, browsers, notify: (slug, title, body) => notices.add(slug, { kind: "account", title, body }), broadcast, onChange });
+  // Each bot's own Google Chrome, for its Google account and its calls (Google refuses both in the built-in browser).
+  const chrome = createChrome({
+    profileDir: (slug) => path.join(userData, "Crew", "chrome", slug),
+    onPlainClosed: (slug) => {
+      if (accounts) void accounts.plainClosed(slug).catch(() => {});
+    },
+  });
+  accounts = createAccounts({ store, vault, chrome, broadcast, onChange });
   let handle = null;
   let gateway = null;
   let logins = null;
@@ -273,6 +277,7 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
     store,
     runner,
     browsers,
+    chrome,
     accounts,
     stage: {
       start(...args) {
@@ -403,6 +408,7 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
   return {
     meetings,
     accounts,
+    chrome,
     setStage(s) {
       stage = s;
     },
@@ -710,6 +716,7 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
       notices.flush();
       runner.stopAll();
       meetings.stopAll();
+      void chrome.closeAll();
       projects.killAll();
       browsers.closeAll();
       link.close();
