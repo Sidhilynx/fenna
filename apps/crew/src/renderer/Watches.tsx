@@ -126,7 +126,7 @@ export function BotWatches({ bot }: { bot: BotSummary }) {
                       {desc}
                     </span>
                     {w.note && <span className="watch-note">{w.note}</span>}
-                    <span className="watch-status">{firedLine(w)}</span>
+                    <span className="watch-status">{w.listening === false ? `Not listening: ${"origin" in w ? w.origin.replace(/^https?:\/\//, "") : "its site"} isn't open. Crew opens it again shortly.` : firedLine(w)}</span>
                   </span>
                   <button type="button" className="icon-btn" aria-label="Remove watch" title="Remove watch" onClick={() => void removeWatch(w.id)}>
                     <PixelIcon name="close" size={12} />

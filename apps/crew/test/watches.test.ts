@@ -115,7 +115,7 @@ describe("notification watches", () => {
     notify(SITE, "Priya", "Lunch?");
     notify(SITE, "SAM", "Are you free?");
     await vi.advanceTimersByTimeAsync(10_000);
-    expect(enqueued).toEqual([{ slug, trigger: "watch", text: "Reply to Sam if he asks something — SAM: Are you free?" }]);
+    expect(enqueued).toEqual([{ slug, trigger: "watch", chat: "main", text: "Reply to Sam if he asks something — SAM: Are you free?" }]);
     expect(store.readWatches(slug)[0]).toMatchObject({ count: 1, fired: "2026-11-19T09:00:00.000Z" });
     expect(broadcasts.at(-1)).toEqual({ channel: "crew:watches", payload: { slug } });
   });
@@ -137,7 +137,7 @@ describe("waking the bot", () => {
     await vi.advanceTimersByTimeAsync(5_999);
     expect(enqueued).toEqual([]);
     await vi.advanceTimersByTimeAsync(1);
-    expect(enqueued).toEqual([{ slug, trigger: "watch", text: "Messages — Priya: One\nMessages — Sam: Two" }]);
+    expect(enqueued).toEqual([{ slug, trigger: "watch", chat: "main", text: "Messages — Priya: One\nMessages — Sam: Two" }]);
   });
 
   it("holds events while the bot runs, and wakes it when its run ends", async () => {
@@ -178,7 +178,7 @@ describe("title counts", () => {
     await w.add(slug, { kind: "notification", origin: SITE, note: "Reply to whoever wrote" });
     title("(1) WhatsApp");
     await vi.advanceTimersByTimeAsync(10_000);
-    expect(enqueued).toEqual([{ slug, trigger: "watch", text: 'Reply to whoever wrote — New activity: the tab\'s title is now "(1) WhatsApp".' }]);
+    expect(enqueued).toEqual([{ slug, trigger: "watch", chat: "main", text: 'Reply to whoever wrote — New activity: the tab\'s title is now "(1) WhatsApp".' }]);
     expect(store.readWatches(slug)[0]).toMatchObject({ count: 1, fired: "2026-11-19T09:00:00.000Z" });
   });
 
@@ -219,7 +219,7 @@ describe("page watches", () => {
 
     browsers.pageText!.mockResolvedValue("Price\nTeam plan $12\nFree plan");
     await vi.advanceTimersByTimeAsync(5 * MIN + 10_000);
-    expect(enqueued).toEqual([{ slug, trigger: "watch", text: "Tell me when prices change — changed: - Team plan $10 / + Team plan $12" }]);
+    expect(enqueued).toEqual([{ slug, trigger: "watch", chat: "main", text: "Tell me when prices change — changed: - Team plan $10 / + Team plan $12" }]);
     expect(store.readWatches(slug)[0]).toMatchObject({ count: 1, last: "Price\nTeam plan $12\nFree plan" });
   });
 
@@ -254,7 +254,7 @@ describe("timer watches", () => {
   it("fires once and is removed after it fires", async () => {
     await w.add(slug, { kind: "timer", in: 30, note: "Call the vet back" });
     await vi.advanceTimersByTimeAsync(30 * MIN + 10_000);
-    expect(enqueued).toEqual([{ slug, trigger: "watch", text: "Call the vet back — It is time." }]);
+    expect(enqueued).toEqual([{ slug, trigger: "watch", chat: "main", text: "Call the vet back — It is time." }]);
     expect(store.readWatches(slug)).toEqual([]);
   });
 
@@ -275,7 +275,7 @@ describe("timer watches", () => {
     w = createWatches({ store, runner, browsers, broadcast: () => {} });
     start();
     await vi.advanceTimersByTimeAsync(10_000);
-    expect(enqueued).toEqual([{ slug, trigger: "watch", text: "Call the vet back — It is time." }]);
+    expect(enqueued).toEqual([{ slug, trigger: "watch", chat: "main", text: "Call the vet back — It is time." }]);
     expect(store.readWatches(slug)).toEqual([]);
   });
 });
@@ -292,7 +292,7 @@ describe("element watches", () => {
 
     w.onElementChange(slug, t.id, "$12");
     await vi.advanceTimersByTimeAsync(10_000);
-    expect(enqueued).toEqual([{ slug, trigger: "watch", text: 'Tell me when the price changes — changed from "$10" to "$12"' }]);
+    expect(enqueued).toEqual([{ slug, trigger: "watch", chat: "main", text: 'Tell me when the price changes — changed from "$10" to "$12"' }]);
     expect(store.readWatches(slug)[0]).toMatchObject({ last: "$12", count: 1 });
   });
 
@@ -373,5 +373,45 @@ describe("prompt", () => {
     const p = buildPrompt({ slug, bot: store.readBot(slug)!.bot, memory: "", library: [], todos, others: [], team: null, trigger: "person", text: "hi", from: null, now: new Date() });
     expect(p).toMatch(/- … and 6 more/);
     expect(p.split("\n").filter((l) => /^- t\d+  Task/.test(l))).toHaveLength(19);
+  });
+});
+
+describe("notification watches keep their site open", () => {
+  it("opens the site in a background tab when set, on start, and after the browser closes, and says whether it is listening", async () => {
+    browsers.keepSite = vi.fn(async () => ({ opened: true }));
+    let open = false;
+    browsers.hasSite = vi.fn(() => open);
+    const x = await w.add(slug, { kind: "notification", origin: "https://web.whatsapp.com", note: "Tell me what Amma says" });
+    await flush();
+    expect(browsers.keepSite).toHaveBeenCalledWith(slug, "https://web.whatsapp.com");
+    expect(w.list(slug).find((y) => y.id === x.id)).toMatchObject({ listening: false });
+    open = true;
+    expect(w.list(slug).find((y) => y.id === x.id)).toMatchObject({ listening: true });
+    w.rearm(slug);
+    w.start();
+    await flush();
+    expect(browsers.keepSite).toHaveBeenCalledTimes(3);
+  });
+
+  it("leaves timer and page watches without a listening state", async () => {
+    browsers.hasSite = vi.fn(() => false);
+    await w.add(slug, { kind: "timer", in: 10, note: "Stretch" });
+    expect(w.list(slug)[0]).not.toHaveProperty("listening");
+  });
+});
+
+describe("a watch wakes the bot in the chat it was set in", () => {
+  it("passes the watch's chat to the run, so the person sees the wake-up there", async () => {
+    await w.add(slug, { kind: "notification", origin: "https://web.whatsapp.com", match: "Amma", note: "Reply to Amma", chat: "main" });
+    notify("https://web.whatsapp.com", "Amma", "When is he free?");
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(enqueued).toEqual([{ slug, trigger: "watch", chat: "main", text: "Reply to Amma — Amma: When is he free?" }]);
+  });
+
+  it("falls back to the person's current chat when the watch's chat is gone or it has none", async () => {
+    await w.add(slug, { kind: "notification", origin: "https://web.whatsapp.com", note: "Old chat", chat: "c-deleted" });
+    notify("https://web.whatsapp.com", "Sam", "Hi");
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(enqueued[0]).toMatchObject({ chat: store.readState(slug).current });
   });
 });

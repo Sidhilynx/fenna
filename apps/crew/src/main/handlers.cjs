@@ -1,6 +1,8 @@
 // What the crew, browser and gateway MCP servers ask the app to do, for one
 // run. ctx is the run the request's token belongs to: { slug, runId, team, chain }.
 
+const fs = require("node:fs");
+const path = require("node:path");
 const F = require("./format.cjs");
 const { watchLine, todoLine } = require("./watches.cjs");
 const { noUsage } = require("./usage.cjs");
@@ -81,7 +83,7 @@ function createApprover({ store, runner, waits, usage = noUsage, now = () => new
  * @param {{ command(ctx: object, p: object): Promise<{ text: string }>, processes(ctx: object, p: object): { text: string } }} o.projects  node, npm and npx in the bot's projects (projects.cjs)
  * @param {() => Date} [o.now]
  */
-function createHandlers({ store, runner, waits, approve, browsers, gateway, appHost, logins = null, onChange, onDesktop, watches, search, files, shell, projects, disk, usage = noUsage, now = () => new Date() }) {
+function createHandlers({ store, runner, waits, approve, browsers, gateway, appHost, logins = null, onChange, onDesktop, watches, search, files, shell, projects, repos = null, github = null, teams = null, appWindows = null, disk, usage = noUsage, now = () => new Date() }) {
   const iso = () => now().toISOString();
   const botName = (slug) => botNameOf(store, slug);
 
@@ -256,8 +258,14 @@ function createHandlers({ store, runner, waits, approve, browsers, gateway, appH
     async watch(ctx, p) {
       let said = "";
       if (p.action === "add") {
-        const w = await watches.add(ctx.slug, { kind: p.kind, note: p.note, origin: p.origin, match: p.match, url: p.url, every: p.every, ref: p.ref, at: p.at, in: p.in });
+        // A watch wakes the bot in the chat it was set in, so the person sees what it did there.
+        const chat = runner.running(ctx.slug)?.chat;
+        const w = await watches.add(ctx.slug, { kind: p.kind, note: p.note, origin: p.origin, match: p.match, url: p.url, every: p.every, ref: p.ref, at: p.at, in: p.in, chat });
         said = `Watching ${w.id} (${w.kind}). Crew wakes you when it fires; end your turn now.`;
+        if (w.kind === "notification") {
+          const same = watches.list(ctx.slug).filter((x) => x.id !== w.id && x.kind === "notification" && x.origin === w.origin && (!x.match || !w.match || x.match.toLowerCase() === w.match.toLowerCase()));
+          said = `Watching ${w.id}: Crew keeps ${w.origin} open in a background tab of your browser, because a site is heard only while it is open there. Before you end your turn, open it with your browser tools and check you are signed in; if it shows a sign-in page or a QR code, ask the person to take control and sign in.${!w.match ? " It fires on every notification from the site: give match (like the sender's name) to fire only for one person." : ""}${same.length ? ` Watches ${same.map((x) => x.id).join(", ")} also fire on the same notifications; remove the ones you don't need.` : ""}`;
+        }
       } else if (p.action === "remove") {
         await watches.remove(ctx.slug, String(p.id ?? ""));
         said = `Removed watch ${p.id}.`;
@@ -334,6 +342,80 @@ function createHandlers({ store, runner, waits, approve, browsers, gateway, appH
       return projects.processes(ctx, p);
     },
 
+    /** The bot's repos (repos.cjs): list, status, link, clone, push, remove. */
+    repo(ctx, p) {
+      if (!repos) throw new Error("Repos are not available on this computer yet.");
+      return repos.handle(ctx, p);
+    },
+
+    /** Issues and pull requests on GitHub for one of the bot's repos (github.cjs). Pull requests and merges go in the shipped log. */
+    async github(ctx, p) {
+      if (!repos || !github) throw new Error("GitHub is not available on this computer yet.");
+      const repo = repos.whereOf(ctx.slug, p.name);
+      if (!repo.origin) throw new Error(`${repo.name} has no origin. Link a folder whose origin is on GitHub, or clone from GitHub.`);
+      const r = await github.handle(ctx, p, { name: repo.name, origin: repo.origin, policy: repo.policy });
+      if (teams && (p.action === "pr_create" || p.action === "merge")) {
+        const url = (/https:\/\/github\.com\/\S+/.exec(r.text) || [repo.origin])[0];
+        teams.ship({ repoKey: repo.key, slug: ctx.slug, kind: p.action === "merge" ? "merge" : "pr", title: p.title || `#${p.number}`, url });
+      }
+      return r;
+    },
+
+    /** The bot's team on a repo (teams.cjs): roles, and what the crew shipped. */
+    async team(ctx, p) {
+      if (!repos || !teams) throw new Error("Teams are not available on this computer yet.");
+      if (p.action === "shipped") {
+        const repoKey = p.name ? repos.whereOf(ctx.slug, p.name).key : undefined;
+        const list = teams.shipped({ repoKey, limit: p.limit });
+        return { text: list.length ? list.map((e) => `${e.at.slice(0, 10)}  ${e.kind}  ${e.title}  ${e.url}  (${e.slug})`).join("\n") : "Nothing shipped yet." };
+      }
+      const repo = repos.whereOf(ctx.slug, p.name);
+      if (p.action === "publish") {
+        // Only what can be public: GitHub links, the bot's name, no paths on this computer.
+        const nameOf = (slug) => store.readBot(slug)?.bot?.name ?? slug;
+        const entries = teams
+          .shipped({ repoKey: repo.key, limit: 1000 })
+          .filter((e) => /^https:\/\/github\.com\//.test(e.url))
+          .map((e) => ({ at: e.at, kind: e.kind, title: e.title, url: e.url, by: nameOf(e.slug) }));
+        const file = disk.locate(ctx.slug, `Files/Repos/${repo.name}/docs/shipped.json`).abs;
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, `${JSON.stringify({ generated: now().toISOString(), entries }, null, 2)}\n`);
+        return { text: `Wrote ${entries.length} entries to Files/Repos/${repo.name}/docs/shipped.json (only GitHub links, and bots by name). Commit it on a branch, push with repo, and open a draft pull request with github; once merged, the site's Shipped page shows it.` };
+      }
+      if (p.action === "show") {
+        const team = teams.teamOf(repo.key);
+        return { text: team.length ? `Team on ${repo.key}:\n${team.map((m) => `${m.role}  ${m.slug}`).join("\n")}` : `No team on ${repo.key} yet. Assign roles with {action: "assign", name, bot, role}.` };
+      }
+      const bot = typeof p.bot === "string" ? p.bot.trim() : "";
+      if (!bot || !store.readBot(bot)) throw new Error(`There is no bot "${bot}". Use a bot's id, as message_bot lists them.`);
+      if (p.action === "assign" || p.action === "unassign") {
+        const what = p.action === "assign" ? `Make ${bot} the ${p.role} on ${repo.name}` : `Take ${bot} off the team on ${repo.name}`;
+        const r = await approve(ctx, { action: what, details: `Team on ${repo.key}. Roles decide what each bot does on this repo.`, source: "bot", tool: null });
+        if (!r.allowed) throw new Error("Not approved by the person. Don't try another way.");
+        if (p.action === "assign") teams.assign(repo.key, bot, p.role);
+        else teams.unassign(repo.key, bot);
+        return { text: `Done. Team on ${repo.key}:\n${teams.teamOf(repo.key).map((m) => `${m.role}  ${m.slug}`).join("\n") || "nobody"}` };
+      }
+      throw new Error(`Use the action show, assign, unassign, shipped or publish, not "${String(p.action).slice(0, 20)}".`);
+    },
+
+    /** See a desktop app the bot ran (appwindows.cjs): list its windows, capture one. */
+    async app_windows(ctx, p) {
+      if (!appWindows) throw new Error("Seeing app windows needs the Crew app.");
+      if (appWindows.usesInput(p.action) && !inputRuns.has(ctx.runId)) {
+        const r = await approve(ctx, { action: "Use your mouse and keyboard in an app window", details: "The bot clicks and types in the app it is testing, for the rest of this run. Your mouse moves while it does; don't type at the same time.", source: "bot", tool: null });
+        if (!r.allowed) throw new Error("The person said no to using the mouse and keyboard. Describe what to click instead, or ask them to do it.");
+        inputRuns.add(ctx.runId);
+      }
+      return appWindows.handle(ctx, p);
+    },
+
+    /** Claude Code's question about one of its own tool calls in a coding run: the answer is its permission JSON. */
+    async approve_tool(ctx, p) {
+      const answer = repos ? await repos.checkTool(ctx, p) : { behavior: "deny", message: "Your own tools are off. Use Crew's tools." };
+      return { text: JSON.stringify(answer) };
+    },
+
     /** The bot's terminal: one line over its own disk. The output, then the folder it ended in. */
     async terminal(ctx, p) {
       const line = typeof p.line === "string" ? p.line : "";
@@ -343,6 +425,9 @@ function createHandlers({ store, runner, waits, approve, browsers, gateway, appH
       return { text: `${body}[cwd: ${e.cwd}]` };
     },
   };
+
+  /** Runs whose bot the person let use the mouse and keyboard (app_windows click, type, press). */
+  const inputRuns = new Set();
 
   /** Handle one request from a run's MCP server. */
   return async function handle(ctx, method, params) {

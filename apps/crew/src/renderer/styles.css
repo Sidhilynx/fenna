@@ -384,6 +384,17 @@ textarea.field { height: auto; padding: 8px 10px; line-height: 1.5; resize: vert
 .dsec { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .dsec-title { margin: 0; font-size: var(--fs-sm); font-weight: 500; color: var(--text-2); }
 .dsec-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.repo-clone { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.repo-clone .field { flex: 1; }
+.proj-list > .repo-row { flex-direction: column; align-items: stretch; gap: 4px; padding: 8px 0; }
+.repo-name { font-size: var(--fs-md); font-weight: 500; }
+.repo-ships { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+.repo-ship { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: var(--fs-sm); color: var(--text-2); }
+.repo-ship-kind, .repo-ship-date { flex: none; color: var(--text-3); white-space: nowrap; }
+.repo-ship > .ell { flex: 1; min-width: 0; }
+.repo-link { flex: 1; min-width: 0; padding: 0; background: transparent; border: 0; color: var(--text); font: inherit; text-align: left; }
+.repo-link:hover { text-decoration: underline; }
+.repo-error { color: var(--danger); }
 .runs { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
 .run { display: grid; grid-template-columns: 84px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; padding: 6px 0; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
 .run + .run { border-top: 1px solid var(--line); }

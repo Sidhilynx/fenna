@@ -746,8 +746,12 @@ function promptFor(profile, text, context, first, images) {
  *                   ("mcp__crew__approve_tool"); without it those calls are refused
  *   home            Antigravity only: its home folder for this run, so runs at the
  *                   same time don't share one mcp_config.json
+ *   coding          { dir, env?, wrap? }: a coding run. The CLI's own tools come back, inside `dir`;
+ *                   env is added to the CLI's, and wrap(command, args) may run it in an OS sandbox.
+ *                   Claude Code asks permissionTool about each call; Codex and
+ *                   Antigravity run their shells in their own sandboxes, writing only in `dir`
  */
-function argsFor(profile, kind, { sessionId, model, effort, root, images, servers, trusted, permissionTool, home }) {
+function argsFor(profile, kind, { sessionId, model, effort, root, images, servers, trusted, permissionTool, home, coding }) {
   const id = profile.id;
   const all = servers || { [id]: profile.mcpServer(root) };
   const names = Object.keys(all);
@@ -761,10 +765,12 @@ function argsFor(profile, kind, { sessionId, model, effort, root, images, server
       allow.push(`mcp(${name}/*)`, `read_file(${toolDocs}/**)`);
     }
     if (imgDir) allow.push(`read_file(${imgDir}/**)`);
+    const codeDir = coding ? coding.dir.split(path.sep).join("/") : null;
+    if (codeDir) allow.push("command(*)", `read_file(${codeDir}/**)`, `write_file(${codeDir}/**)`);
     const settings = {
       permissions: {
         allow,
-        deny: ["command(*)", "unsandboxed(*)", "write_file(*)", "read_url(*)", "execute_url(*)", "escalate_admin(*)"],
+        deny: [...(codeDir ? [] : ["command(*)", "write_file(*)"]), "unsandboxed(*)", "read_url(*)", "execute_url(*)", "escalate_admin(*)"],
       },
     };
     const cfgDir = path.join(agy, ".gemini", "config");
@@ -772,6 +778,7 @@ function argsFor(profile, kind, { sessionId, model, effort, root, images, server
     const mcpServers = Object.fromEntries(names.map((n) => [n, all[n].url ? { serverUrl: all[n].url } : stdio(all[n])]));
     fs.writeFileSync(path.join(cfgDir, "mcp_config.json"), JSON.stringify({ mcpServers: servers ? mcpServers : { [id]: all[id] } }));
     const a = ["--output-format", "stream-json", "--input-format", "stream-json", "--disable-slash-commands", "--settings", JSON.stringify(settings)];
+    if (codeDir) a.push("--sandbox");
     if (model) a.push("--model", model);
     if (effort) a.push("--effort", effort);
     if (sessionId) a.push("--conversation", sessionId);
@@ -783,7 +790,7 @@ function argsFor(profile, kind, { sessionId, model, effort, root, images, server
     const mcpServers = Object.fromEntries(names.map((n) => [n, all[n].url ? { type: "http", url: all[n].url } : { type: "stdio", ...(servers ? stdio(all[n]) : all[n]) }]));
     fs.writeFileSync(cfg, JSON.stringify({ mcpServers }));
     const allowed = (trusted || names).map((n) => `mcp__${n}`).join(",");
-    const a = ["-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--setting-sources", "", "--disable-slash-commands", "--tools", "", "--mcp-config", cfg, "--strict-mcp-config", "--allowedTools", allowed, "--permission-mode", "default"];
+    const a = ["-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--setting-sources", "", "--disable-slash-commands", "--tools", coding ? "default" : "", "--mcp-config", cfg, "--strict-mcp-config", "--allowedTools", allowed, "--permission-mode", "default"];
     if (permissionTool) a.push("--permission-prompt-tool", permissionTool);
     if (model) a.push("--model", model);
     if (effort) a.push("--effort", effort);
@@ -792,7 +799,7 @@ function argsFor(profile, kind, { sessionId, model, effort, root, images, server
   }
   // codex: no way to answer an approval in `codex exec`, so every server it is given is approved.
   const toml = (v) => JSON.stringify(v);
-  const off = ["shell_tool", "unified_exec", "apps", "plugins", "multi_agent", "image_generation", "computer_use", "browser_use", "hooks"];
+  const off = [...(coding ? [] : ["shell_tool", "unified_exec"]), "apps", "plugins", "multi_agent", "image_generation", "computer_use", "browser_use", "hooks"];
   const serverOpts = names.flatMap((n) => {
     const s = all[n];
     const env = Object.entries(s.env || {}).flatMap(([k, v]) => ["-c", `mcp_servers.${n}.env.${k}=${toml(v)}`]);
@@ -804,7 +811,12 @@ function argsFor(profile, kind, { sessionId, model, effort, root, images, server
   const opts = [
     "--json", "--skip-git-repo-check",
     ...CODEX_FILE_AUTH,
-    "-c", "sandbox_mode=read-only", "-c", "approval_policy=never", "-c", "web_search=disabled",
+    ...(coding
+      ? ["-C", coding.dir, "-c", "sandbox_mode=workspace-write", "-c", "sandbox_workspace_write.network_access=true",
+        // Windows: only the elevated sandbox keeps writes inside the folder (it asks Windows once to set up).
+        ...(IS_WIN ? ["-c", 'windows.sandbox="elevated"'] : [])]
+      : ["-c", "sandbox_mode=read-only"]),
+    "-c", "approval_policy=never", "-c", "web_search=disabled",
     ...off.flatMap((f) => ["--disable", f]),
     ...serverOpts,
   ];
@@ -983,6 +995,13 @@ function makeParser(profile, kind, emit, { raw = false } = {}) {
       if (msg.type === "thread.started" && msg.thread_id) emit({ type: "session", sessionId: msg.thread_id });
       else if (msg.type === "item.started" && item.type === "mcp_tool_call") emit({ type: "tool", id: item.id, label: label(item.tool, item.arguments, item.server), status: "running", ...named(item.tool, item.arguments, item.server) });
       else if (msg.type === "item.completed" && item.type === "agent_message" && item.text) say(item.text);
+      else if ((msg.type === "item.started" || msg.type === "item.completed") && (item.type === "command_execution" || item.type === "file_change")) {
+        // A coding run: Codex's own shell and edits, shown like any other step.
+        const params = item.type === "command_execution" ? { command: item.command } : { changes: item.changes };
+        const done = msg.type === "item.completed";
+        const failed = done && (item.status === "failed" || (item.type === "command_execution" && typeof item.exit_code === "number" && item.exit_code !== 0));
+        emit({ type: "tool", id: item.id, label: label(item.type, params), status: done ? (failed ? "failed" : "done") : "running", ...named(item.type, params, undefined, done ? (item.aggregated_output ?? undefined) : undefined) });
+      }
       else if (msg.type === "item.completed" && item.type === "mcp_tool_call") emit({ type: "tool", id: item.id, label: label(item.tool, item.arguments, item.server), status: item.error ? "failed" : "done", ...named(item.tool, item.arguments, item.server, item.result ?? null), ...(item.error ? { error: String(item.error.message || item.error) } : {}) });
       else if (msg.type === "error") st.lastError = String(msg.message || "");
       else if (msg.type === "turn.completed") {
@@ -1013,14 +1032,16 @@ const findCli = (kind) => {
 let locate = findCli;
 
 /** Spawn a CLI for one turn and pass its events to emit. */
-function launch({ profile, kind, runId, emit, args, cwd, env, input, raw = false, cleanup = () => {} }) {
+function launch({ profile, kind, runId, emit, args, cwd, env, input, raw = false, cleanup = () => {}, wrap = null }) {
   const fail = (rawError) => emit({ type: "error", ...friendly(kind, rawError) });
   const cmd = locate(kind);
   if (!cmd) {
     setTimeout(() => fail("ENOENT"), 0);
     return;
   }
-  const child = spawn(cmd[0], [...cmd.slice(1), ...args], { cwd, env, windowsHide: true, stdio: ["pipe", "pipe", "pipe"] });
+  // A coding run may run the whole CLI inside the OS sandbox the caller chose.
+  const run = wrap ? wrap(cmd[0], [...cmd.slice(1), ...args]) : { command: cmd[0], args: [...cmd.slice(1), ...args] };
+  const child = spawn(run.command, run.args, { cwd, env, windowsHide: true, stdio: ["pipe", "pipe", "pipe"] });
   const entry = { child, kind, stopped: false };
   runs.set(runId, entry);
   const parser = makeParser(profile, kind, (ev) => (ev.type === "error" ? fail(ev.message) : emit(ev)), { raw });
@@ -1099,7 +1120,7 @@ const SERVER_NAME = /^[a-z][a-z0-9-]{0,31}$/;
  * @param {(event: object) => void} o.onEvent
  * @returns {{ runId: string, stop: () => void }}
  */
-function startRun({ kind, prompt, cwd, servers, trusted, permissionTool, home, sessionId = null, model = "", effort = "", env = {}, images = [], toolLabel, onEvent }) {
+function startRun({ kind, prompt, cwd, servers, trusted, permissionTool, home, coding = null, sessionId = null, model = "", effort = "", env = {}, images = [], toolLabel, onEvent }) {
   if (!KINDS.includes(kind)) throw new Error(`Unknown assistant "${kind}". Use one of: ${KINDS.join(", ")}.`);
   if (typeof prompt !== "string" || !prompt.trim() || prompt.length > MAX_TEXT) throw new Error("The prompt is empty or too long.");
   const names = Object.keys(servers || {});
@@ -1116,7 +1137,8 @@ function startRun({ kind, prompt, cwd, servers, trusted, permissionTool, home, s
   }
   // Antigravity matches its permission rules against the long form of a path, never a short 8.3 name.
   const agyHomeDir = home ? (fs.mkdirSync(home, { recursive: true }), fs.realpathSync.native(home)) : undefined;
-  const args = argsFor(profile, kind, { sessionId, model, effort, servers, trusted, permissionTool, home: agyHomeDir, images });
+  if (coding && (!coding.dir || !fs.existsSync(coding.dir))) throw new Error(`The coding folder ${coding && coding.dir} doesn't exist.`);
+  const args = argsFor(profile, kind, { sessionId, model, effort, servers, trusted, permissionTool, home: agyHomeDir, images, coding });
   const cfg = kind === "claude" ? args[args.indexOf("--mcp-config") + 1] : null;
   launch({
     profile,
@@ -1126,8 +1148,9 @@ function startRun({ kind, prompt, cwd, servers, trusted, permissionTool, home, s
     args,
     cwd,
     raw: true,
-    env: { ...envFor(kind, { home: agyHomeDir }), ...env },
+    env: { ...envFor(kind, { home: agyHomeDir }), ...env, ...(coding ? coding.env : {}) },
     input: inputFor(kind, prompt, images),
+    wrap: coding && typeof coding.wrap === "function" ? coding.wrap : null,
     cleanup: () => {
       if (cfg) fs.rmSync(cfg, { force: true });
     },

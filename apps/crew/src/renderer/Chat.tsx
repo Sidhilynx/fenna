@@ -291,6 +291,8 @@ export function usePending(slug: string, runs: RunLog[], chat?: string) {
   const send = async (text: string, picked: File[] = []) => {
     const files = await Promise.all(picked.map(async (f) => ({ name: f.name, bytes: await f.arrayBuffer() })));
     const r = await invoke("crew:send", slug, text, chat, files.length ? files : undefined);
+    // It answered the bot's open question: the answer shows under the question, not as a new message.
+    if (r.answered) return;
     const target = Math.max(youCount, ...pending.map((p) => p.target)) + 1;
     setPending((p) => [...p, { key: ++seq.current, text, files: picked.map((f) => ({ name: f.name, size: f.size })), queued: r.queued, target }]);
   };

@@ -171,6 +171,13 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
     const attached = checkAttachments(files);
     const body = attached.length ? (typeof text === "string" ? text : "") : str(text, "The message", MAX_MESSAGE);
     if (body.length > MAX_MESSAGE) throw new Error(`The message is too long (${body.length} characters; the most is ${MAX_MESSAGE}).`);
+    // The bot is waiting on its question to the person: what they type answers it, rather than waiting behind it.
+    const asked = attached.length ? null : waits.askOf(s);
+    if (asked && body.trim()) {
+      waits.answer(asked.id, [body.trim().slice(0, 2000)]);
+      usage.count("messages");
+      return { runId: asked.runId, queued: false, answered: true };
+    }
     const saved = attached.length ? disk.inbox(s, attached) : [];
     const sent = forRun(saved, attached);
     const r = runner.enqueue({ slug: s, trigger: "person", text: body, chat: chosen, attachments: sent.list, images: sent.images });
@@ -191,6 +198,50 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
     return runner.stop(slug);
   });
   handle("crew:processes", (_e, slug) => crew.projects.list(slugArg(slug)));
+
+  // The Repos screen. The person's own clicks are their yes, so these don't ask again.
+  const person = (slug) => ({ slug: slugArg(slug), runId: null, person: true });
+  const cliOf = (slug) => store.readBot(slugArg(slug))?.bot?.brain?.cli ?? "";
+  const reposView = (slug) => crew.repos.view(slugArg(slug), cliOf(slug));
+  // repos.cjs tells every page (crew:repos) after each change; the caller gets the new view at once.
+  const reposChanged = reposView;
+  handle("crew:repos", (_e, slug) => reposView(slug));
+  handle("crew:repoLink", async (e, slug, folder) => {
+    let dir = typeof folder === "string" && folder.trim() ? folder.trim() : null;
+    if (!dir) {
+      const { BrowserWindow, dialog } = require("electron");
+      const win = BrowserWindow.fromWebContents(e.sender);
+      const options = { title: "Choose a git repository", properties: ["openDirectory"] };
+      const r = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+      if (r.canceled || !r.filePaths.length) return reposView(slug);
+      dir = r.filePaths[0];
+    }
+    await crew.repos.handle(person(slug), { action: "link", path: dir });
+    return reposChanged(slug);
+  });
+  handle("crew:repoClone", async (_e, slug, url) => {
+    await crew.repos.handle(person(slug), { action: "clone", url: str(url, "The address", 1000) });
+    return reposChanged(slug);
+  });
+  handle("crew:repoSync", async (_e, slug, name) => {
+    await crew.repos.handle(person(slug), { action: "sync", name: str(name, "The repo's name", 64) });
+    return reposChanged(slug);
+  });
+  handle("crew:repoRemove", async (_e, slug, name, force) => {
+    await crew.repos.handle(person(slug), { action: "remove", name: str(name, "The repo's name", 64), force: force === true });
+    return reposChanged(slug);
+  });
+  handle("crew:repoPolicy", async (_e, slug, name, policy) => {
+    const p = policy && typeof policy === "object" ? policy : {};
+    await crew.repos.handle(person(slug), { action: "policy", name: str(name, "The repo's name", 64), comment: p.comment, draftOnly: p.draftOnly, merge: p.merge });
+    return reposChanged(slug);
+  });
+  handle("crew:repoShell", (_e, slug, on) => {
+    crew.repos.setShell(slugArg(slug), on === true);
+    return reposChanged(slug);
+  });
+  handle("crew:repoTeam", (_e, key) => crew.teams.teamOf(str(key, "The repo", 2000)));
+  handle("crew:shipped", (_e, key) => crew.teams.shipped({ repoKey: typeof key === "string" && key ? key : undefined, limit: 50 }));
   handle("crew:stopProcess", (_e, slug, id) => crew.projects.stop(slugArg(slug), str(id, "The process's id", 20)));
   handle("crew:answer", (_e, id, answer) => {
     const w = waits.get(id);
@@ -369,6 +420,8 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
   handle("crew:closeBrowser", (_e, slug) => {
     if (runner.running(slugArg(slug))) return false;
     browsers.close(slug);
+    // Watches listen through the bot's tabs: their sites open again in the background.
+    crew.watches.rearm(slugArg(slug));
     crew.onChange();
     return true;
   });

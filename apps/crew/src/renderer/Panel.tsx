@@ -17,6 +17,7 @@ import { Grants, LoginGrants } from "./Grants.tsx";
 import { Glyph } from "./Glyph.tsx";
 import { PixelIcon } from "./PixelIcon.tsx";
 import { ProjectsSection } from "./ProjectsSection.tsx";
+import { ReposSection } from "./ReposSection.tsx";
 import { Thumb } from "./Thumb.tsx";
 import { BotWatches } from "./Watches.tsx";
 import { KIND_ICON } from "./pixelIcons.ts";
@@ -442,6 +443,10 @@ function Details({ bot, detail, setDetail, loadError }: { bot: BotSummary; detai
 
       <Section title="Projects">
         <ProjectsSection bot={bot} enabled={cfg.projects === "on"} onToggle={(on) => void save({ projects: on ? "on" : "off" })} />
+      </Section>
+
+      <Section title="Repos">
+        <ReposSection bot={bot} />
       </Section>
 
       <Section title="Disk">

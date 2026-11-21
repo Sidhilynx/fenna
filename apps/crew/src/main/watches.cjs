@@ -140,7 +140,7 @@ const todoLine = (t) => `${t.id}  ${t.done ? "done" : "open"}  ${t.text}`;
  * @param {object} o
  * @param {ReturnType<import("./store.cjs").createStore>} o.store
  * @param {{ enqueue(o: object): object, running(slug: string): object|null, isQueued(slug: string): boolean }} o.runner
- * @param {{ watchElement(slug: string, o: object): Promise<object>, armElement(slug: string, o: object): Promise<void>, unwatchElement(slug: string, id: string): Promise<void>, pageText(slug: string, url: string): Promise<string> }} o.browsers
+ * @param {{ watchElement(slug: string, o: object): Promise<object>, armElement(slug: string, o: object): Promise<void>, unwatchElement(slug: string, id: string): Promise<void>, pageText(slug: string, url: string): Promise<string>, keepSite?(slug: string, origin: string): Promise<{ opened: boolean }>, hasSite?(slug: string, origin: string): boolean }} o.browsers
  * @param {(channel: string, payload: unknown) => void} [o.broadcast]
  * @param {() => Date} [o.now]
  * @param {(fn: () => void, ms: number) => unknown} [o.setTimer]  returns a handle clearTimeout accepts
@@ -207,7 +207,7 @@ function createWatches({ store, runner, browsers, broadcast = () => {}, onFire =
     w.count += 1;
     if (w.kind === "timer" && !w.every) list.splice(list.indexOf(w), 1);
     store.writeWatches(slug, list);
-    bundle(slug, w.note, what);
+    bundle(slug, w.note, what, w.chat);
     changed(slug);
     onFire(slug, w, what);
   }
@@ -220,10 +220,10 @@ function createWatches({ store, runner, browsers, broadcast = () => {}, onFire =
     store.writeWatches(slug, list);
   }
 
-  function bundle(slug, note, what) {
+  function bundle(slug, note, what, chat) {
     let b = bundles.get(slug);
     if (!b) bundles.set(slug, (b = { events: [], dropped: 0 }));
-    b.events.push({ note, what: clip(what, EVENT_MAX) });
+    b.events.push({ note, what: clip(what, EVENT_MAX), chat });
     if (b.events.length > BUNDLE_MAX) {
       b.events.shift();
       b.dropped++;
@@ -250,7 +250,14 @@ function createWatches({ store, runner, browsers, broadcast = () => {}, onFire =
     const text = b.events.map((e) => `${e.note} — ${e.what}`).join("\n") + (b.dropped ? `\n(${b.dropped} earlier events were not kept.)` : "");
     bundles.delete(slug);
     recent.push(t);
-    runner.enqueue({ slug, trigger: "watch", text });
+    // The wake goes to the chat the watch was set in (the newest event's), else the person's current chat: they see it either way.
+    const chat = [...b.events].reverse().map((e) => e.chat).find((c) => typeof c === "string" && chatExists(slug, c)) ?? store.readState(slug)?.current;
+    runner.enqueue({ slug, trigger: "watch", text, ...(chat ? { chat } : {}) });
+  }
+
+  function chatExists(slug, id) {
+    const state = store.readState(slug);
+    return !!state && Array.isArray(state.chats) && state.chats.some((c) => c.id === id);
   }
 
   function wakeAll() {
@@ -308,7 +315,10 @@ function createWatches({ store, runner, browsers, broadcast = () => {}, onFire =
   function armWatch(slug, w) {
     if (w.kind === "page") arm(watchKey(slug, w.id), w.every * MINUTE_MS, () => checkPage(slug, w.id));
     else if (w.kind === "timer") armTimer(slug, w);
-    else if (w.kind === "element") {
+    else if (w.kind === "notification") {
+      // The site is heard only through an open tab: keep one open in the background.
+      if (browsers.keepSite) Promise.resolve().then(() => browsers.keepSite(slug, w.origin)).catch(() => {});
+    } else if (w.kind === "element") {
       // A failed arm keeps the watch saved; it is armed again the next time Crew starts.
       Promise.resolve()
         .then(() => browsers.armElement(slug, { id: w.id, origin: w.origin, url: w.url, selector: w.selector }))
@@ -323,7 +333,7 @@ function createWatches({ store, runner, browsers, broadcast = () => {}, onFire =
     if (!WATCH_KINDS.includes(input.kind)) throw new Error(`The kind is one of ${WATCH_KINDS.join(", ")}, not "${clip(input.kind ?? "", 40)}".`);
     const note = noteArg(input.note);
     const id = freshId(list);
-    const base = { id, kind: input.kind, note, created: iso(), fired: null, count: 0 };
+    const base = { id, kind: input.kind, note, created: iso(), fired: null, count: 0, ...(typeof input.chat === "string" && input.chat ? { chat: input.chat } : {}) };
     let w;
     if (input.kind === "notification") {
       w = { ...base, origin: siteOrigin(input.origin) };
@@ -458,8 +468,14 @@ function createWatches({ store, runner, browsers, broadcast = () => {}, onFire =
       arm("wakeall", 0, wakeAll);
     },
 
+    /** The bot's browser was closed: open again the tabs its notification and element watches listen through. */
+    rearm(slug) {
+      for (const w of store.readWatches(slug)) if (w.kind === "notification" || w.kind === "element") armWatch(slug, w);
+    },
+
     forget,
-    list: (slug) => store.readWatches(slug),
+    /** The bot's watches; a notification or element watch says whether its site is open to hear it. */
+    list: (slug) => store.readWatches(slug).map((w) => (w.kind === "notification" || w.kind === "element") && browsers.hasSite ? { ...w, listening: browsers.hasSite(slug, w.origin) } : w),
     todos: (slug) => store.readTodos(slug),
     add,
     remove,

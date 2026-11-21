@@ -331,6 +331,10 @@ export type Watch = WatchSpec & {
   count: number;
   /** For element and page: the text seen last (capped at 4 KB). */
   last?: string;
+  /** The chat it was set in: its wake-ups show there. */
+  chat?: string;
+  /** For notification and element: whether a tab on its site is open, so Crew can hear it. */
+  listening?: boolean;
 };
 
 /** A site notification seen in a bot's browser. */
@@ -668,7 +672,8 @@ export interface Calls {
   "crew:create": { args: [input: NewBotInput]; result: { slug: string } };
   "crew:update": { args: [slug: string, patch: Partial<Bot>]; result: BotDetail };
   "crew:delete": { args: [slug: string]; result: true };
-  "crew:send": { args: [slug: string, text: string, chat?: string, files?: { name: string; bytes: ArrayBuffer }[]]; result: { runId: string; queued: boolean } };
+  /** A message to the bot; when the bot is waiting on its question, the message answers it (answered: true) instead of starting a run. */
+  "crew:send": { args: [slug: string, text: string, chat?: string, files?: { name: string; bytes: ArrayBuffer }[]]; result: { runId: string; queued: boolean; answered?: boolean } };
   "crew:newChat": { args: [slug: string]; result: string };
   "crew:openChat": { args: [slug: string, chat: string]; result: true };
   "crew:compact": { args: [slug: string, chat: string]; result: { runId: string } };
@@ -762,6 +767,72 @@ export interface Calls {
   "crew:processes": { args: [slug: string]; result: ProcessInfo[] };
   /** Stops a running command; resolves to the bot's commands after it. */
   "crew:stopProcess": { args: [slug: string, id: string]; result: ProcessInfo[] };
+  /** A bot's repos (Files/Repos) and whether its own shell may run unsandboxed. */
+  "crew:repos": { args: [slug: string]; result: ReposView };
+  /** Links a git folder on this computer as the bot's own copy; with no folder, Crew asks with a folder dialog. */
+  "crew:repoLink": { args: [slug: string, folder?: string]; result: ReposView };
+  "crew:repoClone": { args: [slug: string, url: string]; result: ReposView };
+  /** Fetches the latest branches from where the repo came from. */
+  "crew:repoSync": { args: [slug: string, name: string]; result: ReposView };
+  /** Moves the repo to Trash; force also throws away uncommitted changes. */
+  "crew:repoRemove": { args: [slug: string, name: string, force?: boolean]; result: ReposView };
+  "crew:repoPolicy": { args: [slug: string, name: string, policy: Partial<RepoPolicy>]; result: ReposView };
+  /** Lets the bot's own shell run without a sandbox (only where its AI can't sandbox). */
+  "crew:repoShell": { args: [slug: string, on: boolean]; result: ReposView };
+  /** The team on a repo, by its key (RepoInfo.key). */
+  "crew:repoTeam": { args: [key: string]; result: TeamMember[] };
+  /** What the crew shipped, newest first; one repo by its key, or all. */
+  "crew:shipped": { args: [key?: string]; result: ShippedEntry[] };
+}
+
+/** What the GitHub loop may do on its own for one repo. */
+export interface RepoPolicy {
+  comment: "auto" | "ask";
+  draftOnly: boolean;
+  merge: "ask" | "never";
+}
+
+/** One of a bot's repos, as the Repos screen shows it. */
+export interface RepoInfo {
+  name: string;
+  /** Files/Repos/<name> on the bot's disk. */
+  path: string;
+  branch: string;
+  branches: string[];
+  /** Files changed and not committed. */
+  changed: number;
+  last: { hash: string; subject: string; at: string } | null;
+  /** The folder on this computer it was copied from, if linked. */
+  source: string | null;
+  /** Its remote (GitHub or other), if any. */
+  origin: string | null;
+  /** The id teams and the shipped log use: origin, else source. */
+  key: string;
+  policy: RepoPolicy;
+}
+
+export interface ReposView {
+  repos: RepoInfo[];
+  /** The person allowed the bot's own shell to run unsandboxed. */
+  shell: boolean;
+  /** The bot's AI can't sandbox its shell on this computer, so the shell needs that allowance. */
+  shellNeeded: boolean;
+}
+
+export type TeamRole = "lead" | "builder" | "tester" | "reviewer";
+
+export interface TeamMember {
+  slug: string;
+  role: TeamRole;
+}
+
+export interface ShippedEntry {
+  repoKey: string;
+  slug: string;
+  kind: "push" | "pr" | "merge" | "issue" | "release";
+  title: string;
+  url: string;
+  at: string;
 }
 
 /** Every event channel and its payload. */
@@ -781,6 +852,8 @@ export interface Events {
   "crew:watches": { slug: string };
   /** Something changed on a bot's disk (the person, the bot or a download). */
   "crew:disk": { slug: string };
+  /** A bot's repos changed (linked, cloned, synced, removed, policy or shell). */
+  "crew:repos": { slug: string };
   /** The bot wrote or edited a file (the Code window reloads it, and follows the change). */
   "crew:edits": { slug: string };
   /** A command ran in a bot's terminal (the person's or the bot's). */

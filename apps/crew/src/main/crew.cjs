@@ -7,6 +7,7 @@
 
 const crypto = require("node:crypto");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const { startRun } = require("@opendeck/shell/main/agent.cjs");
 const { createStore } = require("./store.cjs");
@@ -24,6 +25,12 @@ const { createGateway } = require("./gateway.cjs");
 const { createVault } = require("./vault.cjs");
 const { createLogins } = require("./logins.cjs");
 const { createProjects } = require("./projects.cjs");
+const { createRepos } = require("./repos.cjs");
+const { createGithub } = require("./github.cjs");
+const { createTeams } = require("./teams.cjs");
+const { createAppWindows } = require("./appwindows.cjs");
+const { createDesktopInput } = require("./desktop-input.cjs");
+const osSandbox = require("./os-sandbox.cjs");
 const { createToolLabel } = require("./labels.cjs");
 const { createAppHost } = require("./appHost.cjs");
 const { createApps } = require("./apps.cjs");
@@ -78,6 +85,21 @@ function giveBuilder(store, root) {
   const has = store.slugs().some((s) => store.readBot(s)?.bot?.name === BUILDER.name);
   if (!has) store.createBot({ ...BUILDER, cli: "claude" });
   fs.writeFileSync(mark, `${JSON.stringify({ at: new Date().toISOString() })}\n`);
+}
+
+/**
+ * The OS sandbox a coding run's CLI runs in, for the folder it works in. It
+ * can write there, in Crew's assistant folder (the CLIs' homes), temp, the
+ * usual tool caches and its AI's own settings, and can't read the person's
+ * keys. None on Windows or without bubblewrap: each AI's own limits apply.
+ */
+function codingSandbox(userData) {
+  const available = osSandbox.detect(process.platform);
+  if (!available.bwrap && !available.sandboxExec) return () => null;
+  const home = os.homedir();
+  const caches = [".claude", ".claude.json", ".codex", ".gemini", ".cache", ".npm", ".pub-cache", ".gradle", ".cargo", ".rustup", ".m2", "go", ".nuget", ".dart-tool", "Library/Caches"].map((d) => path.join(home, d)).filter((d) => fs.existsSync(d));
+  return (dir) => (command, args) =>
+    osSandbox.wrap({ platform: process.platform, command, args, writable: [dir, path.join(userData, "assistant"), os.tmpdir(), ...caches], readDeny: osSandbox.defaultReadDeny(home).filter((p) => fs.existsSync(p)), available });
 }
 
 /**
@@ -171,6 +193,8 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
   let gateway = null;
   let logins = null;
   let projects = null;
+  let repos = null;
+  let teams = null;
   const link = createLink({ handle: (ctx, method, params) => handle(ctx, method, params) });
   // The bot's apps (apps.cjs). Their sessions and the page's calls need Electron, which main passes in; without it no bot has apps.
   // The runner is looked up at call time: it is created below, after the apps that its run tools need.
@@ -180,10 +204,13 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
     const m = apps && name ? apps.manifest(slug, name) : null;
     return (m && m.app && m.app.title) || null;
   };
-  const serversFor = createServers({ link, store, connectors, connections, packaged, resources, repo, homes: path.join(userData, "assistant", "agy-crew"), apps });
+  // Repos are made below with the approver; a run started before that has none.
+  const serversFor = createServers({ link, store, connectors, connections, packaged, resources, repo, homes: path.join(userData, "assistant", "agy-crew"), apps, repos: { codingFor: (slug, cli) => (repos ? repos.codingFor(slug, cli) : null) } });
   const runner = createRunner({
     store,
     startRun,
+    repoNames: (slug) => (repos ? repos.names(slug) : []),
+    teamNotes: (slug) => (repos && teams ? repos.names(slug).map((n) => teams.promptFor(repos.whereOf(slug, n).key, slug)).filter(Boolean).join("\n") : ""),
     serversFor,
     link,
     waits,
@@ -208,8 +235,22 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
   gateway = createGateway({ store, connectors, connections, approve, runner, onChange, apps, appHost });
   logins = createLogins({ store, vault, browsers, approve, runner, onChange });
   projects = createProjects({ disk, store, runner, approve, browsers, broadcast });
+  teams = createTeams({ file: path.join(userData, "crew-teams.json") });
+  repos = createRepos({
+    disk,
+    store,
+    approve,
+    broadcast,
+    sandboxFor: codingSandbox(userData),
+    onShip: (e) => {
+      const w = repos.whereOf(e.slug, e.name);
+      teams.ship({ repoKey: w.key, slug: e.slug, kind: e.kind, title: e.title, url: e.url });
+    },
+  });
+  const github = createGithub({ approve });
+  const appWindows = createAppWindows({ desktopCapturer: electron ? electron.desktopCapturer : null, input: electron ? createDesktopInput() : null });
   const watches = createWatches({ store, runner, browsers, broadcast, onFire: (slug, w, what) => notices.add(slug, { kind: w.kind === "timer" ? "reminder" : "watch", title: w.note, body: what }) });
-  handle = createHandlers({ store, runner, waits, approve, browsers, gateway, appHost, logins, onChange, onDesktop, watches, search, files, shell, projects, disk, usage });
+  handle = createHandlers({ store, runner, waits, approve, browsers, gateway, appHost, logins, onChange, onDesktop, watches, search, files, shell, projects, repos, github, teams, appWindows, disk, usage });
   const scheduler = createScheduler({ store, runner });
   const teamChat = createTeamChat({ store, runner, onChange });
   views = createViews({ store, runner, waits, scheduler, browsers, settings, offers: () => offerViews() });
@@ -325,6 +366,12 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
     onDesktop,
     watches,
     projects,
+    get repos() {
+      return repos;
+    },
+    get teams() {
+      return teams;
+    },
 
     connectors: {
       list: connectorViews,
