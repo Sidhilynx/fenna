@@ -257,17 +257,33 @@ describe("installed skills", () => {
     expect(() => skills.remove("../x")).toThrow(/There is no skill/);
   });
 
-  it("copies the granted ones onto a bot's disk, and removes the rest", () => {
+  it("copies the granted ones onto a bot's disk, and removes only the ones it placed", () => {
     const workspace = path.join(root, "bots", "research", "workspace");
-    mkdirSync(path.join(workspace, "Skills", "old"), { recursive: true });
-    writeFileSync(path.join(workspace, "Skills", "old", "SKILL.md"), "stale");
+    mkdirSync(path.join(workspace, "Skills", "mine"), { recursive: true });
+    writeFileSync(path.join(workspace, "Skills", "mine", "notes.md"), "the person's own");
     const placed = skills.syncInto(workspace, ["weekly-report", "gone", "weekly-report"]);
     expect(placed).toEqual([{ name: "weekly-report", description: "The format for the weekly status report", path: "Files/Skills/weekly-report/SKILL.md" }]);
     expect(readFileSync(path.join(workspace, "Skills", "weekly-report", "refs", "template.md"), "utf8")).toBe("Wins:\n");
-    expect(existsSync(path.join(workspace, "Skills", "old"))).toBe(false);
 
+    // Synced again: still one copy, and the person's folder is untouched.
+    expect(skills.syncInto(workspace, ["weekly-report"])).toHaveLength(1);
     expect(skills.syncInto(workspace, [])).toEqual([]);
-    expect(existsSync(path.join(workspace, "Skills"))).toBe(false);
+    expect(existsSync(path.join(workspace, "Skills", "weekly-report"))).toBe(false);
+    expect(readFileSync(path.join(workspace, "Skills", "mine", "notes.md"), "utf8")).toBe("the person's own");
+  });
+
+  it("never overwrites a folder it didn't place, and leaves no empty Skills folder", () => {
+    const workspace = path.join(root, "bots", "inbox", "workspace");
+    mkdirSync(path.join(workspace, "Skills", "weekly-report"), { recursive: true });
+    writeFileSync(path.join(workspace, "Skills", "weekly-report", "draft.md"), "mine");
+    expect(skills.syncInto(workspace, ["weekly-report"])).toEqual([]);
+    expect(readFileSync(path.join(workspace, "Skills", "weekly-report", "draft.md"), "utf8")).toBe("mine");
+
+    const fresh = path.join(root, "bots", "fresh", "workspace");
+    mkdirSync(fresh, { recursive: true });
+    skills.syncInto(fresh, ["weekly-report"]);
+    skills.syncInto(fresh, []);
+    expect(existsSync(path.join(fresh, "Skills"))).toBe(false);
   });
 });
 

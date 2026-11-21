@@ -21,6 +21,8 @@ const { sizeText } = require("./disk.cjs");
 
 const SKILL = F.SKILL_FILE;
 const { LIMITS } = F;
+/** In a bot's Files/Skills: the names of the skill folders Crew put there. */
+const MARKER = ".crew-skills.json";
 const PENDING_MS = 10 * 60_000;
 const PENDING_MAX = 8;
 const FETCH_MS = 20_000;
@@ -352,18 +354,40 @@ function createSkillStore({ dir, fetchBytes = getBytes, now = () => Date.now() }
      * return them: name, description and the path of SKILL.md on the bot's disk.
      */
     syncInto(workspaceDir, granted) {
+      // Files/Skills may also hold the person's or the bot's own folders: only the folders Crew
+      // placed (named in the marker) are replaced, and a folder Crew didn't place is never touched.
       const root = path.join(workspaceDir, "Skills");
-      fs.rmSync(root, { recursive: true, force: true });
+      const marker = path.join(root, MARKER);
+      let placed = [];
+      try {
+        const list = JSON.parse(fs.readFileSync(marker, "utf8"));
+        if (Array.isArray(list)) placed = list.filter((n) => typeof n === "string" && !F.skillNameProblem(n));
+      } catch {
+        placed = [];
+      }
+      for (const name of placed) fs.rmSync(path.join(root, name), { recursive: true, force: true });
       const out = [];
+      const ours = [];
       for (const name of [...new Set(granted)]) {
         const s = read(name);
-        if (!s) continue;
+        if (!s || fs.existsSync(path.join(root, name))) continue;
+        ours.push(name);
         for (const f of filesOf(path.join(dir, name))) {
           const to = path.join(root, name, f.path);
           fs.mkdirSync(path.dirname(to), { recursive: true });
           fs.copyFileSync(f.abs, to);
         }
         out.push({ name, description: s.description, path: `Files/Skills/${name}/${SKILL}` });
+      }
+      if (ours.length) fs.writeFileSync(marker, JSON.stringify(ours));
+      else {
+        fs.rmSync(marker, { force: true });
+        // Leave no empty Skills folder behind, but never remove one that holds anything else.
+        try {
+          fs.rmdirSync(root);
+        } catch {
+          /* missing, or not empty */
+        }
       }
       return out;
     },
