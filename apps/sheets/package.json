@@ -1,7 +1,7 @@
 {
   "name": "@opendeck/sheets",
   "productName": "Fenna Sheets",
-  "version": "0.9.9",
+  "version": "0.9.10",
   "private": true,
   "description": "Spreadsheets that live on your computer and work with any AI.",
   "license": "AGPL-3.0-only",
