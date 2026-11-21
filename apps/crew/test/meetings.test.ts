@@ -135,9 +135,10 @@ describe("joining a call", () => {
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
-  function setup(fake: ReturnType<typeof fakeMeet>) {
+  function setup(fake: ReturnType<typeof fakeMeet>, accounts: unknown = null) {
     const state = { chats: [] as unknown[] };
     return createMeetings({
+      accounts,
       store: { readBot: () => ({ bot: { name: "Scout" } }), botDir: () => dir, patchState: (_slug: string, fn: (s: unknown) => void) => fn(state) },
       runner: { enqueue: () => ({ done: new Promise(() => {}) }), running: () => false, isQueued: () => false },
       browsers: { openMeeting: async () => fake.tab },
@@ -213,6 +214,33 @@ describe("joining a call", () => {
     await vi.advanceTimersByTimeAsync(3000);
     expect(meetings.list()[0].state).toBe("waiting");
     meetings.stopAll();
+  });
+
+  it("signs the bot in to its own Google account before it joins", async () => {
+    const fake = fakeMeet();
+    const ensured: string[] = [];
+    const meetings = setup(fake, { ensure: async (slug: string) => (ensured.push(slug), { state: "signed_in", email: "scout@gmail.com" }) });
+    const r = await join(meetings);
+    expect(ensured).toEqual(["scout"]);
+    expect(r.text).toContain("Asked to join abc-defg-hij");
+    meetings.stopAll();
+  });
+
+  it("doesn't join when the bot's own account needs the person, and says what to do", async () => {
+    const fake = fakeMeet();
+    const meetings = setup(fake, { ensure: async () => ({ state: "needs_you", email: "scout@gmail.com", message: "Take control and finish signing in." }) });
+    await expect(join(meetings)).rejects.toThrow("Take control and finish signing in. Ask the person with ask_human");
+    expect(meetings.list()).toEqual([]);
+    expect(fake.page.inserted).toEqual([]);
+  });
+
+  it("tells a bot without an account why Meet refused it as a guest", async () => {
+    const fake = fakeMeet({ state: "denied" });
+    const meetings = setup(fake);
+    const r = await join(meetings);
+    expect(r.text).toContain("doesn't take guests without a Google account");
+    expect(r.text).toContain("under Google account");
+    expect(meetings.list()).toEqual([]);
   });
 
   it("gives up after 10 minutes at the join screen and closes the tab", async () => {

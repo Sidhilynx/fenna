@@ -58,6 +58,14 @@ function transcriptName(at, code) {
   return `${at.getFullYear()}-${p(at.getMonth() + 1)}-${p(at.getDate())} ${p(at.getHours())}.${p(at.getMinutes())} ${code.replace(/[^\w-]/g, "")}.md`;
 }
 
+/** Why a bot with an account of its own can't join yet, and what to do. */
+function accountBlocker(a) {
+  if (a.state === "needs_you") return `Your Google account (${a.email}) isn't signed in: ${a.message} Ask the person with ask_human, then join again.`;
+  if (a.state === "other_account") return `Your browser is signed in to Google as ${a.signedInAs || "someone else"}, not your own account ${a.email}. Ask the person to sign it out in your Details, then join again.`;
+  if (a.state === "missing") return `Your Google account's login isn't in the vault on this computer. Ask the person to add it, then join again.`;
+  return `Your Google account (${a.email}) isn't signed in, and Crew couldn't sign it in. Ask the person to check it in your Details, then join again.`;
+}
+
 /** What a bot posts in the chat when it is let in. */
 function consentText(botName) {
   return `Hi, I'm ${botName}, an AI assistant in Fenna Crew. I keep a transcript from the captions. Say "${botName}" to ask me something.`;
@@ -68,12 +76,13 @@ function consentText(botName) {
  * @param {object} o.store
  * @param {{ enqueue: Function, running: (slug: string) => boolean, isQueued: (slug: string) => boolean }} o.runner
  * @param {{ openMeeting: Function }} o.browsers
+ * @param {{ ensure(slug: string): Promise<object | null> } | null} [o.accounts]  the bot's own Google account (accounts.cjs): signed in before it joins
  * @param {{ start: Function } | null} o.stage
  * @param {(channel: string, payload: unknown) => void} o.broadcast
  * @param {() => void} [o.onChange]
  * @param {string[]} [o.extraOrigins]  test pages that count as calls (OPENDECK_MEET_ORIGINS)
  */
-function createMeetings({ store, runner, browsers, stage, broadcast, onChange = () => {}, extraOrigins = [], now = () => new Date() }) {
+function createMeetings({ store, runner, browsers, accounts = null, stage, broadcast, onChange = () => {}, extraOrigins = [], now = () => new Date() }) {
   /** slug → its meeting */
   const all = new Map();
 
@@ -276,6 +285,9 @@ The whole transcript: Files/Meetings/${m.file}` });
     }
     const link = meetingLink(url, extraOrigins);
     if (link.error) throw new Error(link.error);
+    // Meet lets a signed-in account ask to join; a bot with an account of its own joins as it.
+    const account = accounts && link.origin === MEET_ORIGIN ? await accounts.ensure(slug) : null;
+    if (account && account.state !== "signed_in") throw new Error(accountBlocker(account));
     const loaded = store.readBot(slug);
     const botName = (loaded && loaded.bot && loaded.bot.name) || slug;
     const shown = String(name || "").trim().slice(0, NAME_MAX) || `${botName} (Fenna)`;
@@ -365,7 +377,8 @@ The whole transcript: Files/Meetings/${m.file}` });
     }
     if (first.state === "denied") {
       finish(m, "Not let in to the call.");
-      return { text: `Meet says you can't join ${link.code}. Tell the person; the host may have to invite or admit guests.` };
+      if (!account) return { text: `Meet refused your browser before anyone could let you in to ${link.code}: it doesn't take guests without a Google account from it. Tell the person; they can give you a Google account of your own in your Details, under Google account, and then you can join.` };
+      return { text: `Meet says you can't join ${link.code}. Tell the person; the host may have to invite or admit you.` };
     }
     if (first.state === "prejoin") {
       const r = await pressJoin(m);

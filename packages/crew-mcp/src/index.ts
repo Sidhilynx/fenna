@@ -248,6 +248,19 @@ export function createCrewServer(link: Link, opts: CrewOptions): McpServer {
   );
 
   tool(
+    "account",
+    {
+      title: "Your own Google account",
+      description:
+        'Your own Google account, if the person gave you one: Crew keeps your browser signed in to it, so Gmail, Calendar, Drive and Meet open as you. status says which account it is and whether your browser is signed in. sign_in asks Crew to sign your browser in from the vault; you never see or type its password, and you never sign in to any other Google account. Call sign_in when a Google page asks you to sign in; if it says the person must finish (a phone prompt, a puzzle), ask them with ask_human to take control of your browser, then call status. Example: {action: "sign_in"}',
+      inputSchema: {
+        action: z.enum(["status", "sign_in"]),
+      },
+    },
+    (args) => call("account", { ...args }),
+  );
+
+  tool(
     "todo",
     {
       title: "Your to-do list",

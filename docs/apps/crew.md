@@ -202,6 +202,15 @@ Files, on the `crew` server (`apps/crew/src/main/files.cjs`):
   screen are fake: a name card, silence, and a stage that shows one library
   document live. When the call ends, a bot with a note from the person wakes
   once more to finish the work from the transcript. 2026-11-21
+- A bot can have a Google account of its own (docs/plans/crew-bot-accounts.md):
+  the person makes it (Crew never creates accounts) and keeps it in the vault;
+  bot.md names it with `account`. Crew signs the bot's browser in from the
+  vault and checks the session at start, every 30 minutes, before a call and
+  when the person gives control back; the model never sees the password or
+  the sign-in pages. When Google asks for anything Crew can't give, the person
+  takes control. Meet refuses signed-out guests from Crew's browser, so this
+  is how a bot joins calls. Crew won't disguise its browser to pass Google's
+  checks. 2026-11-22
 - A bot's computer is a small OS of its own: movable, resizable windows and a
   taskbar; one disk (Files, Documents, Downloads, Trash) that Crew resolves
   inside the bot's folder and nowhere else (no "..", absolute paths or links);

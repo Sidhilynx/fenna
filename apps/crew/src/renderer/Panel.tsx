@@ -9,6 +9,7 @@ import { Dialog, MenuButton, toast, type MenuEntry } from "@opendeck/shell";
 import { FENNA_APPS, SCHEDULE_EXAMPLES, type Bot } from "@opendeck/crew";
 import { errorText, invoke, on } from "../shared/api.ts";
 import type { BotDetail, BotSummary, RunSummary } from "../shared/contract.ts";
+import { AccountSection } from "./Account.tsx";
 import { BrainPicker } from "./BrainPicker.tsx";
 import { DeleteBotDialog } from "./DeleteBot.tsx";
 import { ImportMemoryDialog } from "./ImportMemory.tsx";
@@ -554,6 +555,10 @@ function Advanced({ bot, detail, setDetail, loadError }: { bot: BotSummary; deta
 
       <Section title="Skills">
         <SkillGrants botName={bot.name} granted={cfg.skills ?? []} save={(next) => void save({ skills: next })} />
+      </Section>
+
+      <Section title="Google account">
+        <AccountSection bot={bot} account={cfg.account ?? null} save={(next) => void save({ account: next })} />
       </Section>
 
       <Section title="Logins">

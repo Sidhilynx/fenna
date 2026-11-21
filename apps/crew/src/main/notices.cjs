@@ -10,7 +10,7 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const F = require("./format.cjs");
 
-const KINDS = ["site", "download", "run", "watch", "reminder"];
+const KINDS = ["site", "download", "run", "watch", "reminder", "account"];
 const MAX = 100;
 const SAVE_MS = 300;
 const TITLE_MAX = 200;
@@ -18,7 +18,7 @@ const BODY_MAX = 1000;
 const ORIGIN_MAX = 300;
 const PATH_MAX = 500;
 const NOTE_MAX = 300;
-const DEFAULT_TITLE = { site: "Notification", download: "Download", run: "Run", watch: "Watch", reminder: "Reminder" };
+const DEFAULT_TITLE = { site: "Notification", download: "Download", run: "Run", watch: "Watch", reminder: "Reminder", account: "Google account" };
 
 const clip = (s, n) => {
   const t = String(s ?? "");

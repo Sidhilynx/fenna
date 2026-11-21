@@ -867,6 +867,8 @@ export interface Calls {
   "crew:mute": { args: [slug: string, tab: number | null, muted: boolean]; result: BrowserState };
   "crew:meetings": { args: []; result: MeetingView[] };
   "crew:meeting": { args: [slug: string, action: "leave" | "stop_sharing"]; result: MeetingView | null };
+  "crew:accounts": { args: []; result: AccountView[] };
+  "crew:account": { args: [slug: string, action: "check" | "sign_in" | "sign_out"]; result: AccountView | null };
   "crew:closeBrowser": { args: [slug: string]; result: boolean };
   "crew:tab": { args: [slug: string, action: "new" | "switch" | "close", id?: number]; result: BrowserState };
   "crew:settings": { args: []; result: Settings };
@@ -1015,6 +1017,7 @@ export interface Events {
   "crew:watches": { slug: string };
   /** A bot's call changed: joined, people, sharing; null when it left. */
   "crew:meeting": { slug: string; meeting: MeetingView | null };
+  "crew:account": { slug: string; account: AccountView | null };
   /** Something changed on a bot's disk (the person, the bot or a download). */
   "crew:disk": { slug: string };
   /** A bot's repos changed (linked, cloned, synced, removed, policy or shell). */
@@ -1065,7 +1068,7 @@ export interface ProcessInfo {
 // ── Notices: a bot's notification center ──────────────────────────────
 
 /** What a notice is about: a site's notification, a finished download, an ended run, a fired watch, a reminder (a timer watch). */
-export const NOTICE_KINDS = ["site", "download", "run", "watch", "reminder"] as const;
+export const NOTICE_KINDS = ["site", "download", "run", "watch", "reminder", "account"] as const;
 export type NoticeKind = (typeof NOTICE_KINDS)[number];
 
 export interface Notice {
@@ -1085,6 +1088,25 @@ export interface NoticeState {
   /** Newest first, at most 100. */
   items: Notice[];
   unread: number;
+}
+
+/** Where a bot's own Google account stands in its browser (accounts.cjs). */
+export type AccountState = "missing" | "unknown" | "signed_out" | "signing_in" | "signed_in" | "other_account" | "needs_you";
+
+/** A bot's own Google account: the vault login bot.md names, and its browser's sign-in. Never holds a secret. */
+export interface AccountView {
+  slug: string;
+  /** The vault login's name (bot.md `account`). */
+  login: string;
+  /** The login's username, lowercased; "" when it isn't in the vault. */
+  email: string;
+  state: AccountState;
+  /** other_account: who the browser is signed in as, when Google says. */
+  signedInAs: string | null;
+  /** needs_you: what the person has to do, in one sentence; "" otherwise. */
+  message: string;
+  /** When the browser was last checked, ISO; null before the first check. */
+  checkedAt: string | null;
 }
 
 /** A bot in a video call (meetings.cjs). */
