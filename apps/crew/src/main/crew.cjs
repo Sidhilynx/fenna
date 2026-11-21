@@ -29,6 +29,7 @@ const { createRepos } = require("./repos.cjs");
 const { createGithub } = require("./github.cjs");
 const { createTeams } = require("./teams.cjs");
 const { createAppWindows } = require("./appwindows.cjs");
+const { createDesktopInput } = require("./desktop-input.cjs");
 const osSandbox = require("./os-sandbox.cjs");
 const { createToolLabel } = require("./labels.cjs");
 const { createAppHost } = require("./appHost.cjs");
@@ -247,7 +248,7 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
     },
   });
   const github = createGithub({ approve });
-  const appWindows = createAppWindows({ desktopCapturer: electron ? electron.desktopCapturer : null });
+  const appWindows = createAppWindows({ desktopCapturer: electron ? electron.desktopCapturer : null, input: electron ? createDesktopInput() : null });
   const watches = createWatches({ store, runner, browsers, broadcast, onFire: (slug, w, what) => notices.add(slug, { kind: w.kind === "timer" ? "reminder" : "watch", title: w.note, body: what }) });
   handle = createHandlers({ store, runner, waits, approve, browsers, gateway, appHost, logins, onChange, onDesktop, watches, search, files, shell, projects, repos, github, teams, appWindows, disk, usage });
   const scheduler = createScheduler({ store, runner });
@@ -365,6 +366,12 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
     onDesktop,
     watches,
     projects,
+    get repos() {
+      return repos;
+    },
+    get teams() {
+      return teams;
+    },
 
     connectors: {
       list: connectorViews,

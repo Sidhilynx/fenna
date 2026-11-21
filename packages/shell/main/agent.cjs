@@ -995,6 +995,13 @@ function makeParser(profile, kind, emit, { raw = false } = {}) {
       if (msg.type === "thread.started" && msg.thread_id) emit({ type: "session", sessionId: msg.thread_id });
       else if (msg.type === "item.started" && item.type === "mcp_tool_call") emit({ type: "tool", id: item.id, label: label(item.tool, item.arguments, item.server), status: "running", ...named(item.tool, item.arguments, item.server) });
       else if (msg.type === "item.completed" && item.type === "agent_message" && item.text) say(item.text);
+      else if ((msg.type === "item.started" || msg.type === "item.completed") && (item.type === "command_execution" || item.type === "file_change")) {
+        // A coding run: Codex's own shell and edits, shown like any other step.
+        const params = item.type === "command_execution" ? { command: item.command } : { changes: item.changes };
+        const done = msg.type === "item.completed";
+        const failed = done && (item.status === "failed" || (item.type === "command_execution" && typeof item.exit_code === "number" && item.exit_code !== 0));
+        emit({ type: "tool", id: item.id, label: label(item.type, params), status: done ? (failed ? "failed" : "done") : "running", ...named(item.type, params, undefined, done ? (item.aggregated_output ?? undefined) : undefined) });
+      }
       else if (msg.type === "item.completed" && item.type === "mcp_tool_call") emit({ type: "tool", id: item.id, label: label(item.tool, item.arguments, item.server), status: item.error ? "failed" : "done", ...named(item.tool, item.arguments, item.server, item.result ?? null), ...(item.error ? { error: String(item.error.message || item.error) } : {}) });
       else if (msg.type === "error") st.lastError = String(msg.message || "");
       else if (msg.type === "turn.completed") {

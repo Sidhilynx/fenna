@@ -124,12 +124,12 @@ stopped halfway, and Crew quitting mid-command.
 
 ## Status (2026-11-21)
 
-| Stage | Built | Module | Proved live | Still to prove |
+| Stage | Built | Where | Proved live | Still to prove |
 |---|---|---|---|---|
-| 1 Repos and coding runs | yes | `repos.cjs`, `agent.cjs` coding args | Antigravity: link, fix, test, commit, Crew push | Claude Code run; Codex after its one-time Windows prompt |
-| 2 Sandbox | yes | `os-sandbox.cjs` (bubblewrap, sandbox-exec), wraps the whole CLI | command lines only | a real run on Linux and macOS |
-| 3 Seeing the app | capture only | `appwindows.cjs`, tool `app_windows` | no | a bot capturing a Flutter or Electron window; clicking in native windows is not built |
-| 4 GitHub loop | yes | `github.cjs`, tool `github`, `repo policy` | issues, issue, PR checks, merge refused without approval | `pr_create`, `comment`, `merge` with a yes |
-| 5 Untrusted input | yes | `fence()` in `github.cjs` | trust from the author's role read live | an injection issue run through a bot |
-| 6 Teams | yes | `teams.cjs`, tool `team`, role duties in the prompt | no | a lead and two builders on one repo |
-| 7 In public | log only | `team shipped`, `shippedMarkdown()` | no | a public page on the site that shows the log |
+| 1 Repos and coding runs | yes | `repos.cjs`, coding args in `agent.cjs`, the Repos section in a bot's Details | Antigravity: link, fix, test, commit, Crew push; the Repos screen at both sizes and themes | Claude Code run; Codex after its one-time Windows prompt |
+| 2 Sandbox | yes | `os-sandbox.cjs` wraps the whole CLI (bubblewrap, sandbox-exec) | command lines only | a run on Linux and macOS |
+| 3 Seeing and using the app | yes | `appwindows.cjs`, `desktop-input.cjs`, tool `app_windows` | click, typing and Control+S in a real window | a bot testing a Flutter or Electron app it changed |
+| 4 GitHub loop | yes | `github.cjs`, tool `github`, policy in the Repos screen | issues, issue, PR checks; merge refused without approval | `pr_create`, `comment`, `merge` with a yes |
+| 5 Untrusted input | yes | `fence()` in `github.cjs` | trust from the author's role, read live | an injection issue run through a bot |
+| 6 Teams | yes | `teams.cjs`, tool `team`, role duties in the prompt, team line in the Repos screen | no | a lead and two builders on one repo |
+| 7 In public | yes | `team publish` writes `docs/shipped.json`; `site/shipped.html` shows it | the page's loading, empty, error and full states | the first merged `docs/shipped.json` |

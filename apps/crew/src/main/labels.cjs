@@ -14,7 +14,34 @@ function host(url) {
   }
 }
 
+const fileName = (p) => short(String(p || "").split(/[\\/]/).filter(Boolean).pop() || "a file", 40);
+
+const REPO_ACTIONS = {
+  list: () => "Looked at its repos",
+  status: (p) => `Checked ${short(p.name, 30)}`,
+  link: (p) => `Asked to work on ${short(p.path, 50)}`,
+  clone: (p) => `Asked to clone ${short(p.url, 50)}`,
+  sync: (p) => `Fetched the latest of ${short(p.name, 30)}`,
+  push: (p) => `Asked to push ${short(p.branch || "its branch", 40)}`,
+  remove: (p) => `Removed ${short(p.name, 30)}`,
+  policy: (p) => `Checked the GitHub rules for ${short(p.name, 30)}`,
+  allow_shell: () => "Asked to run its own commands",
+};
+
+const GITHUB_ACTIONS = {
+  issues: () => "Read the issues",
+  issue: (p) => `Read issue #${p.number}`,
+  pr: (p) => `Read pull request #${p.number}`,
+  pr_create: (p) => `Asked to open a pull request: ${short(p.title, 50)}`,
+  comment: (p) => `Commented on #${p.number}`,
+  merge: (p) => `Asked to merge #${p.number}`,
+};
+
 const CREW = {
+  repo: (p) => (REPO_ACTIONS[p.action] || (() => "Used its repos"))(p),
+  github: (p) => (GITHUB_ACTIONS[p.action] || (() => "Used GitHub"))(p),
+  app_windows: (p) => (p.action === "capture" ? `Looked at ${short(p.window, 40) || "an app window"}` : p.action === "click" ? `Clicked in ${short(p.window, 40)}` : p.action === "type" ? `Typed in ${short(p.window, 40)}` : p.action === "press" ? `Pressed ${short(p.key, 20)}` : "Looked at the open app windows"),
+  team: (p) => (p.action === "assign" ? `Asked to make ${short(p.bot, 30)} the ${p.role}` : p.action === "publish" ? "Wrote the shipped list" : p.action === "shipped" ? "Read what the crew shipped" : "Looked at its team"),
   ask_human: () => "Asked you a question",
   request_approval: (p) => `Asked you to approve: ${short(p.action, 60)}`,
   message_bot: (p) => {
@@ -69,6 +96,37 @@ const FENNA = {
   edit_slide: () => "Edited a slide",
 };
 
+/** The brain's own tools in a coding run (Claude Code, Antigravity, Codex): what the person sees in the chat. */
+const ran = (cmd) => `Ran ${short(cmd, 70)}`;
+const NATIVE = {
+  Bash: (p) => ran(p.command),
+  PowerShell: (p) => ran(p.command),
+  Read: (p) => `Read ${fileName(p.file_path)}`,
+  Edit: (p) => `Edited ${fileName(p.file_path)}`,
+  MultiEdit: (p) => `Edited ${fileName(p.file_path)}`,
+  Write: (p) => `Wrote ${fileName(p.file_path)}`,
+  NotebookEdit: (p) => `Edited ${fileName(p.notebook_path)}`,
+  Glob: (p) => `Looked for ${short(p.pattern, 50)}`,
+  Grep: (p) => `Searched the code for ${short(p.pattern, 50)}`,
+  LS: (p) => `Listed ${fileName(p.path)}`,
+  TodoWrite: () => "Updated its to-do list",
+  run_command: (p) => ran(p.CommandLine),
+  command_status: () => "Checked a command",
+  view_file: (p) => `Read ${fileName(p.AbsolutePath || p.TargetFile)}`,
+  view_file_outline: (p) => `Read ${fileName(p.AbsolutePath || p.TargetFile)}`,
+  list_dir: (p) => `Listed ${fileName(p.DirectoryPath)}`,
+  grep_search: (p) => `Searched the code for ${short(p.Query, 50)}`,
+  find_by_name: (p) => `Looked for ${short(p.Pattern, 50)}`,
+  write_to_file: (p) => `Wrote ${fileName(p.TargetFile)}`,
+  replace_file_content: (p) => `Edited ${fileName(p.TargetFile)}`,
+  multi_replace_file_content: (p) => `Edited ${fileName(p.TargetFile)}`,
+  command_execution: (p) => ran(p.command),
+  file_change: (p) => {
+    const n = Array.isArray(p.changes) ? p.changes.length : 0;
+    return n === 1 ? `Edited ${fileName(p.changes[0].path)}` : `Edited ${n} files`;
+  },
+};
+
 /**
  * The shell's toolLabel hook, with the app titles of the bot whose run it is
  * (appTitle(slug, name) → title or null): (tool, params, server, slug) →
@@ -98,6 +156,8 @@ function createToolLabel({ appTitle = () => null } = {}) {
           return null;
       }
     }
+    // The brain's own tools have no server; the shell names the run's first server ("crew") for them.
+    if ((!server || server === "crew") && Object.prototype.hasOwnProperty.call(NATIVE, tool)) return NATIVE[tool](p);
     const table = server === "crew" ? CREW : server === "browser" ? BROWSER : server === "fenna" ? FENNA : null;
     if (table && Object.prototype.hasOwnProperty.call(table, tool)) return table[tool](p);
     if (table) return null;
@@ -111,7 +171,7 @@ function createToolLabel({ appTitle = () => null } = {}) {
       const i = name.indexOf("__");
       if (i > 0) return `${name.slice(0, i)}: ${name.slice(i + 2).replace(/_/g, " ")}`;
     }
-    return `${server}: ${String(tool).replace(/_/g, " ")}`;
+    return server ? `${server}: ${String(tool).replace(/_/g, " ")}` : String(tool).replace(/_/g, " ");
   };
 }
 

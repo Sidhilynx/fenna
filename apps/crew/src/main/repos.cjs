@@ -153,6 +153,7 @@ function createRepos({ disk, store, approve, broadcast = () => {}, git = runGit,
     const tmp = `${file}.${process.pid}.tmp`;
     fs.writeFileSync(tmp, `${JSON.stringify(s, null, 2)}\n`);
     fs.renameSync(tmp, file);
+    broadcast("crew:repos", { slug });
   }
 
   /** The bot's repos: each folder in Files/Repos that is a git repository. */
@@ -198,7 +199,9 @@ function createRepos({ disk, store, approve, broadcast = () => {}, git = runGit,
     return dir;
   }
 
+  /** The person's yes. A call the person made themselves (ctx.person, from the Repos screen) is already their yes. */
   async function ask(ctx, action, details) {
+    if (ctx.person) return { allowed: true, always: false, by: "person" };
     const r = await approve(ctx, { action, details, source: "repo", tool: null });
     if (r.allowed) return r;
     if (r.by === "timeout") throw new Error("The person didn't answer in time, so nothing was done. Say in your reply that it waits for their approval.");
@@ -277,6 +280,7 @@ function createRepos({ disk, store, approve, broadcast = () => {}, git = runGit,
     const dir = existing(ctx.slug, name);
     const t = await target(ctx.slug, name, dir, p.to);
     await fetchFrom(dir, t.remote, t.url);
+    broadcast("crew:repos", { slug: ctx.slug });
     const branches = (await quiet(dir, ["for-each-ref", "--format=%(refname:short)", `refs/remotes/${t.remote}/`])).split("\n").filter(Boolean);
     return { text: `Fetched ${branches.length} branch(es) from ${t.url} into ${t.remote}/: ${branches.slice(0, 30).join(", ") || "none"}${t.defaultBranch ? `. Its main branch is ${t.remote}/${t.defaultBranch}.` : "."}` };
   }
@@ -382,10 +386,44 @@ function createRepos({ disk, store, approve, broadcast = () => {}, git = runGit,
     return { text: "Allowed. From the next message, your own shell works in Files/Repos." };
   }
 
+  /** The Repos screen: each repo with its branch, changes, last commit, where it came from and its policy, and the shell grant. */
+  async function view(slug, cli = "") {
+    const s = settings(slug);
+    const repos = [];
+    for (const name of names(slug)) {
+      const dir = dirOf(slug, name);
+      const w = s.repos[name] || { source: null, origin: null };
+      const changed = (await quiet(dir, ["status", "--porcelain"])).split("\n").filter(Boolean).length;
+      const last = await quiet(dir, ["log", "-1", "--format=%h%x09%s%x09%cI"]);
+      const [hash = "", subject = "", at = ""] = last.split("\t");
+      repos.push({
+        name,
+        path: `Files/Repos/${name}`,
+        branch: (await quiet(dir, ["rev-parse", "--abbrev-ref", "HEAD"])) || "",
+        branches: (await quiet(dir, ["for-each-ref", "--format=%(refname:short)", "refs/heads/"])).split("\n").filter(Boolean),
+        changed,
+        last: hash ? { hash, subject, at } : null,
+        source: w.source,
+        origin: w.origin,
+        key: w.origin || w.source || `${slug}/${name}`,
+        policy: { comment: w.policy?.comment === "auto" ? "auto" : "ask", draftOnly: w.policy?.draftOnly !== false, merge: w.policy?.merge === "never" ? "never" : "ask" },
+      });
+    }
+    return { repos, shell: s.shell, shellNeeded: !sandboxed(cli) };
+  }
+
+  /** The person turns the unsandboxed shell on or off from the Repos screen. */
+  function setShell(slug, on) {
+    const s = settings(slug);
+    saveSettings(slug, { ...s, shell: !!on });
+  }
+
   return {
     names,
     codingFor,
     whereOf,
+    view,
+    setShell,
     /** The repo tool. */
     async handle(ctx, p) {
       const action = String(p.action ?? "");

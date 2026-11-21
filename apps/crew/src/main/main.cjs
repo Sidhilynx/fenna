@@ -131,6 +131,9 @@ function openBot(slug) {
 
 const notifier = createNotifier({ Notification, enabled: () => settings.get().notifications !== false, attended, open: openBot });
 
+// Review aid: OPENDECK_THEME=light|dark captures a theme without changing the system's.
+if (process.env.OPENDECK_THEME === "light" || process.env.OPENDECK_THEME === "dark") nativeTheme.themeSource = process.env.OPENDECK_THEME;
+
 const themeMode = () => (nativeTheme.shouldUseDarkColors ? "dark" : "light");
 
 /** The shell's own channels (theme, updates) also answer the editors shown in a bot's computer. */
@@ -205,6 +208,11 @@ function captureAndQuit() {
   const delay = Number(process.env.OPENDECK_SHOT_DELAY) || 3500;
   win.show();
   setTimeout(async () => {
+    // OPENDECK_SHOT_JS: script in the page first (open a view, scroll), then wait a moment for it to draw.
+    if (process.env.OPENDECK_SHOT_JS) {
+      await win.webContents.executeJavaScript(process.env.OPENDECK_SHOT_JS).catch(() => {});
+      await new Promise((r) => setTimeout(r, 1500));
+    }
     const img = await win.webContents.capturePage();
     fs.writeFileSync(process.env.OPENDECK_SHOT, img.toPNG());
     quit();

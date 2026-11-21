@@ -443,11 +443,17 @@ export function createCrewServer(link: Link, opts: CrewOptions): McpServer {
     {
       title: "See an app window",
       description:
-        "See a desktop app you ran from your shell (a Flutter, Electron or other native app, or an emulator): list the open app windows, then capture one as an image you see. Use it to check your change looks right before you say it works, at two widths when layout matters. For web apps use your browser instead. Example: {action: \"list\"}, then {action: \"capture\", window: \"w2\", width: 1280}",
+        "See a desktop app you ran from your shell (a Flutter, Electron or other native app, or an emulator): list the open app windows, capture one as an image you see, then click, type or press keys in it to test it. x and y are pixels in your last capture's picture; capture again after each step to see the result. The first click, type or press in a run asks the person, since it moves their mouse. Use it to check your change works and looks right before you say so, at two widths when layout matters. For web apps use your browser instead. Example: {action: \"list\"}, then {action: \"capture\", window: \"w2\"}, then {action: \"click\", x: 412, y: 230}",
       inputSchema: {
-        action: z.enum(["list", "capture"]).describe("list the windows, or capture one"),
-        window: z.string().min(1).max(200).optional().describe("capture: a ref from list (w2) or part of the window's title"),
+        action: z.enum(["list", "capture", "click", "type", "press"]).describe("list the windows, capture one, or use the last captured one"),
+        window: z.string().min(1).max(200).optional().describe("capture: a ref from list (w2) or part of the window's title; click/type/press: optional, must be the last captured window"),
         width: z.number().int().min(320).max(1920).optional().describe("capture: the image width (default 1280)"),
+        x: z.number().optional().describe("click: pixels from the left of your last capture"),
+        y: z.number().optional().describe("click: pixels from the top of your last capture"),
+        button: z.enum(["left", "right"]).optional().describe("click: which button (default left)"),
+        double: z.boolean().optional().describe("click: true for a double click"),
+        text: z.string().max(2000).optional().describe("type: the text"),
+        key: z.string().max(40).optional().describe("press: Enter, Tab, Escape, Backspace, ArrowUp/Down/Left/Right, or Control+<letter>"),
       },
     },
     (args) => call("app_windows", args),
@@ -458,9 +464,9 @@ export function createCrewServer(link: Link, opts: CrewOptions): McpServer {
     {
       title: "Your team on a repo",
       description:
-        "Bots that work on the same repo as a team: a lead (roadmap and issues), builders (one issue each, on their own branch), a tester (runs the app, reports findings) and a reviewer (reviews pull requests). Your role's duties are in your instructions. Actions: show {name} (the team and roles); assign {name, bot, role} and unassign {name, bot} (the person approves); shipped {name?, limit?} (what the crew has pushed, opened and merged, newest first). Hand work to a teammate with message_bot. Example: {action: \"assign\", name: \"shop\", bot: \"builder-2\", role: \"builder\"}",
+        "Bots that work on the same repo as a team: a lead (roadmap and issues), builders (one issue each, on their own branch), a tester (runs the app, reports findings) and a reviewer (reviews pull requests). Your role's duties are in your instructions. Actions: show {name} (the team and roles); assign {name, bot, role} and unassign {name, bot} (the person approves); shipped {name?, limit?} (what the crew has pushed, opened and merged, newest first); publish {name} (writes the public part of the shipped log to docs/shipped.json in your repo, for a pull request: the site's Shipped page reads it). Hand work to a teammate with message_bot. Example: {action: \"assign\", name: \"shop\", bot: \"builder-2\", role: \"builder\"}",
       inputSchema: {
-        action: z.enum(["show", "assign", "unassign", "shipped"]).describe("what to do"),
+        action: z.enum(["show", "assign", "unassign", "shipped", "publish"]).describe("what to do"),
         name: z.string().min(1).max(64).optional().describe("the repo's name in your Files/Repos"),
         bot: z.string().min(1).max(64).optional().describe("assign and unassign: the bot's id"),
         role: z.enum(["lead", "builder", "tester", "reviewer"]).optional().describe("assign: the role"),

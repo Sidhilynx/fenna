@@ -1,8 +1,11 @@
 // Seeing the app a bot just ran. A Flutter, Electron, Qt or native window, or an
 // emulator, shows up as an ordinary window on the person's computer. The bot
 // lists those windows and captures one as a picture, so it sees what the person
-// sees. Crew's own windows never show up. Capture uses Electron's
-// desktopCapturer, which only draws a window that is on screen.
+// sees, then clicks, types and presses keys in it by the picture's pixels
+// (desktop-input.cjs). Crew's own windows never show up. Capture uses
+// Electron's desktopCapturer, which only draws a window that is on screen.
+
+const { handleOf } = require("./desktop-input.cjs");
 
 const OWN_NAME = "Fenna Crew";
 const OWN_PREFIX = "Fenna ";
@@ -24,10 +27,13 @@ function clampWidth(v) {
 /**
  * @param {object} o
  * @param {{ getSources: (opts: object) => Promise<Array<{ id: string, name: string, thumbnail: { isEmpty(): boolean, toPNG(): Buffer, getSize(): { width: number, height: number } } }>> } | null} o.desktopCapturer  Electron's desktopCapturer; null outside the Crew app
+ * @param {ReturnType<import("./desktop-input.cjs").createDesktopInput> | null} [o.input]  clicks and keys in a window; null: the bot can only look
  */
-function createAppWindows({ desktopCapturer }) {
+function createAppWindows({ desktopCapturer, input = null }) {
   // ref (w1, w2, ...) -> { id, name } from the last list. Reassigned by each list.
   let last = new Map();
+  // The last capture: its window and picture size, which clicks are measured in.
+  let shot = null;
 
   const need = () => {
     if (!desktopCapturer) throw new Error(NO_CAPTURER);
@@ -81,10 +87,44 @@ function createAppWindows({ desktopCapturer }) {
     const thumb = src.thumbnail;
     if (thumb.isEmpty()) throw new Error("That window is minimized or hidden. Bring it to the front and capture again.");
     const size = thumb.getSize();
+    shot = { id: src.id, name: src.name, width: size.width, height: size.height };
     return {
       text: `Captured "${src.name}" at ${size.width}×${size.height}.`,
       image: { data: thumb.toPNG().toString("base64"), mimeType: "image/png" },
     };
+  }
+
+  /** The window of the last capture, as desktop-input names it. Clicks and keys go only there. */
+  function target(query) {
+    if (!input) throw new Error("Clicking in app windows isn't available here.");
+    if (!shot) throw new Error("Capture the window first: clicks are measured in the picture you saw.");
+    const q = typeof query === "string" ? query.trim().toLowerCase() : "";
+    const ref = q && REF_RE.test(q) ? last.get(q) : null;
+    if (q && !(ref ? ref.id === shot.id : shot.name.toLowerCase().includes(q))) throw new Error(`Your last capture was "${shot.name}". Capture the window you want to use first.`);
+    return { title: shot.name, ...(handleOf(shot.id) ? { handle: handleOf(shot.id) } : {}) };
+  }
+
+  async function click(p) {
+    const t = target(p.window);
+    const x = Number(p.x);
+    const y = Number(p.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) throw new Error("Give x and y: the point in your last capture's picture, in its pixels.");
+    await input.click(t, { x: Math.round(x), y: Math.round(y), imageWidth: shot.width, imageHeight: shot.height, button: p.button === "right" ? "right" : "left", double: p.double === true });
+    return { text: `Clicked at ${Math.round(x)},${Math.round(y)} in "${shot.name}". Capture again to see what changed.` };
+  }
+
+  async function type(p) {
+    const text = typeof p.text === "string" ? p.text : "";
+    if (!text) throw new Error("Say the text to type.");
+    await input.type(target(p.window), text);
+    return { text: `Typed ${text.length} characters in "${shot.name}". Capture again to see what changed.` };
+  }
+
+  async function press(p) {
+    const key = typeof p.key === "string" ? p.key.trim() : "";
+    if (!key) throw new Error("Say the key, like Enter or Control+S.");
+    await input.press(target(p.window), key);
+    return { text: `Pressed ${key} in "${shot.name}". Capture again to see what changed.` };
   }
 
   return {
@@ -92,13 +132,18 @@ function createAppWindows({ desktopCapturer }) {
     list,
     /** A picture of one window: a ref from list, or part of its name. */
     capture,
-    /** The window tool: { action: "list" } or { action: "capture", window, width }. */
+    /** Whether an action moves the person's mouse or keyboard (the caller asks the person first). */
+    usesInput: (action) => action === "click" || action === "type" || action === "press",
+    /** The window tool: list, capture, and click, type or press in the last captured window. */
     async handle(ctx, p = {}) {
       need();
       const action = String(p.action ?? "");
       if (action === "list") return list();
       if (action === "capture") return capture({ window: p.window, width: p.width });
-      throw new Error(`Use the action list or capture, not "${action.slice(0, 20)}".`);
+      if (action === "click") return click(p);
+      if (action === "type") return type(p);
+      if (action === "press") return press(p);
+      throw new Error(`Use the action list, capture, click, type or press, not "${action.slice(0, 20)}".`);
     },
   };
 }

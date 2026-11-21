@@ -178,7 +178,42 @@ describe("handle", () => {
 
   it("refuses any other action in plain words", async () => {
     const aw = createAppWindows({ desktopCapturer: capturer(WINDOWS) });
-    await expect(aw.handle({}, { action: "click" })).rejects.toThrow('Use the action list or capture, not "click".');
-    await expect(aw.handle({}, {})).rejects.toThrow('Use the action list or capture, not "".');
+    await expect(aw.handle({}, { action: "drag" })).rejects.toThrow('Use the action list, capture, click, type or press, not "drag".');
+    await expect(aw.handle({}, {})).rejects.toThrow('Use the action list, capture, click, type or press, not "".');
+  });
+});
+
+describe("click, type and press in the last captured window", () => {
+  const input = () => ({ click: vi.fn(async () => {}), type: vi.fn(async () => {}), press: vi.fn(async () => {}) });
+  const SRC: Src[] = [{ id: "window:132456:0", name: "Flutter demo", thumbnail: thumb({ width: 1280, height: 960 }) }, { id: "window:777:0", name: "Notes", thumbnail: thumb() }];
+
+  it("needs a capture first, then measures clicks in that picture's pixels", async () => {
+    const io = input();
+    const aw = createAppWindows({ desktopCapturer: capturer(SRC), input: io });
+    await expect(aw.handle({}, { action: "click", x: 10, y: 10 })).rejects.toThrow(/Capture the window first/);
+    await aw.handle({}, { action: "capture", window: "Flutter" });
+    const r = await aw.handle({}, { action: "click", x: 640.4, y: 480, double: true });
+    expect(io.click).toHaveBeenCalledWith({ title: "Flutter demo", handle: "132456" }, { x: 640, y: 480, imageWidth: 1280, imageHeight: 960, button: "left", double: true });
+    expect(r.text).toMatch(/Capture again/);
+  });
+
+  it("types and presses keys in the captured window only", async () => {
+    const io = input();
+    const aw = createAppWindows({ desktopCapturer: capturer(SRC), input: io });
+    await aw.handle({}, { action: "capture", window: "Flutter" });
+    await aw.handle({}, { action: "type", text: "hello" });
+    await aw.handle({}, { action: "press", key: "Enter" });
+    expect(io.type).toHaveBeenCalledWith({ title: "Flutter demo", handle: "132456" }, "hello");
+    expect(io.press).toHaveBeenCalledWith({ title: "Flutter demo", handle: "132456" }, "Enter");
+    await expect(aw.handle({}, { action: "type", window: "Notes", text: "x" })).rejects.toThrow(/last capture was "Flutter demo"/);
+    await expect(aw.handle({}, { action: "click" })).rejects.toThrow(/Give x and y/);
+    await expect(aw.handle({}, { action: "type", text: "" })).rejects.toThrow(/Say the text/);
+  });
+
+  it("says when input isn't available, and which actions move the mouse", async () => {
+    const aw = createAppWindows({ desktopCapturer: capturer(SRC) });
+    await aw.handle({}, { action: "capture", window: "Flutter" });
+    await expect(aw.handle({}, { action: "click", x: 1, y: 1 })).rejects.toThrow(/isn't available here/);
+    expect(["click", "type", "press", "capture", "list"].map(aw.usesInput)).toEqual([true, true, true, false, false]);
   });
 });
