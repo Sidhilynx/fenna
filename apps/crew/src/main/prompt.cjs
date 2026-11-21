@@ -35,7 +35,20 @@ const localTime = (d) => `${DAYS[d.getDay()]} ${d.getFullYear()}-${pad(d.getMont
  * @param {Date} o.now
  * @param {(name: string) => boolean} [o.installed]  whether a granted connector is installed on this computer
  */
-function buildPrompt({ slug, bot, memory, library, watches = [], todos = [], others, team, trigger, text, earlier = "", from, files = [], now, installed = () => true, repos = [], teamNotes = "" }) {
+/** A meeting wake: what was said, and how the reply reaches the call. */
+function meetingAsk(text) {
+  return `You are in a video call and someone said your name, so Crew woke you. What was said since you last looked (time, speaker, words; "(chat)" lines were typed in the meeting chat):
+<call>
+${text}
+</call>
+Your final reply is posted to the meeting chat as it is, so write only what the call should read: plain text, short (one to three sentences), no markdown. Reply with only SKIP if nothing needs saying (they spoke about you, not to you). For work that takes longer (a doc, a sheet, research), say in one sentence that you are on it with meeting say, do it, then reply with the result. To show a document, meeting share with its folder name; the call sees your edits live. Don't call meeting say with your final reply too.`;
+}
+
+function buildPrompt({ slug, bot, memory, library, watches = [], todos = [], others, team, trigger, text, earlier = "", from, files = [], now, installed = () => true, repos = [], teamNotes = "", resumed = false }) {
+  // A call's session already has the rules: a wake sends only what is new, which keeps each answer fast and small.
+  if (trigger === "meeting" && resumed) return `${meetingAsk(text)}
+
+It is now ${localTime(now)}.`;
   const fenna = bot.connectors.filter((c) => c.type === "fenna");
   const granted = bot.connectors.filter((c) => c.type === "grant" && installed(c.name));
   const s = F.parseSchedule(bot.schedule);
@@ -72,6 +85,7 @@ function buildPrompt({ slug, bot, memory, library, watches = [], todos = [], oth
       ? `Repos: you have ${repos.map((r) => `Files/Repos/${r}`).join(", ")}, and your own tools (shell, read, edit) work in Files/Repos. For code work there: read before you change, make a branch of your own (fenna/<topic>), run the repo's own tests and build with its toolchain, commit, then push with repo and the person approves, and open a draft pull request with github. For a desktop app, run it and check it with app_windows. Say what you ran and what passed.${teamNotes ? `\n${teamNotes}` : ""}`
       : "Repos: when the person wants you to work on code, ask for the folder or URL and call repo link or clone.",
     bot.projects === "on" ? "Projects: write files in Files/Projects/<name> and run node, npm or npx there with command (background: true for a server). Check a background server with processes, and in your browser when it prints a localhost address." : "",
+    "Calls: to join a Google Meet call the person gives you, use the meeting tool once ({action: \"join\", url, note: what they want from you there}) and end your turn; Crew joins, keeps the transcript and wakes you when someone says your name, and once more when the call ends so you can finish the note's work from the transcript. Never use the browser tools on the call's tab.",
     "Save what you will need next time with remember (short facts, not the whole run).",
     "Pin sites you use often and documents you make to your desktop with the desktop tool, so the person can open them from there.",
     "You can build apps and tools for yourself in Files/Apps: the app tool's description says how. Test an app with app open, snapshot and click before you say it works, and take out anything your test added to its data so the person sees only real entries.",
@@ -108,6 +122,12 @@ ${earlier}
   }
   else if (trigger === "watch")
     out.push(`A watch you set fired, so Crew woke you. Each line is the watch's note, then what happened:\n<watch>\n${text}\n</watch>\nDo what your job and those notes call for, then finish with a short reply.`);
+  else if (trigger === "meeting") out.push(meetingAsk(text));
+  else if (trigger === "meeting_end") out.push(`The call you were in has ended:
+<call>
+${text}
+</call>
+Read the transcript with read_file and do what is left of what the person asked (notes, action items, a doc). This reply goes to the person, not to the call: say in a few sentences what you made.`);
   else if (trigger === "app") out.push(`An app on the person's computer sent you this message. Its title comes first, then the message:\n<app>\n${text}\n</app>\nAnswer what it needs; the person sees your reply in the app's bot chat.`);
   else out.push(`The person says:\n<message>\n${text}\n</message>`);
   return out.join("\n\n");

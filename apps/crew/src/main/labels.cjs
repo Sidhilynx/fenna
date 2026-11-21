@@ -57,6 +57,8 @@ const CREW = {
   export_file: (p) => `Saved a ${p.format === "csv" ? "CSV" : "Excel"} copy`,
   write_file: (p) => `Wrote ${short(String(p.path || "").split("/").pop(), 60)}`,
   edit_file: (p) => `Edited ${short(String(p.path || "").split("/").pop(), 60)}`,
+  meeting: (p) =>
+    p.action === "join" ? "Asked to join a call" : p.action === "share" ? `Shared ${p.document || "a document"} in the call` : p.action === "stop_sharing" ? "Stopped sharing" : p.action === "say" ? "Wrote in the call's chat" : p.action === "leave" ? "Left the call" : "Checked the call",
   watch: (p) => (p.action === "add" ? "Added a watch" : p.action === "remove" ? "Removed a watch" : "Looked at its watches"),
   todo: (p) => (p.action === "list" ? "Looked at its to-do list" : "Updated the to-do list"),
   command: (p) => `Ran ${short(p.command, 60)}${p.background ? " in the background" : ""}`,

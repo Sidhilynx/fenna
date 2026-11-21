@@ -38,6 +38,7 @@ const { createTeamChat } = require("./team-chat.cjs");
 const { createWatches } = require("./watches.cjs");
 const { createDisk, freeOnDrive } = require("./disk.cjs");
 const { createNotices } = require("./notices.cjs");
+const { createMeetings } = require("./meetings.cjs");
 const { createShell } = require("./shell.cjs");
 const { createSearch } = require("./search.cjs");
 const { createFiles } = require("./files.cjs");
@@ -224,6 +225,7 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
       if (logins) logins.endRun(runId);
       if (projects) projects.endRun(runId);
       watches.runEnded();
+      meetings.runEnded();
     },
     emitLive: (slug, runId, event) => {
       broadcast("crew:event", { slug, runId, event });
@@ -250,7 +252,24 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
   const github = createGithub({ approve });
   const appWindows = createAppWindows({ desktopCapturer: electron ? electron.desktopCapturer : null, input: electron ? createDesktopInput() : null });
   const watches = createWatches({ store, runner, browsers, broadcast, onFire: (slug, w, what) => notices.add(slug, { kind: w.kind === "timer" ? "reminder" : "watch", title: w.note, body: what }) });
-  handle = createHandlers({ store, runner, waits, approve, browsers, gateway, appHost, logins, onChange, onDesktop, watches, search, files, shell, projects, repos, github, teams, appWindows, disk, usage });
+  /** The screen-share stage; main.cjs sets it once the editors are registered. */
+  let stage = null;
+  const meetings = createMeetings({
+    store,
+    runner,
+    browsers,
+    stage: {
+      start(...args) {
+        if (!stage) throw new Error("Screen sharing isn't ready yet. Try again in a moment.");
+        return stage.start(...args);
+      },
+    },
+    broadcast,
+    onChange,
+    extraOrigins: String(process.env.OPENDECK_MEET_ORIGINS || "").split(",").map((s) => s.trim()).filter(Boolean),
+  });
+  const handleRest = createHandlers({ store, runner, waits, approve, browsers, gateway, appHost, logins, onChange, onDesktop, watches, search, files, shell, projects, repos, github, teams, appWindows, disk, usage });
+  handle = (ctx, method, params) => (method === "meeting" ? meetings.act(ctx, params || {}) : handleRest(ctx, method, params));
   const scheduler = createScheduler({ store, runner });
   const teamChat = createTeamChat({ store, runner, onChange });
   views = createViews({ store, runner, waits, scheduler, browsers, settings, offers: () => offerViews() });
@@ -346,6 +365,10 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
   }
 
   return {
+    meetings,
+    setStage(s) {
+      stage = s;
+    },
     notices,
     appHost,
     apps,
@@ -616,6 +639,7 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
       shell.flush();
       notices.flush();
       runner.stopAll();
+      meetings.stopAll();
       projects.killAll();
       browsers.closeAll();
       link.close();

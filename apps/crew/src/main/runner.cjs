@@ -90,7 +90,7 @@ function createRunner({ store, startRun, serversFor, link, waits, emitLive, onCh
   }
 
   /**
-   * Queue a run. trigger: person | schedule | bot | welcome | watch | compact. A hand-off
+   * Queue a run. trigger: person | schedule | bot | welcome | watch | compact | app | meeting. A hand-off
    * (trigger "bot") carries the chain it belongs to. `manual`: the person pressed Run (counted apart from the schedule). `chat` picks the chat; by default the
    * person's own messages go to their current chat and everything else to the runs chat.
    * `attachments` (saved in Files/Inbox, see attachments.cjs) are listed in the message and logged with the run; `images` go to the CLI on this turn.
@@ -205,6 +205,7 @@ function createRunner({ store, startRun, serversFor, link, waits, emitLive, onCh
       installed,
       repos: repoNames(run.slug),
       teamNotes: teamNotes(run.slug),
+      resumed: !!sessionId,
     });
     if (!run.token) run.token = link.issue({ slug: run.slug, runId: run.runId, team: run.team, chain: run.chain });
     try {

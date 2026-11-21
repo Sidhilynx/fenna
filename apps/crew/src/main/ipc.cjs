@@ -94,6 +94,7 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
   handle("crew:delete", async (_e, slug) => {
     slugArg(slug);
     runner.stop(slug);
+    crew.meetings.forget(slug);
     browsers.close(slug);
     crew.logins.forget(slug);
     crew.watches.forget(slug);
@@ -412,13 +413,19 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
     if (!["back", "forward", "reload", "stop"].includes(what)) throw new Error('Go "back", "forward", "reload" or "stop".');
     return browsers.history(slugArg(slug), what);
   });
+  // The bots in calls, and the person's buttons on a call: leave, stop sharing.
+  handle("crew:meetings", () => crew.meetings.list());
+  handle("crew:meeting", (_e, slug, action) => {
+    if (action !== "leave" && action !== "stop_sharing") throw new Error('A call action is "leave" or "stop_sharing".');
+    return crew.meetings.person(slugArg(slug), action);
+  });
   handle("crew:mute", (_e, slug, tab, muted) => {
     if (tab !== null && !Number.isInteger(tab)) throw new Error("Say which tab, or null for every tab.");
     return browsers.setMuted(slugArg(slug), tab, muted === true);
   });
   // The person closed the browser window: close its tabs too, unless the bot is using them now. Sign-ins stay (the session persists).
   handle("crew:closeBrowser", (_e, slug) => {
-    if (runner.running(slugArg(slug))) return false;
+    if (runner.running(slugArg(slug)) || crew.meetings.list().some((m) => m.slug === slug)) return false;
     browsers.close(slug);
     // Watches listen through the bot's tabs: their sites open again in the background.
     crew.watches.rearm(slugArg(slug));

@@ -16,6 +16,7 @@ const { createNotifier } = require("./notify.cjs");
 const { createSandbox } = require("./sandbox.cjs");
 const { registerNoticesIpc } = require("./notices.cjs");
 const { createEditors, editorSchemes } = require("./editors.cjs");
+const { createStage } = require("./stage.cjs");
 const F = require("./format.cjs");
 
 /**
@@ -298,6 +299,7 @@ async function start() {
   registerNoticesIpc({ ipcMain, assertSender, store: crew.store, watches: crew.watches, notices: crew.notices });
   editors = createEditors({ getWin: () => win, libraryDir: (slug) => path.join(crew.store.botDir(slug), "library"), userData: app.getPath("userData"), crew });
   editors.register({ ipcMain, dialog, app, protocol, net, preload: PRELOAD });
+  crew.setStage(createStage({ editors, preload: PRELOAD }));
   ipcMain.handle("crew:editor", (e, slug, item, webContentsId) => {
     assertSender(e);
     if (!F.isSlug(slug) || !crew.store.readBot(slug)) throw new Error("That bot isn't there any more.");

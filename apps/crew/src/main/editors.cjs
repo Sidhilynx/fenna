@@ -288,6 +288,55 @@ function createEditors({ getWin, libraryDir, userData, crew = null }) {
       src.hash = "embed";
       return { src: src.href, kind, title };
     },
+
+    /**
+     * A library document in a hidden offscreen window of its own, for a
+     * meeting's screen share (stage.cjs). The window gets the same folder
+     * API as an editor webview, and the bot's edits land in it live.
+     * @returns {{ win: Electron.BrowserWindow, kind: string, title: string, root: string, close: () => void }}
+     */
+    openStage(slug, item, { width, height, preload }) {
+      if (typeof item !== "string" || !ITEM_RE.test(item) || item.startsWith(".")) throw new Error(`"${item}" is not a document in your Documents. Give its folder name, like "standup-notes".`);
+      const root = path.join(libraryDir(slug), item);
+      const kind = fs.existsSync(root) ? detectProductKind(root) : null;
+      if (!kind || !KINDS.includes(kind)) throw new Error(`There is no document "${item}" in your Documents.`);
+      const { BrowserWindow } = require("electron");
+      const win = new BrowserWindow({
+        show: false,
+        width,
+        height,
+        useContentSize: true,
+        webPreferences: { offscreen: true, preload, sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false },
+      });
+      const wc = win.webContents;
+      wc.setWindowOpenHandler(() => ({ action: "deny" }));
+      wc.on("will-navigate", (e, url) => {
+        if (!isEditorUrl(url)) e.preventDefault();
+      });
+      all[kind].setRoot(wc, root);
+      const untrust = all[kind].trust(wc);
+      const title = titleOf(root, kind) || item;
+      const undo = () => {
+        untrust();
+        all[kind].setRoot(wc, null);
+      };
+      bound.set(wc.id, { slug, item, kind, root, title, undo });
+      const id = wc.id;
+      wc.once("destroyed", () => {
+        undo();
+        bound.delete(id);
+      });
+      void win.loadFile(editorPage(kind), { hash: "embed" }).catch(() => {});
+      return {
+        win,
+        kind,
+        title,
+        root,
+        close: () => {
+          if (!win.isDestroyed()) win.destroy();
+        },
+      };
+    },
   };
 }
 

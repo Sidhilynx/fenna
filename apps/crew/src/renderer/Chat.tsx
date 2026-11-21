@@ -5,8 +5,8 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { CLI_NAMES, RUNS_CHAT, type Avatar as AvatarId, type AvatarColor } from "@opendeck/crew";
 import { MenuButton, toast, type MenuEntry } from "@opendeck/shell";
-import { errorText, invoke } from "../shared/api.ts";
-import type { BotSummary, ChatSummary, LibraryItem, Waiting } from "../shared/contract.ts";
+import { errorText, invoke, on } from "../shared/api.ts";
+import type { BotSummary, ChatSummary, LibraryItem, MeetingView, Waiting } from "../shared/contract.ts";
 import { ApprovalCard, AskCard } from "./Cards.tsx";
 import { Avatar } from "./Avatar.tsx";
 import { PendingFiles, SendingFiles, SentFiles, pickFiles, usePreviews } from "./AttachChips.tsx";
@@ -516,6 +516,47 @@ function ChatHead({ bot, viewing, onView, onPanel }: { bot: BotSummary; viewing:
   );
 }
 
+const CALL_STATE: Record<MeetingView["state"], string> = { joining: "Joining a call", waiting: "Waiting to be let in", incall: "In a call", ended: "Left the call" };
+
+/** The bot's call, if it is in one: where it is, and the person's Stop sharing and Leave. */
+function CallStrip({ slug }: { slug: string }) {
+  const [call, setCall] = useState<MeetingView | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let live = true;
+    void invoke("crew:meetings").then((list) => live && setCall(list.find((m) => m.slug === slug) ?? null), () => undefined);
+    const off = on("crew:meeting", (p) => p.slug === slug && setCall(p.meeting));
+    return () => {
+      live = false;
+      off();
+    };
+  }, [slug]);
+  if (!call) return null;
+  const act = (action: "leave" | "stop_sharing") => {
+    setBusy(true);
+    invoke("crew:meeting", slug, action).then(
+      (m) => setCall(m),
+      (e) => toast(errorText(e)),
+    ).finally(() => setBusy(false));
+  };
+  const facts = [call.code, call.people !== null ? `${call.people} ${call.people === 1 ? "person" : "people"}` : "", call.sharing ? `Sharing ${call.sharing}` : ""].filter(Boolean);
+  return (
+    <div className="call-strip" role="status">
+      <span className="call-state">{CALL_STATE[call.state]}</span>
+      <span className="call-facts ell">{facts.join(" · ")}</span>
+      <span className="grow" />
+      {call.sharing && (
+        <button type="button" className="btn small ghost" disabled={busy} onClick={() => act("stop_sharing")}>
+          Stop sharing
+        </button>
+      )}
+      <button type="button" className="btn small" disabled={busy} onClick={() => act("leave")}>
+        Leave
+      </button>
+    </div>
+  );
+}
+
 export function Chat({ slug }: { slug: string }) {
   const { overview } = useCrew();
   const bot = botOf(overview, slug);
@@ -545,6 +586,7 @@ export function Chat({ slug }: { slug: string }) {
       <main className="main chat px-host">
         <PixelField density={1.2} alpha={0.28} glitch={0.03} />
         <ChatHead bot={bot} viewing={viewing} onView={view} onPanel={panel ? undefined : () => setPanel(true)} />
+        <CallStrip slug={slug} />
         <Messages bot={bot} chat={viewing} waiting={waitingFor(overview, slug)} pending={pending} runState={runState} library={detail?.library} />
         <BrainNotice bot={bot} />
         <Composer name={bot.name} running={bot.running || bot.queued} onSend={send} attachable onStop={() => void invoke("crew:stop", slug).catch(() => undefined)} />

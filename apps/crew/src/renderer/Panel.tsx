@@ -207,7 +207,7 @@ function Library({ bot, detail, loadError }: { bot: BotSummary; detail: BotDetai
   );
 }
 
-const TRIGGER_LABEL: Record<RunSummary["trigger"], string> = { person: "You asked", schedule: "Schedule", bot: "Another bot", watch: "Watch", welcome: "Welcome", compact: "Compact", app: "App" };
+const TRIGGER_LABEL: Record<RunSummary["trigger"], string> = { person: "You asked", schedule: "Schedule", bot: "Another bot", watch: "Watch", welcome: "Welcome", compact: "Compact", app: "App", meeting: "Call", meeting_end: "Call ended" };
 const OUTCOME_LABEL: Record<RunSummary["outcome"], string> = { done: "Done", error: "Failed", stopped: "Stopped", running: "Running" };
 
 /** The bot's apps: open one, review what it asks for, or take back what was allowed. */
