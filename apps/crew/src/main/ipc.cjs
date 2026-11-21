@@ -2,9 +2,11 @@
 // checked here; errors reject with a message the page can show as it is.
 
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const { assistantCatalog } = require("@opendeck/shell/main/agent.cjs");
 const F = require("./format.cjs");
+const { MAX_FACT, MAX_FACTS, MEMORY_PROMPT, parseMemory, readMemoryFiles, scanMemoryFiles } = require("./memimport.cjs");
 const { searchRegistry } = require("./registry.cjs");
 const { chatFileName, chatMarkdown } = require("./store.cjs");
 const { createSiteIcons, originOf } = require("./siteicons.cjs");
@@ -13,6 +15,7 @@ const { checkAttachments, forRun } = require("./attachments.cjs");
 const { createTransfer } = require("./transfer.cjs");
 
 const MAX_MESSAGE = 20_000;
+const MAX_PASTE = 200_000;
 const USAGE_DETAILS_URL = "https://github.com/Sidhilynx/fenna/blob/main/PRIVACY.md#usage-counts";
 
 const str = (v, what, max = 200) => {
@@ -501,6 +504,44 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
   handle("crew:runStats", (_e, range) => {
     if (range !== undefined && !["7d", "30d", "12w"].includes(range)) throw new Error('The range is "7d", "30d" or "12w".');
     return crew.runStats.get(range || "30d");
+  });
+
+  // Memory from other AI tools (memimport.cjs). Nothing here sends anything anywhere;
+  // a file is read only when the person ticked it, by an id from a fresh scan.
+  handle("crew:memoryPrompt", () => MEMORY_PROMPT);
+  handle("crew:memoryParse", (_e, text) => {
+    if (typeof text !== "string") throw new Error("Paste the answer from the other assistant.");
+    if (text.length > MAX_PASTE) throw new Error(`That is ${text.length} characters; the most is ${MAX_PASTE}. Paste only the FENNA-MEMORY block.`);
+    return parseMemory(text);
+  });
+  handle("crew:memoryScan", () => scanMemoryFiles(os.homedir()));
+  handle("crew:memoryRead", (_e, ids) => {
+    if (!Array.isArray(ids) || ids.length > 20 || !ids.every((id) => typeof id === "string" && id.length <= 300)) throw new Error("Pick the memory files to read.");
+    return readMemoryFiles(os.homedir(), ids);
+  });
+  handle("crew:memoryImport", (_e, slugs, groups) => {
+    if (!Array.isArray(slugs) || !slugs.length) throw new Error("Pick a bot to add the memory to.");
+    if (!Array.isArray(groups)) throw new Error("Nothing to add.");
+    const known = new Set(store.slugs());
+    const missing = slugs.find((s) => !known.has(s));
+    if (missing !== undefined) throw new Error(`"${String(missing).slice(0, 60)}" is not one of your bots.`);
+    let total = 0;
+    const clean = groups.map((g) => {
+      if (!g || typeof g.source !== "string" || !g.source.trim() || !Array.isArray(g.facts)) throw new Error("Each group needs a source and its facts.");
+      total += g.facts.length;
+      return {
+        source: g.source.trim().slice(0, 80),
+        facts: g.facts.map((f) => {
+          if (!f || typeof f.text !== "string" || !f.text.trim()) throw new Error("A fact is empty. Remove it or write it.");
+          if (f.text.trim().length > MAX_FACT) throw new Error(`A fact is ${f.text.trim().length} characters; the most is ${MAX_FACT}. Shorten it.`);
+          return { category: typeof f.category === "string" ? f.category : "other", text: f.text };
+        }),
+      };
+    });
+    if (total === 0) throw new Error("Nothing to add. Tick at least one fact.");
+    if (total > MAX_FACTS) throw new Error(`${total} facts is more than ${MAX_FACTS}. Untick some.`);
+    const bots = [...new Set(slugs)].map((slug) => ({ slug, ...store.importMemory(slug, clean) }));
+    return { bots };
   });
 }
 

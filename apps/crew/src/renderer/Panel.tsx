@@ -11,6 +11,7 @@ import { errorText, invoke, on } from "../shared/api.ts";
 import type { BotDetail, BotSummary, RunSummary } from "../shared/contract.ts";
 import { BrainPicker } from "./BrainPicker.tsx";
 import { DeleteBotDialog } from "./DeleteBot.tsx";
+import { ImportMemoryDialog } from "./ImportMemory.tsx";
 import { DiskSize } from "./DiskSize.tsx";
 import { FaceButton } from "./FacePicker.tsx";
 import { Grants, LoginGrants } from "./Grants.tsx";
@@ -505,6 +506,7 @@ function Details({ bot, detail, setDetail, loadError }: { bot: BotSummary; detai
 function Advanced({ bot, detail, setDetail, loadError }: { bot: BotSummary; detail: BotDetail | null; setDetail(d: BotDetail): void; loadError: string }) {
   const { save, error, saved } = useSaver(bot, setDetail);
   const [deleting, setDeleting] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   if (!detail) return <p className="hint">{loadError || "Loading"}</p>;
   const cfg = detail.bot;
@@ -566,6 +568,11 @@ function Advanced({ bot, detail, setDetail, loadError }: { bot: BotSummary; deta
         ) : (
           <p className="hint">Nothing yet.</p>
         )}
+        <div className="dsec-acts">
+          <button type="button" className="btn" onClick={() => setImporting(true)}>
+            Import memory
+          </button>
+        </div>
       </Section>
 
       <Section title="Runs">
@@ -590,6 +597,14 @@ function Advanced({ bot, detail, setDetail, loadError }: { bot: BotSummary; deta
       </div>
 
       {deleting && <DeleteBotDialog bot={bot} onClose={() => setDeleting(false)} />}
+      {importing && (
+        <ImportMemoryDialog
+          bots={[bot]}
+          fixed={bot}
+          onDone={() => void invoke("crew:bot", bot.slug).then(setDetail, () => undefined)}
+          onClose={() => setImporting(false)}
+        />
+      )}
     </div>
   );
 }

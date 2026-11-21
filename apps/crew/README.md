@@ -37,6 +37,7 @@ Teams are shown to people as group chats; the data stays `team`. A message to on
 | `store.cjs` | The crew on disk, `<userData>/Crew/bots/<slug>/…` and `teams/<slug>/…`; atomic writes |
 | `runner.cjs` | Runs: one per bot, at most 2 at once (hand-offs from a running bot don't count), a queue, run logs, sessions resumed, a lost session retried fresh once, 30-minute limit |
 | `prompt.cjs` | What a bot is told each run (job, how, rules, ask-before list, memory, library, the crew, team, why it woke) |
+| `memimport.cjs` | Memory from other AI tools: the prompt to paste elsewhere, the parser (FENNA-MEMORY blocks, Markdown, memory exports; secret-looking lines left out), the memory files this computer's CLIs keep (read only when ticked), and the dated append to memory.md that skips what is already there |
 | `handlers.cjs` | What the crew MCP server asks for: questions, approvals, hand-offs (max 6 per message, no cycles; files copied for a hand-off, all or nothing), create_bot (approved first), memory, status; browser and gateway requests passed on |
 | `waits.cjs` | Questions and approvals waiting on the person; 15-minute timeout; cancelled when a run stops |
 | `link.cjs` | The local named pipe / unix socket the MCP servers reach the app on; a secret token per run |
@@ -124,6 +125,11 @@ Electron's prefix).
 | `crew:settings` | | `Settings` | `openAtLogin`, `notifications`, `maxConcurrent`, `defaultCli`, `defaultModel`, `defaultEffort`, plus read-only `storagePath` and `vaultEncrypted`. |
 | `crew:setSettings` | `Partial<Settings>` | `Settings` | Only `openAtLogin` and `notifications` (booleans), `maxConcurrent` (whole number 1 to 4, read when Crew starts), `defaultCli` (one of the CLI kinds) and `defaultModel` / `defaultEffort` (text, at most 100). Any other key rejects with the list of settings. `openAtLogin` is not on Linux (rejects with why). |
 | `crew:clis` | fresh? | `CliStatus[]` | Installed, signed in, models and efforts for the brain picker. |
+| `crew:memoryPrompt` | | `string` | The prompt the person pastes into another assistant (asks for a `FENNA-MEMORY v1` block). Nothing is sent. |
+| `crew:memoryParse` | text | `MemoryParse` | Facts from pasted text or a chosen file: `format` (fenna, json, text, empty), `facts` (category, text; at most 300, 500 characters each), `secretsLeftOut`, `tooMany`. Nothing is written. Rejects over 200,000 characters. |
+| `crew:memoryScan` | | `MemorySource[]` | The memory files that exist on this computer: `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, `~/.gemini/GEMINI.md`, `~/.claude/projects/*/memory/*.md`. Id, group, label, path, size. Nothing is read. |
+| `crew:memoryRead` | ids (from `crew:memoryScan`, at most 20) | `MemoryRead[]` | Reads only the ticked files, by id from a fresh scan (a path from the page is never read). Each file: source label, parsed facts, or an `error`. Files over 1 MB are refused. |
+| `crew:memoryImport` | slugs, `MemoryImportGroup[]` (source, facts) | `{ bots: { slug, added, skipped }[] }` | Appends the approved facts to each bot's memory.md under `## Imported <date> (from <source>)`, as `- fact` lines, skipping any already there. Rejects with what to fix (unknown bot, nothing to add, over 300 facts, a fact over 500 characters). |
 
 ### Events (`on`)
 
