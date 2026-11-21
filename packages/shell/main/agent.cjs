@@ -23,6 +23,7 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const { parseLocalId, probe, discover } = require("./local-models.cjs");
 
 const KINDS = ["claude", "codex", "antigravity"];
 const NAMES = { claude: "Claude Code", codex: "Codex", antigravity: "Antigravity" };
@@ -519,6 +520,19 @@ function codexAppServer(file) {
 const version = (out) => (/\d+\.\d+\.\d+/.exec(out) || [null])[0];
 const catalogCache = new Map();
 
+/** The models Ollama and LM Studio serve on this computer, for Codex's list ("On this computer"). */
+async function localModelsOf() {
+  const found = await discover().catch(() => []);
+  return found.map((m) => ({
+    value: m.id,
+    label: m.name,
+    description: "",
+    efforts: [],
+    defaultEffort: null,
+    local: { provider: m.provider, sizeBytes: m.sizeBytes, paramsB: m.paramsB },
+  }));
+}
+
 async function catalogOf(kind, { fresh = false } = {}) {
   const cached = catalogCache.get(kind);
   if (!fresh && cached && Date.now() - cached.at < CATALOG_TTL_MS) return cached.value;
@@ -526,7 +540,7 @@ async function catalogOf(kind, { fresh = false } = {}) {
   const base = { kind, name: NAMES[kind], own: !!file && file === ownBinary(kind) };
   let value;
   if (!file) {
-    value = { ...base, installed: false, version: null, signedIn: false, apiKey: false, account: null, models: [], accountMode: "computer" };
+    value = { ...base, installed: false, version: null, signedIn: false, apiKey: false, account: null, models: kind === "codex" ? await localModelsOf() : [], accountMode: "computer" };
   } else if (kind === "claude") {
     const s = await runQuiet(file, ["auth", "status"], { env: envFor("claude") });
     let status = null;
@@ -587,7 +601,7 @@ async function catalogOf(kind, { fresh = false } = {}) {
       /* leave what we have */
     }
     srv.close();
-    value = { ...base, installed: true, version: version(v.out), signedIn, apiKey: false, account, models, accountMode: "own" };
+    value = { ...base, installed: true, version: version(v.out), signedIn, apiKey: false, account, models: [...models, ...(await localModelsOf())], accountMode: "own" };
   } else {
     const v = await runQuiet(file, ["--version"], { env: envFor("antigravity") });
     const m = await runQuiet(file, ["models"], { env: envFor("antigravity"), timeoutMs: 30_000 });
@@ -825,8 +839,15 @@ function argsFor(profile, kind, { sessionId, model, effort, root, images, server
       if (img && img.path) opts.push("-i", img.path);
     }
   }
-  if (model) opts.push("-m", model);
-  if (effort) opts.push("-c", `model_reasoning_effort=${toml(effort)}`);
+  // A local model (local:ollama/<name>, local:lmstudio/<name>) runs on Codex's own provider for that server.
+  // `--oss` isn't used: Codex 0.166 refuses its turn with "modelProviderMismatch" when it's given, while the
+  // provider override works for exec and exec resume alike and needs no sign-in. Efforts don't apply to it.
+  const local = parseLocalId(model);
+  if (local) opts.push("-c", `model_provider=${toml(local.provider)}`, "-m", local.name);
+  else {
+    if (model) opts.push("-m", model);
+    if (effort) opts.push("-c", `model_reasoning_effort=${toml(effort)}`);
+  }
   return sessionId ? ["exec", "resume", ...opts, sessionId, "-"] : ["exec", ...opts, "-"];
 }
 
@@ -1015,9 +1036,25 @@ function makeParser(profile, kind, emit, { raw = false } = {}) {
   };
 }
 
+const LOCAL_DOWN = {
+  ollama: "Ollama isn’t running. Start it, then try again.",
+  lmstudio: "LM Studio’s server isn’t running. Start it in LM Studio, then try again.",
+};
+
+/** The local server a model runs on ("ollama" or "lmstudio"), or null for the CLI's own models. */
+const localProviderOf = (model) => {
+  const local = parseLocalId(model);
+  return local ? local.provider : null;
+};
+
 /** Plain words for the errors people actually hit, and what would fix it. */
-function friendly(kind, raw) {
+function friendly(kind, raw, localProvider = null) {
   const t = String(raw || "");
+  // A local model's server that isn't running: Codex reports the failed connection, not what it was for.
+  if (/ECONNREFUSED|refused|error sending request|connection failed/i.test(t)) {
+    const down = /:11434\b/.test(t) ? "ollama" : /:1234\b/.test(t) ? "lmstudio" : localProvider;
+    if (down) return { message: LOCAL_DOWN[down], fix: null };
+  }
   if (/not (signed|logged) in|login|unauthor|401|auth/i.test(t)) return { message: `${NAMES[kind]} needs you to sign in again.`, fix: "signin" };
   if (/rate.?limit|quota|429|usage limit/i.test(t)) return { message: `${NAMES[kind]} hit its usage limit. Try again later or pick another assistant.`, fix: null };
   if (/ENOENT|not found/i.test(t)) return { message: `${NAMES[kind]} isn’t installed on this computer.`, fix: "install" };
@@ -1032,11 +1069,25 @@ const findCli = (kind) => {
 let locate = findCli;
 
 /** Spawn a CLI for one turn and pass its events to emit. */
-function launch({ profile, kind, runId, emit, args, cwd, env, input, raw = false, cleanup = () => {}, wrap = null }) {
-  const fail = (rawError) => emit({ type: "error", ...friendly(kind, rawError) });
+function launch({ profile, kind, runId, emit, args, cwd, env, input, raw = false, cleanup = () => {}, wrap = null, localProvider = null, served = false }) {
+  const fail = (rawError) => emit({ type: "error", ...friendly(kind, rawError, localProvider) });
   const cmd = locate(kind);
   if (!cmd) {
     setTimeout(() => fail("ENOENT"), 0);
+    return;
+  }
+  // Codex retries a local server that isn't answering for minutes, so a local model's run asks it first.
+  // A stop meanwhile ends the run before it starts.
+  if (localProvider && !served) {
+    const waiting = { child: null, kind, stopped: false };
+    runs.set(runId, waiting);
+    void probe(localProvider, 3000).then((json) => {
+      runs.delete(runId);
+      if (json && !waiting.stopped) return launch({ profile, kind, runId, emit, args, cwd, env, input, raw, cleanup, wrap, localProvider, served: true });
+      cleanup();
+      if (waiting.stopped) emit({ type: "stopped" });
+      else fail("ECONNREFUSED");
+    });
     return;
   }
   // A coding run may run the whole CLI inside the OS sandbox the caller chose.
@@ -1089,7 +1140,7 @@ function start(profile, sender, { kind, model, effort, text, context, sessionId,
   }
   const savedImages = saveImages(images);
   const args = argsFor(profile, kind, { sessionId, model, effort, root, images: savedImages });
-  launch({ profile, kind, runId, emit, args, cwd: workDir("work"), env: envFor(kind), input: inputFor(kind, promptFor(profile, text, context, !sessionId, savedImages), savedImages) });
+  launch({ profile, kind, runId, emit, args, cwd: workDir("work"), env: envFor(kind), input: inputFor(kind, promptFor(profile, text, context, !sessionId, savedImages), savedImages), localProvider: localProviderOf(model) });
   return runId;
 }
 
@@ -1151,6 +1202,7 @@ function startRun({ kind, prompt, cwd, servers, trusted, permissionTool, home, c
     env: { ...envFor(kind, { home: agyHomeDir }), ...env, ...(coding ? coding.env : {}) },
     input: inputFor(kind, prompt, images),
     wrap: coding && typeof coding.wrap === "function" ? coding.wrap : null,
+    localProvider: localProviderOf(model),
     cleanup: () => {
       if (cfg) fs.rmSync(cfg, { force: true });
     },

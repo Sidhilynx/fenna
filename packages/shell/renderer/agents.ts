@@ -9,6 +9,7 @@ import claudeLogo from "./assets/agents/claude.png";
 import codexLogo from "./assets/agents/codex.png";
 import geminiLogo from "./assets/agents/gemini.png";
 import { bridge } from "./bridge.ts";
+import type { MenuEntry } from "./ui/Menu.tsx";
 
 export type AgentKind = "claude" | "codex" | "antigravity";
 export const AGENT_KINDS: readonly AgentKind[] = ["claude", "codex", "antigravity"];
@@ -46,6 +47,60 @@ export interface AgentModel {
   description: string;
   efforts: string[];
   defaultEffort: string | null;
+  /** A model this computer serves (Ollama, LM Studio), run through Codex; its value is `local:<provider>/<name>`. */
+  local?: LocalModel;
+}
+
+export interface LocalModel {
+  provider: "ollama" | "lmstudio";
+  sizeBytes: number | null;
+  paramsB: number | null;
+}
+
+export const isLocalModel = (value: string): boolean => value.startsWith("local:");
+
+/** Under this many billions of parameters, a local model often can't use tools well. */
+const SMALL_MODEL_B = 7;
+export const SMALL_MODEL_NOTE = "Small models often fail at tool use. 7B or larger works better.";
+export const NEEDS_CODEX = "Local models run through Codex. Install Codex first.";
+const PROVIDER_NAMES: Record<LocalModel["provider"], string> = { ollama: "Ollama", lmstudio: "LM Studio" };
+
+export const isSmallModel = (m: AgentModel): boolean => !!m.local && m.local.paramsB !== null && m.local.paramsB < SMALL_MODEL_B;
+
+/** "5.2 GB", "690 MB"; empty when the size isn't known. */
+export function formatSize(bytes: number | null): string {
+  if (bytes === null) return "";
+  return bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : `${Math.round(bytes / 1e6)} MB`;
+}
+
+/** A local model's line in a menu: its server, its size, its parameters. */
+export function localHint(m: AgentModel): string {
+  if (!m.local) return "";
+  const { provider, paramsB, sizeBytes } = m.local;
+  return [PROVIDER_NAMES[provider], paramsB !== null ? `${paramsB}B` : "", formatSize(sizeBytes)].filter(Boolean).join(" · ");
+}
+
+/** A model's name as a person reads it: a local one names its server ("qwen3:8b (Ollama)"). */
+export function modelText(value: string): string {
+  const m = /^local:(ollama|lmstudio)\/(.+)$/.exec(value);
+  return m ? `${m[2]} (${PROVIDER_NAMES[m[1] as LocalModel["provider"]]})` : value;
+}
+
+/**
+ * The "On this computer" group of a model menu: a separator, a heading, and a row per local model.
+ * Empty when there are none. Without Codex installed the rows say what it needs.
+ */
+export function localMenuEntries(
+  models: AgentModel[],
+  { installed, checked, onSelect }: { installed: boolean; checked(m: AgentModel): boolean; onSelect(m: AgentModel): void },
+): MenuEntry[] {
+  const local = models.filter((m) => m.local);
+  if (!local.length) return [];
+  return [
+    "separator",
+    { heading: "On this computer" },
+    ...local.map((m) => ({ label: m.label, hint: installed ? localHint(m) : NEEDS_CODEX, checked: checked(m), onSelect: () => onSelect(m) })),
+  ];
 }
 
 /** Everything known about one CLI on this computer. */

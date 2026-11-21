@@ -11,7 +11,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AgentChoice, AgentLogo, AgentSetup, Logo, accountEntries, statusWord } from "./AgentSetup.tsx";
-import { type AgentEvent, type AgentKind, type AttachedImage, AGENTS, AGENT_KINDS, agent, effortLabel, modelLogo } from "./agents.ts";
+import { type AgentEvent, type AgentKind, type AttachedImage, AGENTS, AGENT_KINDS, agent, effortLabel, isSmallModel, localMenuEntries, modelLogo, SMALL_MODEL_NOTE } from "./agents.ts";
 import { type Chat, type ChatBook, type ChatItem, activeChat, addChat, chatTitle, closeChat, parseChats, reorderChats, showChat, updateChat } from "./chats.ts";
 import { ChatTabs } from "./ChatTabs.tsx";
 import { relativeTime } from "./homeText.ts";
@@ -249,10 +249,10 @@ export function ChatPanel({ noun, view, suggestions, intro, placeholder, draft: 
   const chat: Chat | null = book ? activeChat(book) : null;
   // Who answers: this chat's choice, else the one picked last time; none yet means the user picks.
   const kind: AgentKind | null = chat?.kind ?? lastKind();
-  const ready = !!kind && agents.stepOf(kind).step === "ready";
   const catalog = kind ? agents.catalogs[kind] : undefined;
   const kindModels = catalog?.models ?? [];
   const model = kindModels.find((m) => m.value === chat?.model) ?? kindModels[0] ?? null;
+  const ready = !!kind && agents.stepOf(kind, !!model?.local).step === "ready";
   const busy = run !== null;
 
   // Follow the conversation to its newest message; an empty chat (the picker) starts at its top.
@@ -364,10 +364,13 @@ export function ChatPanel({ noun, view, suggestions, intro, placeholder, draft: 
     }));
   const modelEntries = (): MenuEntry[] =>
     kind
-      ? kindModels.map((m) => {
-          const logo = modelLogo(kind, m.label);
-          return { label: m.label, hint: m.description || undefined, icon: <Logo src={logo.src} invert={logo.invert} />, checked: m.value === model?.value, onSelect: () => setChoice({ model: m.value, effort: "" }) };
-        })
+      ? [
+          ...kindModels.filter((m) => !m.local).map((m) => {
+            const logo = modelLogo(kind, m.label);
+            return { label: m.label, hint: m.description || undefined, icon: <Logo src={logo.src} invert={logo.invert} />, checked: m.value === model?.value, onSelect: () => setChoice({ model: m.value, effort: "" }) };
+          }),
+          ...localMenuEntries(kindModels, { installed: !!catalog?.installed, checked: (m) => m.value === model?.value, onSelect: (m) => setChoice({ model: m.value, effort: "" }) }),
+        ]
       : [];
   const effortEntries = (): MenuEntry[] =>
     model
@@ -542,7 +545,8 @@ export function ChatPanel({ noun, view, suggestions, intro, placeholder, draft: 
           void send(draft);
         }}
       >
-        {kind && <AgentSetup agents={agents} kind={kind} />}
+        {kind && <AgentSetup agents={agents} kind={kind} local={!!model?.local} />}
+        {model && isSmallModel(model) && <p className="as-local-note">{SMALL_MODEL_NOTE}</p>}
         <div
           className={`as-composer${focused ? " focus" : ""}${dragOver ? " drag-over" : ""}`}
           onDragOver={(e) => {
@@ -659,7 +663,7 @@ export function ChatPanel({ noun, view, suggestions, intro, placeholder, draft: 
                 <span>{name}</span>
                 <Icon name="chevronDown" size={12} />
               </MenuButton>
-              {kind && ready && model && kindModels.length > 1 && (
+              {kind && model && kindModels.length > 1 && (ready || kindModels.some((m) => m.local)) && (
                 <MenuButton className="as-pick" label="Model" title={`Model: ${model.label}`} entries={modelEntries}>
                   <Logo {...modelLogo(kind, model.label)} size={13} />
                   <span>{shortModel}</span>

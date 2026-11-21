@@ -1,4 +1,5 @@
 import { CLI_NAMES, type Bot, type LibraryKind } from "@opendeck/crew";
+import { modelText } from "@opendeck/shell";
 
 export const KIND_LABEL: Record<LibraryKind, string> = { doc: "Doc", sheet: "Sheet", deck: "Deck", board: "Whiteboard", design: "Design" };
 export const KIND_PLURAL: Record<LibraryKind, string> = { doc: "Docs", sheet: "Sheets", deck: "Slides", board: "Whiteboards", design: "Designs" };
@@ -33,7 +34,7 @@ export function when(iso: string): string {
 
 /** "Claude Code · sonnet · high": the brain as one line. */
 export function brainLabel(b: Bot["brain"]): string {
-  return [CLI_NAMES[b.cli], b.model, b.effort].filter(Boolean).join(" · ");
+  return [CLI_NAMES[b.cli], b.model && modelText(b.model), b.effort].filter(Boolean).join(" · ");
 }
 
 export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
