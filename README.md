@@ -22,6 +22,12 @@ can take control at any moment.
 - **Many chats per bot.** Start a new chat, compact a long one, see how full
   the context is; scheduled runs keep their own Runs chat.
 - **Group chats.** Put bots in a team and @mention who should answer.
+- **Bots in your calls.** Send a bot a Google Meet link. It joins, keeps a
+  transcript from the captions, answers in the meeting chat when you say its
+  name, and shares its screen to show a doc as it writes it.
+- **Skills, memory and usage.** Give bots skills, import what another AI
+  remembers about you, and see each CLI's and bot's usage. Bots can also run
+  on local models.
 - **Connectors and a vault.** Give a bot MCP connectors and saved logins;
   it never sees a password, the app fills it.
 - **Use the AI you already pay for.** Bots run Claude Code, Codex or
@@ -56,7 +62,7 @@ free app, and any AI can work in it through MCP as easily as you can:
 > Fenna is new (version 0.9). Expect rough edges, and please
 > [tell us about them](https://github.com/Sidhilynx/fenna/issues).
 > Coming next: Fenna Data, Brand, Meeting and Motion, built side by
-> side. See the [roadmap](ROADMAP.md).
+> side; bots already join Google Meet calls. See the [roadmap](ROADMAP.md).
 
 ## Download
 

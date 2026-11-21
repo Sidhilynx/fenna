@@ -1090,6 +1090,7 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
         await same.ready;
         // The site's front page keeps the tab as it is (a reload would sign some sites out); a page on it is opened there.
         const wantsPage = a.url.pathname !== "/" || a.url.search !== "";
+        if (same.meeting) return { text: `Tab ${same.id} is your meeting on ${a.url.host}, so you're in that tab now. Use the meeting tool for the call; open other sites in a new tab.` };
         if (wantsPage && same.wc.getURL() !== a.url.href) {
           const r = await cdp(same, "Page.navigate", { url: a.url.href });
           if (r.errorText) throw new Error(`Couldn't open ${a.url.href}: ${r.errorText}. Check the address, or try again later.`);
@@ -1097,7 +1098,9 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
         }
         return { text: `${a.url.host} was already open in tab ${same.id}, so you're in that tab now (a site runs in one tab).\n${await snapshotText(b)}` };
       }
-      if (p.new_tab) {
+      // The meeting's tab stays on the call: anything else opens beside it.
+      const onMeeting = !!activeTab(b)?.meeting;
+      if (p.new_tab || onMeeting) {
         if (b.tabs.length >= MAX_TABS) throw new Error(`${MAX_TABS} tabs are open, the most a bot can have. Close one with close_tab (call tabs to see them), or open without new_tab to use this one.`);
         const t = newTab(b);
         await t.ready;
@@ -1107,7 +1110,7 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
       const r = await cdp(t, "Page.navigate", { url: a.url.href });
       if (r.errorText) throw new Error(`Couldn't open ${a.url.href}: ${r.errorText}. Check the address, or try again later.`);
       await waitLoad(b);
-      const lead = p.new_tab ? `Opened in a new tab, tab ${b.active}.\n` : "";
+      const lead = onMeeting ? `Opened in a new tab, tab ${b.active}, beside your meeting.\n` : p.new_tab ? `Opened in a new tab, tab ${b.active}.\n` : "";
       return { text: lead + (await snapshotText(b)) };
     },
 
@@ -1220,6 +1223,7 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
     async close_tab(b, p) {
       const id = p.tab === undefined || p.tab === null ? b.active : Number(p.tab);
       const t = tabById(b, id);
+      if (t.meeting) throw new Error(`Tab ${id} is your meeting. To leave the call, use the meeting tool: {action: "leave"}.`);
       t.win.destroy();
       dropTab(b, id);
       if (!b.tabs.length) newTab(b);
@@ -1640,6 +1644,79 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
       } else throw new Error('A tab action is "new", "switch" or "close".');
       activeTab(b).wc.focus();
       return stateOf(b);
+    },
+
+    /**
+     * A tab for a call (meetings.cjs): a new active tab whose bindings and
+     * scripts are in place before the page loads, then `url`. Binding calls
+     * come to onBinding; onGone runs once when the tab closes, whoever
+     * closes it. The bot's browser tools never navigate it or close it.
+     * @returns {Promise<{ id: number, cdp: Function, evaluate: Function, main: Function, url: () => string, close: () => void, alive: () => boolean }>}
+     */
+    async openMeeting(slug, { url, bindings = [], scripts = [], onBinding = () => {}, onGone = () => {} }) {
+      const b = await get(slug);
+      await waitForControl(b);
+      if (b.tabs.some((x) => x.meeting && !x.wc.isDestroyed())) throw new Error("You are already in a meeting. Leave it first.");
+      if (b.tabs.length >= MAX_TABS) throw new Error(`${MAX_TABS} tabs are open, the most a bot can have. Close one with close_tab first.`);
+      const t = newTab(b);
+      t.meeting = true;
+      await t.ready;
+      const names = new Set(bindings.map((x) => x.name));
+      t.wc.debugger.on("message", (_e, method, params) => {
+        if (method === "Runtime.bindingCalled" && params && names.has(params.name)) onBinding(params.name, String(params.payload || ""));
+        if (method === "Page.frameNavigated" && params && params.frame && !params.frame.parentId) t.meetWorld = null;
+      });
+      t.wc.once("destroyed", () => onGone());
+      for (const x of bindings) await cdp(t, "Runtime.addBinding", x);
+      for (const s of scripts) await cdp(t, "Page.addScriptToEvaluateOnNewDocument", s);
+      const r = await cdp(t, "Page.navigate", { url });
+      if (r.errorText) {
+        t.win.destroy();
+        throw new Error(`Couldn't open ${url}: ${r.errorText}.`);
+      }
+      tell(b);
+      const alive = () => !t.wc.isDestroyed();
+      /** A meet-scripts function in the meeting's own isolated world. */
+      async function evaluateIn(fn, arg) {
+        for (let attempt = 0; attempt < 2; attempt++) {
+          if (!t.meetWorld) {
+            const { frameTree } = await cdp(t, "Page.getFrameTree");
+            t.meetWorld = (await cdp(t, "Page.createIsolatedWorld", { frameId: frameTree.frame.id, worldName: "fenna-meet-act" })).executionContextId;
+          }
+          try {
+            const res = await cdp(t, "Runtime.evaluate", { expression: `(${fn.toString()})(${JSON.stringify(arg ?? null)})`, contextId: t.meetWorld, returnByValue: true, awaitPromise: true });
+            if (res.exceptionDetails) throw new Error(res.exceptionDetails.text || "script error");
+            return res.result.value;
+          } catch (e) {
+            if (attempt === 0 && /context|Execution/i.test(String(e && e.message))) {
+              t.meetWorld = null;
+              continue;
+            }
+            throw e;
+          }
+        }
+        return null;
+      }
+      return {
+        id: t.id,
+        cdp: (method, params) => cdp(t, method, params),
+        evaluate: evaluateIn,
+        /** An expression in the page's own world (where the stage lives). */
+        async main(expression) {
+          const res = await cdp(t, "Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true });
+          if (res.exceptionDetails) throw new Error(res.exceptionDetails.text || "script error");
+          return res.result.value;
+        },
+        url: () => (alive() ? t.wc.getURL() : ""),
+        alive,
+        waitForControl: () => waitForControl(b),
+        close() {
+          if (!alive()) return;
+          t.win.destroy();
+          dropTab(b, t.id);
+          if (!b.tabs.length) newTab(b);
+        },
+      };
     },
 
     close(slug) {

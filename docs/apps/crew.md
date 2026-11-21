@@ -99,6 +99,10 @@ password). Results are small;
 errors say how to fix them; while the person has control, browser tools fail
 with "The person has control of the browser. Wait, then call snapshot again."
 
+Calls, on the `crew` server (`apps/crew/src/main/meetings.cjs`): `meeting`
+(action join (url, note, name), say (text), share (document), stop_sharing,
+leave, status). Wakes use the triggers `meeting` and `meeting_end`.
+
 Files, on the `crew` server (`apps/crew/src/main/files.cjs`):
 - `read_file` (path, offset, limit, sheet): a file on the bot's disk; text and code a page at a time, CSV, TSV and Excel as tables (every sheet, or `sheet`), images as pictures (shrunk over 1568 px or 3.5 MB), PDFs and binaries named only.
 - `import_sheet` (path, title): an .xlsx or .csv in Files or Downloads becomes a Fenna sheet in the bot's Documents, checked by the sheet package.
@@ -188,6 +192,16 @@ Files, on the `crew` server (`apps/crew/src/main/files.cjs`):
   bot with a "watch" run; no screenshots or open runs to wait. Pages in the
   bot's browser see notifications as allowed and Crew catches them. At most 20
   watches and 12 wakes an hour per bot. Bots also keep a todo list. 2026-11-19
+- Calls (Google Meet only for now; docs/plans/crew-meetings.md): a bot joins
+  as a guest with one `meeting` call, and Crew does every step in the call
+  over the DevTools protocol, never the model. It listens through Meet's own
+  captions (no speech-to-text, no tokens), wakes the bot only when its name is
+  said or typed, with only the lines since it last looked, and posts the
+  wake's final reply to the meeting chat (`SKIP` says nothing). A resumed call
+  session gets only the new lines, not the whole prompt. The camera, mic and
+  screen are fake: a name card, silence, and a stage that shows one library
+  document live. When the call ends, a bot with a note from the person wakes
+  once more to finish the work from the transcript. 2026-11-21
 - A bot's computer is a small OS of its own: movable, resizable windows and a
   taskbar; one disk (Files, Documents, Downloads, Trash) that Crew resolves
   inside the bot's folder and nowhere else (no "..", absolute paths or links);

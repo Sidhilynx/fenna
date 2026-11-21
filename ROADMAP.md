@@ -26,7 +26,7 @@ already use. No account.
 |---|---|---|
 | <img src="docs/media/icons/brand.png" width="40" alt=""> | **Fenna Brand** | One brand file (colors, fonts, logo, text styles, components) that every other app reads, so a deck, a doc and a design look like they come from the same company. |
 | <img src="docs/media/icons/data.png" width="40" alt=""> | **Fenna Data** | Dashboards, metrics pages and reports from CSV files, sheets and databases. Every number shows where it came from. |
-| <img src="docs/media/icons/meeting.png" width="40" alt=""> | **Fenna Meeting** | Record or import a meeting, transcribe it on your own computer, and turn it into notes, decisions and action items in Docs and Sheets. |
+| <img src="docs/media/icons/meeting.png" width="40" alt=""> | **Fenna Meeting** | Record or import a meeting, transcribe it on your own computer, and turn it into notes, decisions and action items in Docs and Sheets. *(Started in Crew 0.9.9: a bot joins a Google Meet call, keeps the transcript and writes the notes.)* |
 | <img src="docs/media/icons/motion.png" width="40" alt=""> | **Fenna Motion** | Animated scenes and short videos on a timeline: title cards, product reveals, explainers, exported to MP4 and GIF. |
 
 Each one follows the same rules as the first four: a file is a folder you

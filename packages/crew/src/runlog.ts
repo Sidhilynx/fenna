@@ -9,7 +9,7 @@
 import type { CliKind, Mood } from "./schema.ts";
 
 /** app: an app on the bot's computer sent the bot a message (crew.bot.tell). compact: the app asked the bot to sum up its chat before the chat starts a fresh conversation. */
-export const RUN_TRIGGERS = ["person", "schedule", "bot", "welcome", "watch", "compact", "app"] as const;
+export const RUN_TRIGGERS = ["person", "schedule", "bot", "welcome", "watch", "compact", "app", "meeting", "meeting_end"] as const;
 export type RunTrigger = (typeof RUN_TRIGGERS)[number];
 export type ToolStatus = "running" | "done" | "failed";
 export type AnsweredBy = "person" | "timeout" | "stopped";

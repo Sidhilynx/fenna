@@ -865,6 +865,8 @@ export interface Calls {
   "crew:navigate": { args: [slug: string, url: string]; result: BrowserState };
   "crew:browserGo": { args: [slug: string, what: "back" | "forward" | "reload" | "stop"]; result: BrowserState };
   "crew:mute": { args: [slug: string, tab: number | null, muted: boolean]; result: BrowserState };
+  "crew:meetings": { args: []; result: MeetingView[] };
+  "crew:meeting": { args: [slug: string, action: "leave" | "stop_sharing"]; result: MeetingView | null };
   "crew:closeBrowser": { args: [slug: string]; result: boolean };
   "crew:tab": { args: [slug: string, action: "new" | "switch" | "close", id?: number]; result: BrowserState };
   "crew:settings": { args: []; result: Settings };
@@ -1011,6 +1013,8 @@ export interface Events {
   "crew:desktop": { slug: string; items: DesktopShortcut[] };
   /** A bot's watches or todos changed. */
   "crew:watches": { slug: string };
+  /** A bot's call changed: joined, people, sharing; null when it left. */
+  "crew:meeting": { slug: string; meeting: MeetingView | null };
   /** Something changed on a bot's disk (the person, the bot or a download). */
   "crew:disk": { slug: string };
   /** A bot's repos changed (linked, cloned, synced, removed, policy or shell). */
@@ -1081,4 +1085,21 @@ export interface NoticeState {
   /** Newest first, at most 100. */
   items: Notice[];
   unread: number;
+}
+
+/** A bot in a video call (meetings.cjs). */
+export interface MeetingView {
+  slug: string;
+  code: string;
+  url: string;
+  state: "joining" | "waiting" | "incall" | "ended";
+  people: number | null;
+  captions: boolean;
+  /** The title of the document it is sharing, or null. */
+  sharing: string | null;
+  /** Its transcript on the bot's disk, like Files/Meetings/2026-11-21 14.05 abc-defg-hij.md */
+  transcript: string;
+  /** The chat its wakes go to. */
+  chat: string;
+  startedAt: string;
 }

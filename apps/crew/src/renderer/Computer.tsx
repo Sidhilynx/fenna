@@ -64,7 +64,7 @@ function activity(runs: RunLog[], names: (slug: string) => string): Line[] {
       const key = `${run.key}:${i}`;
       switch (e.type) {
         case "start": {
-          const why = e.trigger === "schedule" ? "Schedule" : e.trigger === "person" ? "You asked" : e.trigger === "bot" ? `${e.from ? names(e.from) : "Another bot"} asked` : e.trigger === "watch" ? "Watch" : e.trigger === "app" ? "An app" : "Hello";
+          const why = e.trigger === "schedule" ? "Schedule" : e.trigger === "person" ? "You asked" : e.trigger === "bot" ? `${e.from ? names(e.from) : "Another bot"} asked` : e.trigger === "watch" ? "Watch" : e.trigger === "app" ? "An app" : e.trigger === "meeting" ? "Call" : e.trigger === "meeting_end" ? "Call ended" : "Hello";
           out.push({ key: `${key}:head`, at: e.at, text: `${dayLabel(e.at)} · ${why}`, head: true, runId: run.runId });
           out.push({
             key,
@@ -80,7 +80,11 @@ function activity(runs: RunLog[], names: (slug: string) => string): Line[] {
                 ? wakeLine(e.text)
                 : e.trigger === "app"
                   ? `An app sent: ${e.text}`
-                  : "Said hello",
+                  : e.trigger === "meeting"
+                    ? "Someone in the call said its name"
+                    : e.trigger === "meeting_end"
+                      ? "The call ended"
+                    : "Said hello",
           });
           break;
         }

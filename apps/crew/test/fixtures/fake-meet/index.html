@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fake Meet</title>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body { font: 14px/1.4 system-ui, sans-serif; background: #202124; color: #e8eaed; }
+  [hidden] { display: none !important; }
+  #root { min-height: 100%; display: flex; flex-direction: column; }
+  .center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 16px; }
+  h1 { font-size: 22px; font-weight: 400; margin: 0; text-align: center; }
+  input, textarea { font: inherit; border: 1px solid #5f6368; border-radius: 4px; background: #303134; color: inherit; }
+  input { padding: 8px 10px; width: 260px; }
+  button { font: inherit; padding: 8px 14px; border: 1px solid #5f6368; border-radius: 18px; background: #303134; color: inherit; cursor: pointer; }
+  button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid #8ab4f8; outline-offset: 2px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .call { flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+  .stage { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; min-height: 240px; background: #171717; }
+  #share { max-width: 100%; max-height: 360px; background: #000; }
+  #self { width: 240px; background: #000; position: absolute; right: 16px; bottom: 16px; border-radius: 8px; }
+  .captions { display: flex; flex-direction: column; gap: 8px; padding: 8px 16px; max-height: 160px; overflow: auto; background: #303134; }
+  .block { display: flex; gap: 8px; align-items: flex-start; }
+  .block img { width: 24px; height: 24px; }
+  .speaker { font-weight: 600; white-space: nowrap; }
+  .text { flex: 1; }
+  .chat { height: 240px; display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #292a2d; }
+  .messages { flex: 1; overflow: auto; display: flex; flex-direction: column; gap: 8px; }
+  .msg .who { font-size: 12px; color: #9aa0a6; }
+  .chat textarea { width: 100%; height: 56px; box-sizing: border-box; padding: 8px; resize: none; }
+  .bar { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; padding: 12px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<template id="t-prejoin">
+  <section class="center">
+    <h1>Ready to join?</h1>
+    <input aria-label="Your name" placeholder="Your name" autocomplete="off">
+    <div class="row">
+      <button type="button" data-toggle="mic" aria-label="Turn off microphone">Turn off microphone</button>
+      <button type="button" data-toggle="cam" aria-label="Turn off camera">Turn off camera</button>
+    </div>
+    <div class="row"><button type="button" data-join>Join now</button></div>
+  </section>
+</template>
+
+<template id="t-waiting">
+  <section class="center">
+    <h1>Asking to be let in…</h1>
+  </section>
+</template>
+
+<template id="t-denied">
+  <section class="center">
+    <h1>You can't join this video call</h1>
+  </section>
+</template>
+
+<template id="t-ended">
+  <section class="center">
+    <h1>You left the meeting</h1>
+  </section>
+</template>
+
+<template id="t-call">
+  <section class="call">
+    <div class="stage">
+      <video id="share" muted playsinline hidden></video>
+      <video id="self" muted playsinline></video>
+    </div>
+    <div role="region" aria-label="Captions" class="captions" hidden></div>
+    <div class="chat" hidden>
+      <div class="messages"></div>
+      <textarea aria-label="Send a message" placeholder="Send a message"></textarea>
+    </div>
+    <div class="bar">
+      <button type="button" data-captions aria-label="Turn on captions">Turn on captions</button>
+      <button type="button" data-chat aria-label="Chat with everyone">Chat with everyone</button>
+      <button type="button" data-share aria-label="Share screen">Share screen</button>
+      <button type="button" aria-label="People (3)">People (3)</button>
+      <button type="button" data-leave aria-label="Leave call">Leave call</button>
+    </div>
+  </section>
+</template>
+
+<script>
+(function () {
+  var params = new URLSearchParams(location.search);
+  var guest = params.get('guest') === '1';
+  var deny = params.get('deny') === '1';
+  var admitMs = params.has('admit') ? Number(params.get('admit')) : 1500;
+  var script = params.get('script') || '';
+  var PIXEL = 'data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==';
+  var WORD_MS = 150;
+  var STANDUP = [
+    { speaker: 'Sam', text: 'Morning everyone, quick standup today.', fix: { from: 'today.', as: 'to day.' } },
+    { speaker: 'Priya', text: 'I finished the login page and started on the reports.' },
+    { speaker: 'Sam', text: 'Scout, can you write up the action items as a doc and share your screen?' },
+    { chat: 'Priya', text: "Scout what's our deadline?" },
+    { speaker: 'Sam', text: "Thanks, that's all." }
+  ];
+
+  var fake = { events: [], sent: [], frames: 0, scriptDone: false };
+  window.__fakeMeet = fake;
+
+  var root = document.getElementById('root');
+  var refs = {};
+  var live = false;
+  var captionsOn = false;
+  var timelineStarted = false;
+  var shareStream = null;
+  var msgSeq = 0;
+
+  function sleep(ms) { return new Promise(function (resolve) { setTimeout(resolve, ms); }); }
+  function errText(err) { return err && err.message ? err.message : String(err); }
+  function active() { return live && captionsOn; }
+
+  function show(id) {
+    root.replaceChildren(document.getElementById('t-' + id).content.cloneNode(true));
+  }
+
+  // Turns a "Turn off X" / "Turn on X" button over. Returns whether X is now on.
+  function flip(btn, noun) {
+    var nowOn = btn.getAttribute('aria-label').indexOf('Turn off') !== 0;
+    var label = (nowOn ? 'Turn off ' : 'Turn on ') + noun;
+    btn.setAttribute('aria-label', label);
+    btn.textContent = label;
+    return nowOn;
+  }
+
+  function showPrejoin() {
+    show('prejoin');
+    var nameInput = root.querySelector('input[aria-label="Your name"]');
+    if (!guest) nameInput.remove();
+    var join = root.querySelector('[data-join]');
+    join.textContent = guest ? 'Ask to join' : 'Join now';
+    root.querySelector('[data-toggle="mic"]').addEventListener('click', function (e) {
+      flip(e.currentTarget, 'microphone');
+    });
+    root.querySelector('[data-toggle="cam"]').addEventListener('click', function (e) {
+      flip(e.currentTarget, 'camera');
+    });
+    join.addEventListener('click', function () {
+      if (guest) askToJoin(); else enterCall();
+    });
+  }
+
+  function askToJoin() {
+    var name = root.querySelector('input[aria-label="Your name"]').value.trim();
+    if (!name) return;
+    fake.events.push('asked');
+    show('waiting');
+    setTimeout(function () {
+      if (deny) {
+        fake.events.push('denied');
+        show('denied');
+        return;
+      }
+      fake.events.push('admitted');
+      enterCall();
+    }, admitMs);
+  }
+
+  function enterCall() {
+    show('call');
+    live = true;
+    bindCall();
+    fake.events.push('joined');
+    Promise.resolve()
+      .then(function () { return navigator.mediaDevices.getUserMedia({ video: true, audio: true }); })
+      .then(function (stream) {
+        if (!live) return;
+        refs.self.srcObject = stream;
+        refs.self.play().catch(function () {});
+        fake.events.push('self-camera-ok');
+      }, function (err) {
+        fake.events.push('self-camera-failed:' + errText(err));
+      });
+  }
+
+  function bindCall() {
+    refs.self = root.querySelector('#self');
+    refs.share = root.querySelector('#share');
+    refs.region = root.querySelector('[role="region"][aria-label="Captions"]');
+    refs.chat = root.querySelector('.chat');
+    refs.messages = root.querySelector('.messages');
+    refs.input = root.querySelector('textarea[aria-label="Send a message"]');
+    refs.captionsBtn = root.querySelector('[data-captions]');
+    refs.chatBtn = root.querySelector('[data-chat]');
+    refs.shareBtn = root.querySelector('[data-share]');
+    refs.leaveBtn = root.querySelector('[data-leave]');
+
+    refs.captionsBtn.addEventListener('click', toggleCaptions);
+    refs.chatBtn.addEventListener('click', function () {
+      refs.chat.hidden = !refs.chat.hidden;
+      if (!refs.chat.hidden) fake.events.push('chat-open');
+    });
+    refs.shareBtn.addEventListener('click', function () {
+      if (shareStream) endShare(); else startShare();
+    });
+    refs.leaveBtn.addEventListener('click', leave);
+    refs.input.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
+      e.preventDefault();
+      var text = refs.input.value.trim();
+      if (!text) return;
+      refs.input.value = '';
+      fake.sent.push(text);
+      postChat('You', text);
+      fake.events.push('chat-sent');
+    });
+  }
+
+  function toggleCaptions() {
+    captionsOn = flip(refs.captionsBtn, 'captions');
+    refs.region.hidden = !captionsOn;
+    if (!captionsOn) return;
+    fake.events.push('captions-on');
+    if (script === 'standup' && !timelineStarted) {
+      timelineStarted = true;
+      runStandup();
+    }
+  }
+
+  function postChat(sender, text) {
+    if (!refs.messages) return;
+    var wrap = document.createElement('div');
+    wrap.className = 'msg';
+    wrap.dataset.senderName = sender;
+    var who = document.createElement('div');
+    who.className = 'who';
+    who.textContent = sender;
+    var body = document.createElement('div');
+    body.className = 'body';
+    body.dataset.messageId = 'msg-' + (++msgSeq);
+    body.textContent = text;
+    wrap.append(who, body);
+    refs.messages.append(wrap);
+  }
+
+  // One speaker turn: a new block, its words appear one by one.
+  async function speak(speaker, text, fix) {
+    var block = document.createElement('div');
+    block.className = 'block';
+    var img = document.createElement('img');
+    img.alt = '';
+    img.src = PIXEL;
+    var who = document.createElement('div');
+    who.className = 'speaker';
+    who.textContent = speaker;
+    var line = document.createElement('div');
+    line.className = 'text';
+    block.append(img, who, line);
+    refs.region.append(block);
+
+    var words = text.split(' ');
+    for (var i = 0; i < words.length; i++) {
+      var before = words.slice(0, i);
+      if (fix && words[i] === fix.from) {
+        line.textContent = before.concat(fix.as).join(' ');
+        await sleep(WORD_MS);
+        if (!active()) return;
+      }
+      line.textContent = before.concat(words[i]).join(' ');
+      await sleep(WORD_MS);
+      if (!active()) return;
+    }
+  }
+
+  async function runStandup() {
+    await sleep(1000);
+    for (var i = 0; i < STANDUP.length; i++) {
+      if (!active()) return;
+      var turn = STANDUP[i];
+      if (turn.chat) postChat(turn.chat, turn.text);
+      else await speak(turn.speaker, turn.text, turn.fix);
+      await sleep(600);
+    }
+    if (active()) fake.scriptDone = true;
+  }
+
+  async function startShare() {
+    var stream;
+    try {
+      stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+    } catch (err) {
+      fake.events.push('present-failed:' + errText(err));
+      return;
+    }
+    if (!live) {
+      stream.getTracks().forEach(function (t) { t.stop(); });
+      return;
+    }
+    shareStream = stream;
+    refs.share.hidden = false;
+    refs.share.srcObject = stream;
+    refs.share.play().catch(function () {});
+    setShareLabel(true);
+    fake.events.push('presenting');
+    stream.getTracks().forEach(function (t) {
+      t.addEventListener('ended', function () {
+        if (shareStream === stream) endShare();
+      });
+    });
+    countFrames(stream);
+  }
+
+  function countFrames(stream) {
+    var video = refs.share;
+    if (!('requestVideoFrameCallback' in video)) return;
+    var tick = function () {
+      if (shareStream !== stream) return;
+      fake.frames += 1;
+      video.requestVideoFrameCallback(tick);
+    };
+    video.requestVideoFrameCallback(tick);
+  }
+
+  function endShare() {
+    if (!shareStream) return;
+    var stream = shareStream;
+    shareStream = null;
+    stream.getTracks().forEach(function (t) { t.stop(); });
+    if (refs.share) {
+      refs.share.srcObject = null;
+      refs.share.hidden = true;
+    }
+    setShareLabel(false);
+    fake.events.push('stopped');
+  }
+
+  function setShareLabel(presenting) {
+    var label = presenting ? 'Stop presenting' : 'Share screen';
+    refs.shareBtn.setAttribute('aria-label', label);
+    refs.shareBtn.textContent = label;
+  }
+
+  function leave() {
+    if (!live) return;
+    endShare();
+    live = false;
+    captionsOn = false;
+    var stream = refs.self.srcObject;
+    if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
+    show('ended');
+    fake.events.push('left');
+  }
+
+  showPrejoin();
+})();
+</script>
+</body>
+</html>

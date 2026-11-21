@@ -230,6 +230,24 @@ export function createCrewServer(link: Link, opts: CrewOptions): McpServer {
   );
 
   tool(
+    "meeting",
+    {
+      title: "Be in a video call",
+      description:
+        'Join a Google Meet call and work in it. join (url, plus note: what the person wants from you there): Crew joins as a guest, turns captions on and keeps a transcript in Files/Meetings; it returns at once, so end your turn. Someone has to let you in. After that Crew wakes you, in a chat of its own, only when someone says your name, with what was said since you last looked; your final reply is posted to the meeting chat. share (document: a folder name in your Documents) presents that document in the call, live as you edit it with the fenna tools; stop_sharing ends it. say (text) posts to the meeting chat now, for "on it" before longer work. leave, status. Never drive the call with the browser tools, and never take screenshots of it. Example: {action: "join", url: "https://meet.google.com/abc-defg-hij", note: "Take notes and write the action items as a doc"}',
+      inputSchema: {
+        action: z.enum(["join", "say", "share", "stop_sharing", "leave", "status"]),
+        url: z.string().max(2000).optional().describe("join: the call's link, https://meet.google.com/abc-defg-hij"),
+        note: z.string().max(500).optional().describe("join: what the person wants from you in this call; you see it each time you wake"),
+        name: z.string().max(60).optional().describe('join: the name the call sees; default "<your name> (Fenna)"'),
+        text: z.string().min(1).max(1500).optional().describe("say: what to post, plain text"),
+        document: z.string().max(200).optional().describe("share: the document's folder name in your Documents, as new_document gave it"),
+      },
+    },
+    (args) => call("meeting", { ...args }),
+  );
+
+  tool(
     "todo",
     {
       title: "Your to-do list",
