@@ -15,11 +15,12 @@ const MAC_TEMP_DIRS = ["/private/tmp", "/private/var/folders"];
 const MAC_DEVICES = ["/dev/null", "/dev/tty"];
 const SECRET_PATHS = [".ssh", ".aws", ".azure", ".config/gcloud", ".gnupg", ".docker", ".kube", ".npmrc", ".pypirc", ".netrc", ".git-credentials", ".config/gh"];
 
-/** Throws unless the writable and deny lists are full paths, and at least one folder is writable. */
-function checkPaths(writable, readDeny) {
+/** Throws unless the writable and deny lists are full paths on `platform`, and at least one folder is writable. */
+function checkPaths(writable, readDeny, platform) {
   if (!Array.isArray(writable) || writable.length === 0) throw new Error("Give at least one folder the command may write to, like /home/me/repo.");
+  const full = platform === "win32" ? path.win32.isAbsolute : path.posix.isAbsolute;
   for (const p of [...writable, ...readDeny]) {
-    if (typeof p !== "string" || !path.isAbsolute(p)) throw new Error(`"${String(p)}" isn't a full path. Give the folder's full path, like /home/me/repo.`);
+    if (typeof p !== "string" || !full(p)) throw new Error(`"${String(p)}" isn't a full path. Give the folder's full path, like /home/me/repo.`);
   }
 }
 
@@ -67,7 +68,7 @@ function seatbeltProfile(writable, readDeny) {
  * @returns {{ command: string, args: string[], sandbox: "bubblewrap" | "seatbelt" | "none" }}
  */
 function wrap({ platform, command, args = [], writable, readDeny = [], available = {} }) {
-  checkPaths(writable, readDeny);
+  checkPaths(writable, readDeny, platform);
   if (platform === "linux" && available.bwrap) {
     return { command: "bwrap", args: bwrapArgs(writable, readDeny, command, args), sandbox: "bubblewrap" };
   }

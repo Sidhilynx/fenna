@@ -122,7 +122,9 @@ const NAVIGATION = new Set(["cd", "pushd", "popd", "set-location", "sl", "chdir"
 /** The program one part of a command line starts with, lowercased and without its folder or .exe: "npm", "flutter", "python". */
 function programOf(cmd) {
   const first = String(cmd).trim().replace(/^(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)+/, "").replace(/^&\s*/, "").split(/\s+/)[0] || "";
-  return path.basename(first.replace(/^["'&]+|["']+$/g, "")).replace(/\.(exe|cmd|bat|ps1)$/i, "").toLowerCase() || "command";
+  // A Windows or POSIX path to the program, whichever system Crew runs on.
+  const name = first.replace(/^["'&]+|["']+$/g, "").split(/[\\/]/).pop() || "";
+  return name.replace(/\.(exe|cmd|bat|ps1)$/i, "").toLowerCase() || "command";
 }
 
 /** Every program a command line runs, in order and once each, without folder changes: `cd x && npm test | tee log` → ["npm", "tee"]. */
