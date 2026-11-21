@@ -1092,7 +1092,8 @@ export interface MeetingView {
   slug: string;
   code: string;
   url: string;
-  state: "joining" | "waiting" | "incall" | "ended";
+  /** stuck: Meet wants a sign-in, or its Join button couldn't be pressed; the person can take control and do it. */
+  state: "joining" | "waiting" | "stuck" | "incall" | "ended";
   people: number | null;
   captions: boolean;
   /** The title of the document it is sharing, or null. */

@@ -3,9 +3,9 @@ import vm from "node:vm";
 import { describe, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
-const { MEET_LABELS, meetMediaSource, meetState, meetPrejoin, meetCaptionsOn, meetChatFocus, meetPresent, meetStopPresenting, meetLeave, meetListenSource } = require("../src/main/meet-scripts.cjs");
+const { MEET_LABELS, meetMediaSource, meetState, meetNameFocus, meetPrejoin, meetCaptionsOn, meetChatFocus, meetPresent, meetStopPresenting, meetLeave, meetListenSource } = require("../src/main/meet-scripts.cjs");
 
-const PAGE_FUNCTIONS = { meetState, meetPrejoin, meetCaptionsOn, meetChatFocus, meetPresent, meetStopPresenting, meetLeave };
+const PAGE_FUNCTIONS = { meetState, meetNameFocus, meetPrejoin, meetCaptionsOn, meetChatFocus, meetPresent, meetStopPresenting, meetLeave };
 
 describe("meet page functions", () => {
   it("each compiles alone from its source text and uses no outside name", () => {
@@ -49,13 +49,13 @@ function fakeButton(label: string, text = "") {
 }
 
 /** A fake page: buttons for button queries, nothing for other selectors, and body text. */
-function fakePage(buttons: ReturnType<typeof fakeButton>[], bodyText = "") {
+function fakePage(buttons: ReturnType<typeof fakeButton>[], bodyText = "", hostname = "meet.google.com") {
   const ctx: Record<string, unknown> = {
     document: {
       body: { innerText: bodyText },
       querySelectorAll: (sel: string) => (sel.includes("button") ? buttons : []),
     },
-    location: { origin: "https://meet.google.com" },
+    location: { origin: `https://${hostname}`, hostname },
   };
   vm.createContext(ctx);
   const run = (fn: (...args: unknown[]) => unknown, ...args: unknown[]) => vm.runInContext(`(${fn.toString()})`, ctx)(...args);
@@ -75,20 +75,35 @@ describe("meet page functions on a fake page", () => {
     expect(fakePage([]).run(meetState)).toEqual({ state: "unknown", captions: false, chatOpen: false, presenting: false, people: null });
   });
 
+  it("knows Google's sign-in page, whatever it says", () => {
+    expect(fakePage([fakeButton("", "Next")], "Sign in", "accounts.google.com").run(meetState)).toMatchObject({ state: "signin" });
+  });
+
   it("clicks Join now on the pre-join screen, turning the microphone off first", () => {
     const mic = fakeButton("Turn off microphone");
     const join = fakeButton("", "Join now");
     const { run } = fakePage([mic, join], "");
-    expect(run(meetPrejoin, { name: "Scout (Fenna)" })).toEqual({ clicked: "join", filled: false });
+    expect(run(meetPrejoin, { name: "Scout (Fenna)" })).toEqual({ clicked: "join", filled: false, disabled: false, nameField: false });
     expect(mic.clicks).toBe(1);
     expect(join.clicks).toBe(1);
   });
 
   it("asks to join when only Ask to join is there, and clicks nothing when neither is", () => {
     const ask = fakeButton("", "Ask to join");
-    expect(fakePage([ask]).run(meetPrejoin, {})).toEqual({ clicked: "ask", filled: false });
+    expect(fakePage([ask]).run(meetPrejoin, {})).toEqual({ clicked: "ask", filled: false, disabled: false, nameField: false });
     expect(ask.clicks).toBe(1);
-    expect(fakePage([]).run(meetPrejoin, {})).toEqual({ clicked: null, filled: false });
+    expect(fakePage([]).run(meetPrejoin, {})).toEqual({ clicked: null, filled: false, disabled: false, nameField: false });
+  });
+
+  it("says when the join button is there but disabled (Meet waits for a typed name), and doesn't click it", () => {
+    const ask = fakeButton("", "Ask to join");
+    ask.disabled = true;
+    expect(fakePage([ask]).run(meetPrejoin, {})).toEqual({ clicked: null, filled: false, disabled: true, nameField: false });
+    expect(ask.clicks).toBe(0);
+  });
+
+  it("finds no name field to type into on a page without one", () => {
+    expect(fakePage([]).run(meetNameFocus)).toEqual({ found: false, focused: false, value: "" });
   });
 
   it("turns captions on only when they are off", () => {
@@ -150,6 +165,7 @@ describe("meet labels", () => {
         "present",
         "stopPresenting",
         "people",
+        "signInHost",
       ].sort(),
     );
   });

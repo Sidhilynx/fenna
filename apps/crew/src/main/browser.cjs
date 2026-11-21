@@ -241,6 +241,9 @@ function webAddress(typed) {
 
 const blank = (url) => !url || url === "about:blank";
 
+/** A Google Meet call's link: only the meeting tool opens one, in a tab of its own. */
+const callLink = (u) => u.origin === "https://meet.google.com" && /^\/[a-z]{3}-[a-z]{4}-[a-z]{3}(\/|$)/i.test(u.pathname);
+
 /**
  * A file name safe to save in a folder: the last part of the name the page
  * gave (no folders), with control and Windows-reserved characters turned into
@@ -1082,6 +1085,7 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
     async open(b, p) {
       const a = webAddress(p.url);
       if (a.error) throw new Error(a.error);
+      if (callLink(a.url)) throw new Error(`${a.url.href} is a video call. Join it with the meeting tool, {action: "join", url: "${a.url.href}"}; the browser tools never open a call.`);
       // One tab per site: sites like WhatsApp Web run in one tab only, and a second one takes the session from the first
       // (a watch keeps its site open in a tab of its own). An open site is switched to, not opened again.
       const same = otherSiteTab(b.tabs.map((x) => ({ id: x.id, origin: originOf(x), tab: x })), a.url.origin, b.active)?.tab;
@@ -1657,6 +1661,12 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
       const b = await get(slug);
       await waitForControl(b);
       if (b.tabs.some((x) => x.meeting && !x.wc.isDestroyed())) throw new Error("You are already in a meeting. Leave it first.");
+      // A plain tab on the call's site (one the person opened, or a join done by hand) would put the bot in the call twice.
+      const origin = new URL(url).origin;
+      for (const x of b.tabs.filter((x) => !x.meeting && originOf(x) === origin)) {
+        if (!x.win.isDestroyed()) x.win.destroy();
+        dropTab(b, x.id);
+      }
       if (b.tabs.length >= MAX_TABS) throw new Error(`${MAX_TABS} tabs are open, the most a bot can have. Close one with close_tab first.`);
       const t = newTab(b);
       t.meeting = true;

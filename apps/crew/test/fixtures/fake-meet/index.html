@@ -137,6 +137,15 @@
     if (!guest) nameInput.remove();
     var join = root.querySelector('[data-join]');
     join.textContent = guest ? 'Ask to join' : 'Join now';
+    // Like Meet: a guest's button wakes only for a name typed for real, not one set from script.
+    if (guest) {
+      join.disabled = true;
+      nameInput.addEventListener('input', function (e) {
+        if (!e.isTrusted) return;
+        join.disabled = !nameInput.value.trim();
+        fake.typedName = nameInput.value;
+      });
+    }
     root.querySelector('[data-toggle="mic"]').addEventListener('click', function (e) {
       flip(e.currentTarget, 'microphone');
     });
