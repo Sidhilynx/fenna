@@ -102,6 +102,7 @@ describe("bot.md", () => {
         { type: "grant", name: "tracker", tools: { "find.issue": "allow", "-odd/name": "allow" }, default: "off" },
       ],
       logins: [],
+      account: null,
       skills: [],
       projects: "off",
       askBefore: ["Signing up for trials", "Sending: anything"],
@@ -548,5 +549,69 @@ describe("sample crew", () => {
     }
     const teams = existsSync(new URL("teams/", sample)) ? readdirSync(new URL("teams/", sample)) : [];
     for (const slug of teams) expect(parseTeam(readFileSync(new URL(`teams/${slug}/team.md`, sample), "utf8"), bots).diagnostics, slug).toEqual([]);
+  });
+});
+
+describe("bot.md account", () => {
+  const withAccount = (line: string) => BOT.replace("askBefore:", `${line}\naskBefore:`);
+
+  it("reads a Google account login by name", () => {
+    const { bot, diagnostics } = parseBot(withAccount("account: scout-google"));
+    expect(diagnostics).toEqual([]);
+    expect(bot!.account).toBe("scout-google");
+  });
+
+  it("is null when absent, or empty", () => {
+    expect(parseBot(BOT).bot!.account).toBeNull();
+    expect(parseBot(withAccount('account: ""')).bot!.account).toBeNull();
+    expect(parseBot(withAccount("account:")).bot!.account).toBeNull();
+    expect(parseBot(withAccount('account: ""')).diagnostics).toEqual([]);
+  });
+
+  it.each([
+    ["a number", "account: 4.2"],
+    ["a list", "account:\n  - scout-google"],
+    ["a name that is not a slug", "account: Not A Slug"],
+    ["41 characters", `account: ${"a".repeat(41)}`],
+  ])("rejects %s with an error on its line", (_what, line) => {
+    const { bot, diagnostics } = parseBot(withAccount(line));
+    const errors = diagnostics.filter((x) => x.severity === "error");
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.message).toBe('account should be the name of a login in the vault, like "scout-google".');
+    expect(errors[0]!.line).toBeGreaterThan(0);
+    expect(bot!.account).toBeNull();
+  });
+
+  it("accepts a 40-character slug", () => {
+    const name = "a".repeat(40);
+    expect(parseBot(withAccount(`account: ${name}`)).bot!.account).toBe(name);
+  });
+
+  it("writes account after logins, and reads it back", () => {
+    const text = withAccount("account: scout-google");
+    const { bot } = parseBot(text.replace("connectors:", "logins:\n  - name: example-mail\n    level: ask\nconnectors:"));
+    const written = serializeBot(bot!);
+    expect(written).toContain("account: scout-google\n");
+    expect(written.indexOf("account:")).toBeGreaterThan(written.indexOf("logins:"));
+    const again = parseBot(written);
+    expect(again.diagnostics).toEqual([]);
+    expect(again.bot).toEqual(bot);
+    expect(serializeBot(again.bot!)).toBe(written);
+  });
+
+  it("writes no account key when none is set", () => {
+    const written = serializeBot(parseBot(BOT).bot!);
+    expect(written).not.toContain("account");
+    expect(written).toBe(serializeBot(parseBot(written).bot!));
+  });
+
+  it("newBot takes an account and checks it like a file", () => {
+    const ok = newBot({ name: "Scout", job: "Joins calls", account: "scout-google" });
+    expect(ok.diagnostics).toEqual([]);
+    expect(ok.bot.account).toBe("scout-google");
+    expect(newBot({ name: "Scout", job: "Joins calls" }).bot.account).toBeNull();
+    const bad = newBot({ name: "Scout", job: "Joins calls", account: "Not A Slug" });
+    expect(bad.bot.account).toBeNull();
+    expect(bad.diagnostics.some((x) => x.severity === "error" && /account should be/.test(x.message))).toBe(true);
   });
 });

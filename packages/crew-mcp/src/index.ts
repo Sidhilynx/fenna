@@ -248,6 +248,19 @@ export function createCrewServer(link: Link, opts: CrewOptions): McpServer {
   );
 
   tool(
+    "account",
+    {
+      title: "Your own Google account",
+      description:
+        'Your own Google account, if the person gave you one. It lives in a Google Chrome of your own that Crew runs for your calls, so you join Meet as it (your browser tools use a different browser, where Google sites stay signed out). status says which account it is and whether it is signed in. sign_in opens that Chrome on the Google sign-in page for the person: only they type the password, never you; ask them with ask_human to sign in there and close the window, then call status. Never sign in to any other Google account. Example: {action: "status"}',
+      inputSchema: {
+        action: z.enum(["status", "sign_in"]),
+      },
+    },
+    (args) => call("account", { ...args }),
+  );
+
+  tool(
     "todo",
     {
       title: "Your to-do list",

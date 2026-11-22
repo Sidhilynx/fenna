@@ -65,7 +65,7 @@ export type FennaAppId = (typeof FENNA_APPS)[number]["id"];
 export type LibraryKind = (typeof FENNA_APPS)[number]["kind"];
 
 /** bot.md settings, in the order they are written. */
-export const BOT_KEYS = ["name", "job", "avatar", "color", "schedule", "brain", "connectors", "logins", "skills", "projects", "askBefore", "wallpaper"] as const;
+export const BOT_KEYS = ["name", "job", "avatar", "color", "schedule", "brain", "connectors", "logins", "account", "skills", "projects", "askBefore", "wallpaper"] as const;
 export const BRAIN_KEYS = ["cli", "model", "effort"] as const;
 /** A bot's grant of a connector installed on this computer: its name, then tool names under allow, ask or off. */
 export const GRANT_KEYS = ["name", "allow", "ask", "off", "default"] as const;

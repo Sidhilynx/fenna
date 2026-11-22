@@ -518,6 +518,8 @@ function ChatHead({ bot, viewing, onView, onPanel }: { bot: BotSummary; viewing:
 }
 
 const CALL_STATE: Record<MeetingView["state"], string> = { joining: "Joining a call", waiting: "Waiting to be let in", stuck: "Take control to join", incall: "In a call", ended: "Left the call" };
+/** A stuck call in the bot's Chrome is shown, not taken over: the person brings the window up. */
+const stuckLabel = (inChrome: boolean) => (inChrome ? "Show the call to join" : CALL_STATE.stuck);
 
 /** The bot's call, if it is in one: where it is, and the person's Stop sharing and Leave. */
 function CallStrip({ slug }: { slug: string }) {
@@ -533,7 +535,7 @@ function CallStrip({ slug }: { slug: string }) {
     };
   }, [slug]);
   if (!call) return null;
-  const act = (action: "leave" | "stop_sharing") => {
+  const act = (action: "leave" | "stop_sharing" | "show") => {
     setBusy(true);
     invoke("crew:meeting", slug, action).then(
       (m) => setCall(m),
@@ -543,9 +545,14 @@ function CallStrip({ slug }: { slug: string }) {
   const facts = [call.code, call.people !== null ? `${call.people} ${call.people === 1 ? "person" : "people"}` : "", call.sharing ? `Sharing ${call.sharing}` : ""].filter(Boolean);
   return (
     <div className="call-strip" role="status">
-      <span className="call-state">{CALL_STATE[call.state]}</span>
+      <span className="call-state">{call.state === "stuck" ? stuckLabel(call.inChrome) : CALL_STATE[call.state]}</span>
       <span className="call-facts ell">{facts.join(" · ")}</span>
       <span className="grow" />
+      {call.inChrome && (
+        <button type="button" className="btn small ghost" disabled={busy} onClick={() => act("show")}>
+          Show call
+        </button>
+      )}
       {call.sharing && (
         <button type="button" className="btn small ghost" disabled={busy} onClick={() => act("stop_sharing")}>
           Stop sharing

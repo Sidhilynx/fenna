@@ -39,6 +39,7 @@ const { BrowserWindow, screen, session, sharedTexture } = require("electron");
 const { pageSnapshot, pageTarget, pageSelectAll, pageChoose, pageScroll, pageFillLogin, pageFillCode, pageSecretShown, CAPTURE_SOURCE, NOTIFY_SOURCE, pageWatchTarget, pageWatchArm, pageWatchStop } = require("./page-scripts.cjs");
 const { LIMITS } = require("./format.cjs");
 
+
 /** The page size when nobody watches live, in CSS pixels. */
 const DEFAULT_VIEW = { width: 1280, height: 800 };
 /** Downloads are saved in the bot's workspace, under this folder. */
@@ -956,6 +957,59 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
   }
 
   /** The bot's browser with an active tab ready for the protocol. */
+  /**
+   * What meetings.cjs drives a call's tab with: page
+   * functions in an isolated world of its own, the DevTools protocol, and
+   * close. The bot's browser tools never act through it.
+   */
+  function tabHandle(b, t) {
+    t.wc.debugger.on("message", (_e, method, params) => {
+      if (method === "Page.frameNavigated" && params && params.frame && !params.frame.parentId) t.meetWorld = null;
+    });
+    const alive = () => !t.wc.isDestroyed();
+    /** A meet-scripts page function in the tab's own isolated world. */
+    async function evaluateIn(fn, arg) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        if (!t.meetWorld) {
+          const { frameTree } = await cdp(t, "Page.getFrameTree");
+          t.meetWorld = (await cdp(t, "Page.createIsolatedWorld", { frameId: frameTree.frame.id, worldName: "fenna-meet-act" })).executionContextId;
+        }
+        try {
+          const res = await cdp(t, "Runtime.evaluate", { expression: `(${fn.toString()})(${JSON.stringify(arg ?? null)})`, contextId: t.meetWorld, returnByValue: true, awaitPromise: true });
+          if (res.exceptionDetails) throw new Error(res.exceptionDetails.text || "script error");
+          return res.result.value;
+        } catch (e) {
+          if (attempt === 0 && /context|Execution/i.test(String(e && e.message))) {
+            t.meetWorld = null;
+            continue;
+          }
+          throw e;
+        }
+      }
+      return null;
+    }
+    return {
+      id: t.id,
+      cdp: (method, params) => cdp(t, method, params),
+      evaluate: evaluateIn,
+      /** An expression in the page's own world (where the stage lives). */
+      async main(expression) {
+        const res = await cdp(t, "Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true });
+        if (res.exceptionDetails) throw new Error(res.exceptionDetails.text || "script error");
+        return res.result.value;
+      },
+      url: () => (alive() ? t.wc.getURL() : ""),
+      alive,
+      waitForControl: () => waitForControl(b),
+      close() {
+        if (!alive()) return;
+        t.win.destroy();
+        dropTab(b, t.id);
+        if (!b.tabs.length) newTab(b);
+      },
+    };
+  }
+
   async function get(slug) {
     let b = all.get(slug);
     if (!b) {
@@ -1674,7 +1728,6 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
       const names = new Set(bindings.map((x) => x.name));
       t.wc.debugger.on("message", (_e, method, params) => {
         if (method === "Runtime.bindingCalled" && params && names.has(params.name)) onBinding(params.name, String(params.payload || ""));
-        if (method === "Page.frameNavigated" && params && params.frame && !params.frame.parentId) t.meetWorld = null;
       });
       t.wc.once("destroyed", () => onGone());
       for (const x of bindings) await cdp(t, "Runtime.addBinding", x);
@@ -1685,48 +1738,7 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
         throw new Error(`Couldn't open ${url}: ${r.errorText}.`);
       }
       tell(b);
-      const alive = () => !t.wc.isDestroyed();
-      /** A meet-scripts function in the meeting's own isolated world. */
-      async function evaluateIn(fn, arg) {
-        for (let attempt = 0; attempt < 2; attempt++) {
-          if (!t.meetWorld) {
-            const { frameTree } = await cdp(t, "Page.getFrameTree");
-            t.meetWorld = (await cdp(t, "Page.createIsolatedWorld", { frameId: frameTree.frame.id, worldName: "fenna-meet-act" })).executionContextId;
-          }
-          try {
-            const res = await cdp(t, "Runtime.evaluate", { expression: `(${fn.toString()})(${JSON.stringify(arg ?? null)})`, contextId: t.meetWorld, returnByValue: true, awaitPromise: true });
-            if (res.exceptionDetails) throw new Error(res.exceptionDetails.text || "script error");
-            return res.result.value;
-          } catch (e) {
-            if (attempt === 0 && /context|Execution/i.test(String(e && e.message))) {
-              t.meetWorld = null;
-              continue;
-            }
-            throw e;
-          }
-        }
-        return null;
-      }
-      return {
-        id: t.id,
-        cdp: (method, params) => cdp(t, method, params),
-        evaluate: evaluateIn,
-        /** An expression in the page's own world (where the stage lives). */
-        async main(expression) {
-          const res = await cdp(t, "Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true });
-          if (res.exceptionDetails) throw new Error(res.exceptionDetails.text || "script error");
-          return res.result.value;
-        },
-        url: () => (alive() ? t.wc.getURL() : ""),
-        alive,
-        waitForControl: () => waitForControl(b),
-        close() {
-          if (!alive()) return;
-          t.win.destroy();
-          dropTab(b, t.id);
-          if (!b.tabs.length) newTab(b);
-        },
-      };
+      return tabHandle(b, t);
     },
 
     close(slug) {
