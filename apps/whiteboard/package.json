@@ -1,7 +1,7 @@
 {
   "name": "@opendeck/whiteboard",
   "productName": "Fenna Whiteboard",
-  "version": "0.9.10",
+  "version": "0.9.11",
   "private": true,
   "description": "A whiteboard that lives on your computer and works with any AI.",
   "license": "AGPL-3.0-only",

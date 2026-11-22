@@ -42,7 +42,7 @@ const Version = z.string().optional().describe("the version read_slides gave; re
 
 export function createServer(root: string): McpServer {
   const store = new DeckStore(root);
-  const server = new McpServer({ name: "fenna-slides", version: "0.9.10" }, { instructions: INSTRUCTIONS });
+  const server = new McpServer({ name: "fenna-slides", version: "0.9.11" }, { instructions: INSTRUCTIONS });
 
   server.registerTool(
     "deck_overview",

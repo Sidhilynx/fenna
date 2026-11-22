@@ -1,7 +1,7 @@
 {
   "name": "@opendeck/design",
   "productName": "Fenna Design",
-  "version": "0.9.10",
+  "version": "0.9.11",
   "private": true,
   "description": "A design canvas of artboards that lives on your computer and works with any AI.",
   "license": "AGPL-3.0-only",
