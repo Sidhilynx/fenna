@@ -301,7 +301,7 @@ function createHandlers({ store, runner, waits, approve, browsers, gateway, appH
       return { text: [`${countOf(hits.length, "match")} for "${query}":`, ...lines].join("\n") };
     },
 
-    /** A file on the bot's disk: text, CSV, Excel or an image, a page at a time (files.cjs). */
+    /** A file on the bot's disk: text, a table, an image, or a PDF or office file's text, a page at a time (files.cjs). */
     read_file(ctx, p) {
       return files.read(ctx.slug, p);
     },
