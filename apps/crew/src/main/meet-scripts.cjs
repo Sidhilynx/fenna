@@ -27,6 +27,7 @@ const MEET_LABELS = {
   present: ["Share screen", "Present now"],
   stopPresenting: "Stop presenting",
   people: "^People\\b.*?(\\d+)",
+  signInHost: "accounts.google.com",
 };
 
 function meetState() {
@@ -47,7 +48,8 @@ function meetState() {
     .find(Boolean);
 
   let state = "unknown";
-  if (named("leave call")) state = "incall";
+  if (location.hostname === "accounts.google.com") state = "signin";
+  else if (named("leave call")) state = "incall";
   else if (says(["You can't join this video call", "denied your request", "You've been removed"])) state = "denied";
   else if (says(["You left the meeting", "The call has ended", "You've left the call"])) state = "ended";
   else if (says(["Asking to be let in", "Please wait until a meeting host brings you into the call"])) state = "waiting";
@@ -62,17 +64,37 @@ function meetState() {
   };
 }
 
+/** Focuses the guest name field with its text selected, so Crew can type the name over it with real key input. */
+function meetNameFocus() {
+  const shown = (el) => el.getClientRects().length > 0;
+  const inputs = [...document.querySelectorAll("input")].filter(shown);
+  const field = inputs.find((i) => i.getAttribute("aria-label") === "Your name") || inputs.find((i) => /your name/i.test(i.getAttribute("placeholder") || "")) || null;
+  if (!field) return { found: false, focused: false, value: "" };
+  field.focus();
+  field.select();
+  return { found: true, focused: document.activeElement === field, value: field.value };
+}
+
+/**
+ * Turns the microphone off and presses Join now, else Ask to join. Meet enables
+ * its guest button only for a name typed for real (Crew types it first with
+ * meetNameFocus and Input.insertText); the name is set from script only when
+ * the field is still empty after that.
+ */
 function meetPrejoin(arg) {
   const norm = (s) => String(s || "").replace(/\s+/g, " ").trim().toLowerCase();
   const shown = (el) => el.getClientRects().length > 0;
-  const live = () => [...document.querySelectorAll('button, [role="button"]')].filter((b) => shown(b) && !b.disabled && b.getAttribute("aria-disabled") !== "true");
+  const off = (b) => b.disabled || b.getAttribute("aria-disabled") === "true";
+  const all = () => [...document.querySelectorAll('button, [role="button"]')].filter(shown);
+  const live = () => all().filter((b) => !off(b));
   const named = (prefix) => live().find((b) => norm(b.getAttribute("aria-label")).startsWith(prefix)) || null;
+  const says = (b, words) => norm(b.textContent) === words || norm(b.getAttribute("aria-label")) === words;
 
   const inputs = [...document.querySelectorAll("input")].filter(shown);
   const field = inputs.find((i) => i.getAttribute("aria-label") === "Your name") || inputs.find((i) => /your name/i.test(i.getAttribute("placeholder") || "")) || null;
   const name = (arg || {}).name;
-  let filled = false;
-  if (field && typeof name === "string" && name) {
+  let filled = !!field && typeof name === "string" && field.value === name;
+  if (field && !field.value && typeof name === "string" && name) {
     const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
     setValue.call(field, name);
     field.dispatchEvent(new Event("input", { bubbles: true }));
@@ -84,17 +106,18 @@ function meetPrejoin(arg) {
   if (mic) mic.click();
 
   const buttons = live();
-  const join = buttons.find((b) => norm(b.textContent) === "join now");
+  const join = buttons.find((b) => says(b, "join now"));
   if (join) {
     join.click();
-    return { clicked: "join", filled };
+    return { clicked: "join", filled, disabled: false, nameField: !!field };
   }
-  const ask = buttons.find((b) => norm(b.textContent) === "ask to join");
+  const ask = buttons.find((b) => says(b, "ask to join"));
   if (ask) {
     ask.click();
-    return { clicked: "ask", filled };
+    return { clicked: "ask", filled, disabled: false, nameField: !!field };
   }
-  return { clicked: null, filled };
+  const disabled = all().some((b) => off(b) && (says(b, "join now") || says(b, "ask to join")));
+  return { clicked: null, filled, disabled, nameField: !!field };
 }
 
 function meetCaptionsOn() {
@@ -425,4 +448,4 @@ function meetListenSource({ binding }) {
   return "(" + meetListenIsolated.toString() + ")(" + JSON.stringify({ binding }) + ")";
 }
 
-module.exports = { MEET_LABELS, meetMediaSource, meetState, meetPrejoin, meetCaptionsOn, meetChatFocus, meetPresent, meetStopPresenting, meetLeave, meetListenSource };
+module.exports = { MEET_LABELS, meetMediaSource, meetState, meetNameFocus, meetPrejoin,meetCaptionsOn, meetChatFocus, meetPresent, meetStopPresenting, meetLeave, meetListenSource };

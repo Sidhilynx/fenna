@@ -57,7 +57,22 @@ fs.writeFileSync(
 const ownBins = path.join(process.env.APPDATA || "", "Fenna Crew", "assistant", "bin");
 if (fs.existsSync(ownBins)) fs.cpSync(ownBins, path.join(work, "ud", "assistant", "bin"), { recursive: true });
 
+/** What the fake call last reported about itself (it posts window.__fakeMeet to /state). */
+let reported = null;
 const server = http.createServer((req, res) => {
+  if (req.method === "POST" && req.url === "/state") {
+    let body = "";
+    req.on("data", (d) => (body += d));
+    req.on("end", () => {
+      try {
+        reported = JSON.parse(body);
+      } catch {
+        /* a half-written report: the next one comes in half a second */
+      }
+      res.writeHead(204).end();
+    });
+    return;
+  }
   const file = path.join(fixtureDir, "index.html");
   if (new URL(req.url, "http://x").pathname !== "/index.html") return void res.writeHead(404).end();
   res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
@@ -65,7 +80,7 @@ const server = http.createServer((req, res) => {
 });
 await new Promise((r) => server.listen(0, "127.0.0.1", r));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const callUrl = `${origin}/index.html?guest=1&admit=2000&script=standup&code=e2e-call`;
+const callUrl = `${origin}/index.html?guest=1&admit=2000&script=standup&code=e2e-call&report=1`;
 
 const env = { ...process.env, OPENDECK_CREW_ROOT: root, OPENDECK_MEET_ORIGINS: origin };
 delete env.ELECTRON_RUN_AS_NODE;
@@ -134,7 +149,7 @@ const readRuns = () => {
 };
 
 const killer = setTimeout(() => {
-  process.stderr.write("meet-e2e: timed out\n");
+  process.stderr.write(`meet-e2e: timed out; the call reported ${reported ? JSON.stringify({ events: reported.events, sent: reported.sent.length, frames: reported.frames }) : "nothing"}; checks so far ${JSON.stringify(checks)}\n`);
   child.kill();
   process.exit(1);
 }, TIMEOUT_MS);
@@ -145,8 +160,8 @@ try {
   await until(() => crew.eval("!!window.shell"), 30_000, 500);
   await crew.eval(`window.shell.invoke("crew:send", "scout", ${JSON.stringify(`Join this call and take notes: ${callUrl}`)})`);
 
-  const meet = await connect((u) => u.startsWith(origin));
-  const fake = (expr) => meet.eval(`(() => { const f = window.__fakeMeet; return ${expr}; })()`);
+  // The call runs in the bot's own Chrome when Chrome is installed, else in Crew's browser: follow it through its reports.
+  const fake = (expr) => (reported ? new Function("f", `return ${expr};`)(reported) : null);
   check("joined the call", await until(() => fake("f.events.includes('joined')"), 120_000));
   check("posted its hello", await until(() => fake("f.sent.some((s) => /AI assistant/.test(s))"), 60_000));
   check("captions on and the scenario played", await until(() => fake("f.scriptDone"), 90_000));

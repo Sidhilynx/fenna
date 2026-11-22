@@ -35,7 +35,7 @@ Tools take an optional 'path' parameter (relative or absolute). If omitted, the 
 export function createServer(workspaceRoot: string): McpServer {
   const store = new WorkspaceStore(workspaceRoot);
   const server = new McpServer(
-    { name: "fenna-workspace-mcp", version: "0.9.9" },
+    { name: "fenna-workspace-mcp", version: "0.9.10" },
     { instructions: INSTRUCTIONS },
   );
 

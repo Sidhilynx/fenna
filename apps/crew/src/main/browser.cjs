@@ -39,6 +39,7 @@ const { BrowserWindow, screen, session, sharedTexture } = require("electron");
 const { pageSnapshot, pageTarget, pageSelectAll, pageChoose, pageScroll, pageFillLogin, pageFillCode, pageSecretShown, CAPTURE_SOURCE, NOTIFY_SOURCE, pageWatchTarget, pageWatchArm, pageWatchStop } = require("./page-scripts.cjs");
 const { LIMITS } = require("./format.cjs");
 
+
 /** The page size when nobody watches live, in CSS pixels. */
 const DEFAULT_VIEW = { width: 1280, height: 800 };
 /** Downloads are saved in the bot's workspace, under this folder. */
@@ -240,6 +241,9 @@ function webAddress(typed) {
 }
 
 const blank = (url) => !url || url === "about:blank";
+
+/** A Google Meet call's link: only the meeting tool opens one, in a tab of its own. */
+const callLink = (u) => u.origin === "https://meet.google.com" && /^\/[a-z]{3}-[a-z]{4}-[a-z]{3}(\/|$)/i.test(u.pathname);
 
 /**
  * A file name safe to save in a folder: the last part of the name the page
@@ -953,6 +957,59 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
   }
 
   /** The bot's browser with an active tab ready for the protocol. */
+  /**
+   * What meetings.cjs drives a call's tab with: page
+   * functions in an isolated world of its own, the DevTools protocol, and
+   * close. The bot's browser tools never act through it.
+   */
+  function tabHandle(b, t) {
+    t.wc.debugger.on("message", (_e, method, params) => {
+      if (method === "Page.frameNavigated" && params && params.frame && !params.frame.parentId) t.meetWorld = null;
+    });
+    const alive = () => !t.wc.isDestroyed();
+    /** A meet-scripts page function in the tab's own isolated world. */
+    async function evaluateIn(fn, arg) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        if (!t.meetWorld) {
+          const { frameTree } = await cdp(t, "Page.getFrameTree");
+          t.meetWorld = (await cdp(t, "Page.createIsolatedWorld", { frameId: frameTree.frame.id, worldName: "fenna-meet-act" })).executionContextId;
+        }
+        try {
+          const res = await cdp(t, "Runtime.evaluate", { expression: `(${fn.toString()})(${JSON.stringify(arg ?? null)})`, contextId: t.meetWorld, returnByValue: true, awaitPromise: true });
+          if (res.exceptionDetails) throw new Error(res.exceptionDetails.text || "script error");
+          return res.result.value;
+        } catch (e) {
+          if (attempt === 0 && /context|Execution/i.test(String(e && e.message))) {
+            t.meetWorld = null;
+            continue;
+          }
+          throw e;
+        }
+      }
+      return null;
+    }
+    return {
+      id: t.id,
+      cdp: (method, params) => cdp(t, method, params),
+      evaluate: evaluateIn,
+      /** An expression in the page's own world (where the stage lives). */
+      async main(expression) {
+        const res = await cdp(t, "Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true });
+        if (res.exceptionDetails) throw new Error(res.exceptionDetails.text || "script error");
+        return res.result.value;
+      },
+      url: () => (alive() ? t.wc.getURL() : ""),
+      alive,
+      waitForControl: () => waitForControl(b),
+      close() {
+        if (!alive()) return;
+        t.win.destroy();
+        dropTab(b, t.id);
+        if (!b.tabs.length) newTab(b);
+      },
+    };
+  }
+
   async function get(slug) {
     let b = all.get(slug);
     if (!b) {
@@ -1082,6 +1139,7 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
     async open(b, p) {
       const a = webAddress(p.url);
       if (a.error) throw new Error(a.error);
+      if (callLink(a.url)) throw new Error(`${a.url.href} is a video call. Join it with the meeting tool, {action: "join", url: "${a.url.href}"}; the browser tools never open a call.`);
       // One tab per site: sites like WhatsApp Web run in one tab only, and a second one takes the session from the first
       // (a watch keeps its site open in a tab of its own). An open site is switched to, not opened again.
       const same = otherSiteTab(b.tabs.map((x) => ({ id: x.id, origin: originOf(x), tab: x })), a.url.origin, b.active)?.tab;
@@ -1657,6 +1715,12 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
       const b = await get(slug);
       await waitForControl(b);
       if (b.tabs.some((x) => x.meeting && !x.wc.isDestroyed())) throw new Error("You are already in a meeting. Leave it first.");
+      // A plain tab on the call's site (one the person opened, or a join done by hand) would put the bot in the call twice.
+      const origin = new URL(url).origin;
+      for (const x of b.tabs.filter((x) => !x.meeting && originOf(x) === origin)) {
+        if (!x.win.isDestroyed()) x.win.destroy();
+        dropTab(b, x.id);
+      }
       if (b.tabs.length >= MAX_TABS) throw new Error(`${MAX_TABS} tabs are open, the most a bot can have. Close one with close_tab first.`);
       const t = newTab(b);
       t.meeting = true;
@@ -1664,7 +1728,6 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
       const names = new Set(bindings.map((x) => x.name));
       t.wc.debugger.on("message", (_e, method, params) => {
         if (method === "Runtime.bindingCalled" && params && names.has(params.name)) onBinding(params.name, String(params.payload || ""));
-        if (method === "Page.frameNavigated" && params && params.frame && !params.frame.parentId) t.meetWorld = null;
       });
       t.wc.once("destroyed", () => onGone());
       for (const x of bindings) await cdp(t, "Runtime.addBinding", x);
@@ -1675,48 +1738,7 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
         throw new Error(`Couldn't open ${url}: ${r.errorText}.`);
       }
       tell(b);
-      const alive = () => !t.wc.isDestroyed();
-      /** A meet-scripts function in the meeting's own isolated world. */
-      async function evaluateIn(fn, arg) {
-        for (let attempt = 0; attempt < 2; attempt++) {
-          if (!t.meetWorld) {
-            const { frameTree } = await cdp(t, "Page.getFrameTree");
-            t.meetWorld = (await cdp(t, "Page.createIsolatedWorld", { frameId: frameTree.frame.id, worldName: "fenna-meet-act" })).executionContextId;
-          }
-          try {
-            const res = await cdp(t, "Runtime.evaluate", { expression: `(${fn.toString()})(${JSON.stringify(arg ?? null)})`, contextId: t.meetWorld, returnByValue: true, awaitPromise: true });
-            if (res.exceptionDetails) throw new Error(res.exceptionDetails.text || "script error");
-            return res.result.value;
-          } catch (e) {
-            if (attempt === 0 && /context|Execution/i.test(String(e && e.message))) {
-              t.meetWorld = null;
-              continue;
-            }
-            throw e;
-          }
-        }
-        return null;
-      }
-      return {
-        id: t.id,
-        cdp: (method, params) => cdp(t, method, params),
-        evaluate: evaluateIn,
-        /** An expression in the page's own world (where the stage lives). */
-        async main(expression) {
-          const res = await cdp(t, "Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true });
-          if (res.exceptionDetails) throw new Error(res.exceptionDetails.text || "script error");
-          return res.result.value;
-        },
-        url: () => (alive() ? t.wc.getURL() : ""),
-        alive,
-        waitForControl: () => waitForControl(b),
-        close() {
-          if (!alive()) return;
-          t.win.destroy();
-          dropTab(b, t.id);
-          if (!b.tabs.length) newTab(b);
-        },
-      };
+      return tabHandle(b, t);
     },
 
     close(slug) {

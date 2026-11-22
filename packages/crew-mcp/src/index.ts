@@ -234,7 +234,7 @@ export function createCrewServer(link: Link, opts: CrewOptions): McpServer {
     {
       title: "Be in a video call",
       description:
-        'Join a Google Meet call and work in it. join (url, plus note: what the person wants from you there): Crew joins as a guest, turns captions on and keeps a transcript in Files/Meetings; it returns at once, so end your turn. Someone has to let you in. After that Crew wakes you, in a chat of its own, only when someone says your name, with what was said since you last looked; your final reply is posted to the meeting chat. share (document: a folder name in your Documents) presents that document in the call, live as you edit it with the fenna tools; stop_sharing ends it. say (text) posts to the meeting chat now, for "on it" before longer work. leave, status. Never drive the call with the browser tools, and never take screenshots of it. Example: {action: "join", url: "https://meet.google.com/abc-defg-hij", note: "Take notes and write the action items as a doc"}',
+        'Join a Google Meet call and work in it. join (url, plus note: what the person wants from you there): Crew joins as a guest, turns captions on and keeps a transcript in Files/Meetings; it returns at once, so end your turn. Someone has to let you in. Call join once: when it says the person must do something first (sign in, press Join in the tab of the call), ask them with ask_human and Crew carries on by itself; status says where the call is. After that Crew wakes you, in a chat of its own, only when someone says your name, with what was said since you last looked; your final reply is posted to the meeting chat. share (document: a folder name in your Documents) presents that document in the call, live as you edit it with the fenna tools; stop_sharing ends it. say (text) posts to the meeting chat now, for "on it" before longer work. leave, status. Never drive the call with the browser tools, and never take screenshots of it. Example: {action: "join", url: "https://meet.google.com/abc-defg-hij", note: "Take notes and write the action items as a doc"}',
       inputSchema: {
         action: z.enum(["join", "say", "share", "stop_sharing", "leave", "status"]),
         url: z.string().max(2000).optional().describe("join: the call's link, https://meet.google.com/abc-defg-hij"),
@@ -245,6 +245,19 @@ export function createCrewServer(link: Link, opts: CrewOptions): McpServer {
       },
     },
     (args) => call("meeting", { ...args }),
+  );
+
+  tool(
+    "account",
+    {
+      title: "Your own Google account",
+      description:
+        'Your own Google account, if the person gave you one. It lives in a Google Chrome of your own that Crew runs for your calls, so you join Meet as it (your browser tools use a different browser, where Google sites stay signed out). status says which account it is and whether it is signed in. sign_in opens that Chrome on the Google sign-in page for the person: only they type the password, never you; ask them with ask_human to sign in there and close the window, then call status. Never sign in to any other Google account. Example: {action: "status"}',
+      inputSchema: {
+        action: z.enum(["status", "sign_in"]),
+      },
+    },
+    (args) => call("account", { ...args }),
   );
 
   tool(

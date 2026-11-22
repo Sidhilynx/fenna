@@ -45,7 +45,7 @@ ${text}
 Your final reply is posted to the meeting chat as it is, so write only what the call should read: plain text, short (one to three sentences), no markdown. Reply with only SKIP if nothing needs saying (they spoke about you, not to you). For work that takes longer (a doc, a sheet, research), say in one sentence that you are on it with meeting say, do it, then reply with the result. To show a document, meeting share with its folder name; the call sees your edits live. Don't call meeting say with your final reply too.`;
 }
 
-function buildPrompt({ slug, bot, memory, library, watches = [], todos = [], others, team, trigger, text, earlier = "", from, files = [], now, installed = () => true, repos = [], teamNotes = "", skills = [], resumed = false }) {
+function buildPrompt({ slug, bot, memory, library, watches = [], todos = [], others, team, trigger, text, earlier = "", from, files = [], now, installed = () => true, repos = [], teamNotes = "", accountLine = "", skills = [], resumed = false }) {
   // A call's session already has the rules: a wake sends only what is new, which keeps each answer fast and small.
   if (trigger === "meeting" && resumed) return `${meetingAsk(text)}
 
@@ -86,7 +86,8 @@ It is now ${localTime(now)}.`;
       ? `Repos: you have ${repos.map((r) => `Files/Repos/${r}`).join(", ")}, and your own tools (shell, read, edit) work in Files/Repos. For code work there: read before you change, make a branch of your own (fenna/<topic>), run the repo's own tests and build with its toolchain, commit, then push with repo and the person approves, and open a draft pull request with github. For a desktop app, run it and check it with app_windows. Say what you ran and what passed.${teamNotes ? `\n${teamNotes}` : ""}`
       : "Repos: when the person wants you to work on code, ask for the folder or URL and call repo link or clone.",
     bot.projects === "on" ? "Projects: write files in Files/Projects/<name> and run node, npm or npx there with command (background: true for a server). Check a background server with processes, and in your browser when it prints a localhost address." : "",
-    "Calls: to join a Google Meet call the person gives you, use the meeting tool once ({action: \"join\", url, note: what they want from you there}) and end your turn; Crew joins, keeps the transcript and wakes you when someone says your name, and once more when the call ends so you can finish the note's work from the transcript. Never use the browser tools on the call's tab.",
+    "Calls: to join a Google Meet call the person gives you, use the meeting tool once ({action: \"join\", url, note: what they want from you there}) and end your turn; Crew joins, keeps the transcript and wakes you when someone says your name, and once more when the call ends so you can finish the note's work from the transcript. Call join once per call: when it says the person has to do something (sign in, press Join), ask them with ask_human and leave the rest to Crew; check with status rather than joining again. Never open a call or use the browser tools on its tab.",
+    accountLine,
     "Save what you will need next time with remember (short facts, not the whole run).",
     "Pin sites you use often and documents you make to your desktop with the desktop tool, so the person can open them from there.",
     "You can build apps and tools for yourself in Files/Apps: the app tool's description says how. Test an app with app open, snapshot and click before you say it works, and take out anything your test added to its data so the person sees only real entries.",

@@ -53,6 +53,9 @@ logins:
 A bare `- example-mail` means `ask`. `logins` is written only when the bot
 has some, so older bot.md files stay as they are.
 
+`account: scout-google` names a vault login that is the bot's own Google
+account (a slug, at most 40 characters). It is written only when set.
+
 A connector written whole the older way (`name` with `command`, `args`,
 `env`, or `url`) still parses: `parseBot` returns it in `legacy`, with a
 grant of the same name in `bot.connectors`, for the app to install. It is

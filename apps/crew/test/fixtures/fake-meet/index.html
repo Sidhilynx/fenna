@@ -137,6 +137,15 @@
     if (!guest) nameInput.remove();
     var join = root.querySelector('[data-join]');
     join.textContent = guest ? 'Ask to join' : 'Join now';
+    // Like Meet: a guest's button wakes only for a name typed for real, not one set from script.
+    if (guest) {
+      join.disabled = true;
+      nameInput.addEventListener('input', function (e) {
+        if (!e.isTrusted) return;
+        join.disabled = !nameInput.value.trim();
+        fake.typedName = nameInput.value;
+      });
+    }
     root.querySelector('[data-toggle="mic"]').addEventListener('click', function (e) {
       flip(e.currentTarget, 'microphone');
     });
@@ -309,6 +318,21 @@
   }
 
   function countFrames(stream) {
+    // Read the frames off the track itself where the browser can: a minimized window paints nothing,
+    // but the stream still carries every frame Meet would send.
+    if (typeof MediaStreamTrackProcessor === 'function') {
+      var reader = new MediaStreamTrackProcessor({ track: stream.getVideoTracks()[0] }).readable.getReader();
+      var pump = function () {
+        reader.read().then(function (r) {
+          if (r.done || shareStream !== stream) return;
+          r.value.close();
+          fake.frames += 1;
+          pump();
+        }, function () {});
+      };
+      pump();
+      return;
+    }
     var video = refs.share;
     if (!('requestVideoFrameCallback' in video)) return;
     var tick = function () {
@@ -350,6 +374,12 @@
   }
 
   showPrejoin();
+  // With ?report=1 the page posts what it saw to its own server, so a harness can follow a call in any browser.
+  if (params.get('report') === '1') {
+    setInterval(function () {
+      fetch('/state', { method: 'POST', body: JSON.stringify(fake) }).catch(function () {});
+    }, 500);
+  }
 })();
 </script>
 </body>

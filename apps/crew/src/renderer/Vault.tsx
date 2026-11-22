@@ -20,11 +20,20 @@ import { PixelField } from "./PixelField.tsx";
 
 const REVEAL_MS = 20_000;
 
+/** A form opened with some fields already filled in. */
+interface LoginPreset {
+  label: string;
+  origins: string[];
+  usernamePlaceholder: string;
+}
+
+const GOOGLE_PRESET: LoginPreset = { label: "Google account", origins: ["https://accounts.google.com"], usernamePlaceholder: "name@gmail.com" };
+
 const usedLine = (i: VaultItemView) => (i.usedBy.length ? `Used by ${i.usedBy.map((b) => b.name).join(", ")}` : "Not given to any bot");
 
 export function VaultPage() {
   const { items, error } = useVault();
-  const [dialog, setDialog] = useState<null | { edit: VaultItemView | null }>(null);
+  const [dialog, setDialog] = useState<null | { edit: VaultItemView | null; preset?: LoginPreset }>(null);
   const [removing, setRemoving] = useState<VaultItemView | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [q, setQ] = useState("");
@@ -40,10 +49,15 @@ export function VaultPage() {
           <h1>Vault</h1>
           <p>Encrypted on this computer. Bots never see a password.</p>
         </div>
-        <button type="button" className="btn primary" onClick={() => setDialog({ edit: null })} disabled={!!error}>
-          <PixelIcon name="plus" size={12} />
-          Add login
-        </button>
+        <div className="inline">
+          <button type="button" className="btn" onClick={() => setDialog({ edit: null, preset: GOOGLE_PRESET })} disabled={!!error}>
+            Add a Google account
+          </button>
+          <button type="button" className="btn primary" onClick={() => setDialog({ edit: null })} disabled={!!error}>
+            <PixelIcon name="plus" size={12} />
+            Add login
+          </button>
+        </div>
       </div>
       {error ? (
         <p className="conn-error vault-error" role="alert">
@@ -68,7 +82,7 @@ export function VaultPage() {
           </ul>
         </>
       )}
-      {dialog && <LoginDialog editing={dialog.edit} onClose={() => setDialog(null)} />}
+      {dialog && <LoginDialog editing={dialog.edit} preset={dialog.preset} onClose={() => setDialog(null)} />}
       {removing && <RemoveLoginDialog item={removing} onClose={() => setRemoving(null)} />}
     </main>
   );
@@ -339,10 +353,10 @@ function readOrigins(text: string): { origins: string[] } | { error: string } {
   return { origins: out };
 }
 
-export function LoginDialog({ editing, onClose }: { editing: VaultItemView | null; onClose(): void }) {
+export function LoginDialog({ editing, preset, onClose }: { editing: VaultItemView | null; preset?: LoginPreset; onClose(): void }) {
   const { overview } = useCrew();
-  const [label, setLabel] = useState(editing?.label ?? "");
-  const [sites, setSites] = useState(editing ? editing.origins.join("\n") : "");
+  const [label, setLabel] = useState(editing?.label ?? preset?.label ?? "");
+  const [sites, setSites] = useState(editing ? editing.origins.join("\n") : (preset?.origins.join("\n") ?? ""));
   const [username, setUsername] = useState(editing?.username ?? "");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
@@ -432,7 +446,7 @@ export function LoginDialog({ editing, onClose }: { editing: VaultItemView | nul
         </label>
         <label className="lab">
           Username
-          <input className="field" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="you@example.com" maxLength={LIMITS.vaultUsername} autoComplete="off" spellCheck={false} />
+          <input className="field" value={username} onChange={(e) => setUsername(e.target.value)} placeholder={preset?.usernamePlaceholder ?? "you@example.com"} maxLength={LIMITS.vaultUsername} autoComplete="off" spellCheck={false} />
         </label>
         <label className="lab">
           Password

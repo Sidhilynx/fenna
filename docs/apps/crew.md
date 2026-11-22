@@ -202,6 +202,16 @@ Files, on the `crew` server (`apps/crew/src/main/files.cjs`):
   screen are fake: a name card, silence, and a stage that shows one library
   document live. When the call ends, a bot with a note from the person wakes
   once more to finish the work from the transcript. 2026-11-21
+- A bot can have a Google account of its own (docs/plans/crew-bot-accounts.md):
+  the person makes it (Crew never creates accounts) and keeps it in the vault;
+  bot.md names it with `account`. It lives in a real Google Chrome profile of
+  the bot's own, because Google refuses sign-in and calls from Crew's built-in
+  browser and refuses a sign-in in a Chrome something drives. The person signs
+  it in by hand, once, in a plain Chrome window; Crew never types a Google
+  password. Crew then drives that profile openly over a pipe (Chrome says it
+  is automated; Crew hides nothing) for checks and calls, which run there,
+  minimized, whenever Chrome is installed. Crew won't disguise any browser to
+  pass Google's checks. 2026-11-22
 - A bot's computer is a small OS of its own: movable, resizable windows and a
   taskbar; one disk (Files, Documents, Downloads, Trash) that Crew resolves
   inside the bot's folder and nowhere else (no "..", absolute paths or links);

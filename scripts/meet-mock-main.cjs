@@ -134,6 +134,12 @@ const steps = [
     name: 'prejoin',
     run: async () => {
       await pollState('prejoin', STEP_MS);
+      // A name set from script leaves Ask to join disabled, as on Meet.
+      const untyped = await act(meet.meetPrejoin, { name: BOT });
+      if (untyped.clicked !== null || !untyped.disabled) throw new Error(`expected a disabled join button before typing, got ${JSON.stringify(untyped)}`);
+      const f = await act(meet.meetNameFocus);
+      if (!f.found || !f.focused) throw new Error(`name field not focused: ${JSON.stringify(f)}`);
+      await send('Input.insertText', { text: BOT });
       const r = await act(meet.meetPrejoin, { name: BOT });
       if (r.clicked !== 'ask') throw new Error(`expected clicked "ask", got ${JSON.stringify(r)}`);
       return r;

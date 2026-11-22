@@ -40,6 +40,8 @@ const { createWatches } = require("./watches.cjs");
 const { createDisk, freeOnDrive } = require("./disk.cjs");
 const { createNotices } = require("./notices.cjs");
 const { createMeetings } = require("./meetings.cjs");
+const { createAccounts } = require("./accounts.cjs");
+const { createChrome } = require("./chrome.cjs");
 const { createShell } = require("./shell.cjs");
 const { createSearch } = require("./search.cjs");
 const { createFiles } = require("./files.cjs");
@@ -175,6 +177,8 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
   const shell = createShell({ disk, store, broadcast, sandbox });
   const notices = createNotices({ botDir: (slug) => store.botDir(slug), broadcast, now: () => new Date() });
   const search = createSearch({ disk });
+  /** Each bot's own Google account (accounts.cjs); made once the browsers are. */
+  let accounts = null;
   const files = createFiles({ disk, broadcast: diskBroadcast });
   const browsers = createBrowsers({
     workspaceDir: (slug) => store.workspaceDir(slug),
@@ -194,6 +198,14 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
     onStep: (slug, step) => replay.onStep(slug, step),
     liveTarget,
   });
+  // Each bot's own Google Chrome, for its Google account and its calls (Google refuses both in the built-in browser).
+  const chrome = createChrome({
+    profileDir: (slug) => path.join(userData, "Crew", "chrome", slug),
+    onPlainClosed: (slug) => {
+      if (accounts) void accounts.plainClosed(slug).catch(() => {});
+    },
+  });
+  accounts = createAccounts({ store, vault, chrome, broadcast, onChange });
   let handle = null;
   let gateway = null;
   let logins = null;
@@ -215,6 +227,7 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
     store,
     startRun,
     repoNames: (slug) => (repos ? repos.names(slug) : []),
+    accountLine: (slug) => (accounts ? accounts.promptLine(slug) : ""),
     teamNotes: (slug) => (repos && teams ? repos.names(slug).map((n) => teams.promptFor(repos.whereOf(slug, n).key, slug)).filter(Boolean).join("\n") : ""),
     serversFor,
     link,
@@ -264,6 +277,8 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
     store,
     runner,
     browsers,
+    chrome,
+    accounts,
     stage: {
       start(...args) {
         if (!stage) throw new Error("Screen sharing isn't ready yet. Try again in a moment.");
@@ -275,7 +290,22 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
     extraOrigins: String(process.env.OPENDECK_MEET_ORIGINS || "").split(",").map((s) => s.trim()).filter(Boolean),
   });
   const handleRest = createHandlers({ store, runner, waits, approve, browsers, gateway, appHost, logins, onChange, onDesktop, watches, search, files, shell, projects, repos, github, teams, appWindows, disk, usage });
-  handle = (ctx, method, params) => (method === "meeting" ? meetings.act(ctx, params || {}) : handleRest(ctx, method, params));
+  handle = (ctx, method, params) => {
+    if (method === "meeting") return meetings.act(ctx, params || {});
+    if (method === "account") return accountTool(ctx, params || {});
+    return handleRest(ctx, method, params);
+  };
+
+  /** The bot's `account` tool: where its own Google account stands, and asking Crew to sign it in. */
+  async function accountTool(ctx, p) {
+    if (p.action === "status") {
+      const v = await accounts.check(ctx.slug);
+      if (!v) return { text: "You have no Google account of your own. The person can give you one in your Details, under Google account." };
+      return { text: accounts.promptLine(ctx.slug) };
+    }
+    if (p.action === "sign_in") return { text: (await accounts.signIn(ctx.slug)).text };
+    throw new Error('action is "status" or "sign_in".');
+  }
   const scheduler = createScheduler({ store, runner });
   const teamChat = createTeamChat({ store, runner, onChange });
   views = createViews({ store, runner, waits, scheduler, browsers, settings, offers: () => offerViews() });
@@ -377,6 +407,8 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
 
   return {
     meetings,
+    accounts,
+    chrome,
     setStage(s) {
       stage = s;
     },
@@ -642,6 +674,7 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
       await link.listen();
       scheduler.start();
       watches.start();
+      accounts.start();
     },
 
     /**
@@ -676,12 +709,14 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
       offers.clear();
       scheduler.stop();
       watches.stop();
+      accounts.stop();
       if (appHost) appHost.closeAll();
       if (apps) apps.stop();
       shell.flush();
       notices.flush();
       runner.stopAll();
       meetings.stopAll();
+      void chrome.closeAll();
       projects.killAll();
       browsers.closeAll();
       link.close();

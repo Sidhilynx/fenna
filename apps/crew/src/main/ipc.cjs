@@ -92,12 +92,15 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
     const p = patch && typeof patch === "object" ? patch : {};
     store.updateBot(slugArg(slug), { ...p, ...lookArgs(p) });
     crew.onChange();
+    // A new Google account for the bot: see at once where its browser stands.
+    if ("account" in p) void crew.accounts.check(slugArg(slug)).catch(() => {});
     return views.bot(slug);
   });
   handle("crew:delete", async (_e, slug) => {
     slugArg(slug);
     runner.stop(slug);
     crew.meetings.forget(slug);
+    await crew.chrome.forget(slug).catch(() => {});
     browsers.close(slug);
     crew.logins.forget(slug);
     crew.watches.forget(slug);
@@ -441,8 +444,20 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
   // The bots in calls, and the person's buttons on a call: leave, stop sharing.
   handle("crew:meetings", () => crew.meetings.list());
   handle("crew:meeting", (_e, slug, action) => {
-    if (action !== "leave" && action !== "stop_sharing") throw new Error('A call action is "leave" or "stop_sharing".');
+    if (action !== "leave" && action !== "stop_sharing" && action !== "show") throw new Error('A call action is "leave", "stop_sharing" or "show".');
     return crew.meetings.person(slugArg(slug), action);
+  });
+  // Each bot's own Google account: its state, and the person's Check, Sign in and Sign out.
+  handle("crew:accounts", () => crew.accounts.list());
+  handle("crew:account", async (_e, slug, action) => {
+    const s = slugArg(slug);
+    if (action === "check") return crew.accounts.check(s);
+    if (action === "sign_in") {
+      await crew.accounts.signIn(s);
+      return crew.accounts.view(s);
+    }
+    if (action === "sign_out") return crew.accounts.signOut(s);
+    throw new Error('An account action is "check", "sign_in" or "sign_out".');
   });
   handle("crew:mute", (_e, slug, tab, muted) => {
     if (tab !== null && !Number.isInteger(tab)) throw new Error("Say which tab, or null for every tab.");

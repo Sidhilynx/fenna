@@ -103,6 +103,8 @@ export interface Bot {
   connectors: Connector[];
   /** Vault logins it may use; any other login is invisible to it. */
   logins: LoginGrant[];
+  /** The vault login that is the bot's own Google account (signed in by Crew); null when it has none. */
+  account: string | null;
   /** Skills it is granted, by name: the ones installed on this computer (a name not installed is ignored). */
   skills: string[];
   /** Whether it may run node, npm and npx in its projects. */
@@ -350,6 +352,16 @@ function readLogin(v: YamlValue, i: number, out: Diagnostic[], line?: number): L
   return { name, level };
 }
 
+/** The bot's own Google account: the name of a vault login. Absent, empty or null is none. */
+function readAccount(v: YamlValue | undefined, d: Diagnostic[], line?: number): string | null {
+  if (v === undefined || v === null || v === "") return null;
+  if (typeof v === "string" && v.trim() === "") return null;
+  const name = typeof v === "string" ? v.trim() : "";
+  if (isSlug(name)) return name;
+  d.push({ severity: "error", ...(line ? { line } : {}), message: `account should be the name of a login in the vault, like "scout-google".` });
+  return null;
+}
+
 /** The skills a bot is granted: names in a list, each a skill name; duplicates are dropped. */
 function readSkills(v: YamlValue | undefined, d: Diagnostic[], line?: number): string[] {
   const at = line ? { line } : {};
@@ -466,6 +478,8 @@ export function readBotSettings(raw: YamlMap, how: string, keyLines: Record<stri
     });
   }
 
+  const account = readAccount(raw.account, d, ln("account"));
+
   const askBefore: string[] = [];
   const rawAsk = asList(raw.askBefore);
   const askAt = ln("askBefore") ? { line: ln("askBefore") } : {};
@@ -490,7 +504,7 @@ export function readBotSettings(raw: YamlMap, how: string, keyLines: Record<stri
   const body = how.trim();
   if (body.length > LIMITS.how) d.push({ severity: "error", message: `How it works is ${body.length} characters; the most is ${LIMITS.how}. Move reference material into memory.md or the library.` });
 
-  return { bot: { name, job, avatar, color, schedule, brain, connectors, logins, skills, projects, askBefore, wallpaper, how: body.slice(0, LIMITS.how) }, diagnostics: d, legacy };
+  return { bot: { name, job, avatar, color, schedule, brain, connectors, logins, account, skills, projects, askBefore, wallpaper, how: body.slice(0, LIMITS.how) }, diagnostics: d, legacy };
 }
 
 /**
@@ -542,6 +556,8 @@ export function botYaml(bot: Bot): YamlMap {
   // Written only when it has some, so a bot.md without logins stays as it was.
   const logins = bot.logins ?? [];
   if (logins.length) out.logins = logins.map((g) => ({ name: g.name, level: g.level }));
+  // Written only when set, so a bot.md without an account stays as it was.
+  if (bot.account) out.account = bot.account;
   // Likewise skills: written only when some are granted.
   if (bot.skills?.length) out.skills = [...bot.skills];
   // Written only when on, so a bot.md with projects off stays as it was.
@@ -574,6 +590,7 @@ export interface NewBotInput {
   effort?: string;
   connectors?: Connector[];
   logins?: LoginGrant[];
+  account?: string | null;
   projects?: ProjectsLevel;
   askBefore?: string[];
   wallpaper?: Wallpaper;
@@ -593,6 +610,7 @@ export function newBot(input: NewBotInput): { bot: Bot; diagnostics: Diagnostic[
     brain: { cli: input.cli ?? "claude", model: input.model ?? "", effort: input.effort ?? "" },
     connectors: input.connectors ?? FENNA_APPS.map((a) => ({ type: "fenna" as const, app: a.id })),
     logins: input.logins ?? [],
+    account: input.account ?? null,
     skills: [],
     projects: input.projects ?? "off",
     askBefore: input.askBefore ?? [],
