@@ -816,8 +816,8 @@ button.att-open:focus-visible { outline: 2px solid var(--sel); outline-offset: 1
 .conn-filter .seg-row { margin-bottom: 0; flex-wrap: wrap; }
 .conn-grid { list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; }
 .conn-card { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); min-width: 0; }
-.conn-logo { flex: none; width: 32px; height: 32px; display: grid; place-items: center; background: var(--raised); color: var(--text); border-radius: var(--r-sm); }
-.conn-logo svg { width: 18px; height: 18px; fill: currentColor; }
+.conn-logo { flex: none; width: 32px; height: 32px; display: grid; place-items: center; background: var(--raised); color: var(--text); border-radius: var(--r-sm); overflow: hidden; }
+.conn-logo svg { width: 20px; height: 20px; display: block; }
 .conn-card-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .conn-card-name { display: flex; align-items: baseline; gap: 8px; min-width: 0; font-size: var(--fs-md); font-weight: 500; }
 .conn-card-vendor { font-size: var(--fs-sm); font-weight: 400; color: var(--text-3); }

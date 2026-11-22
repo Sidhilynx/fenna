@@ -93,9 +93,9 @@ export function ConnectorsPage() {
   );
 }
 
-/** A vendor's logo in the text color, or a small plug when we have none. */
+/** A vendor's real brand logo, or a small plug when we have none. */
 function Logo({ entry }: { entry: Pick<CatalogEntry, "id" | "logo"> }) {
-  const markup = entry.logo ? CONNECTOR_LOGOS[entry.id] : undefined;
+  const markup = CONNECTOR_LOGOS[entry.id];
   return markup ? (
     <span className="conn-logo" aria-hidden dangerouslySetInnerHTML={{ __html: markup }} />
   ) : (
