@@ -53,8 +53,10 @@ function lookArgs(o) {
  * @param {(dir: string) => Promise<string>} o.reveal
  * @param {ReturnType<import("./usage.cjs").createUsage>} [o.usage]
  * @param {(url: string) => Promise<void>} [o.openUrl]  open an address in the default browser
+ * @param {Map<string, Function> | null} [o.router]  gets every handler too, for the phone link
+ * @param {ReturnType<import("./remote.cjs").createRemote> | null} [o.remote]  the phone link: Settings, Phone
  */
-function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog, disk, search, shell, usage = noUsage, openUrl = async () => {} }) {
+function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog, disk, search, shell, usage = noUsage, openUrl = async () => {}, router = null, remote = null }) {
   const { store, runner, waits, browsers, views, replay } = crew;
   const siteIcons = createSiteIcons({ dir: path.join(require("electron").app.getPath("userData"), "Crew", "siteicons") });
   // The save dialog, in Documents, over the window that asked; null when the person cancels.
@@ -67,11 +69,14 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
       const r = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
       return r.canceled || !r.filePath ? null : r.filePath;
     });
-  const handle = (channel, fn) =>
+  const handle = (channel, fn) => {
+    // The phone link (remote.cjs) runs the same handlers, for the channels it allows.
+    if (router) router.set(channel, fn);
     ipcMain.handle(channel, (e, ...args) => {
       assertSender(e);
       return fn(e, ...args);
     });
+  };
 
   handle("crew:overview", () => views.overview());
   handle("crew:bot", (_e, slug) => views.bot(slugArg(slug)));
@@ -491,7 +496,7 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
     } catch {
       return;
     }
-    if (F.isSlug(slug)) browsers.setViewport(slug, view);
+    if (F.isSlug(slug)) browsers.setViewport(slug, view, e.sender.id);
   });
   ipcMain.on("crew:input", (e, slug, input) => {
     try {
@@ -500,6 +505,27 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
       return;
     }
     if (F.isSlug(slug)) browsers.input(slug, input);
+  });
+
+  // Settings, Phone: pair a phone with a code, list the phones, remove one. Never reachable from a phone.
+  const noPhones = () => {
+    throw new Error("Phone access isn't available in this copy of Crew.");
+  };
+  ipcMain.handle("crew:phones", (e) => {
+    assertSender(e);
+    return remote ? remote.view() : noPhones();
+  });
+  ipcMain.handle("crew:phonePair", (e) => {
+    assertSender(e);
+    return remote ? remote.startPairing() : noPhones();
+  });
+  ipcMain.handle("crew:phonePairCancel", (e) => {
+    assertSender(e);
+    return remote ? remote.cancelPairing() : noPhones();
+  });
+  ipcMain.handle("crew:phoneRemove", (e, id) => {
+    assertSender(e);
+    return remote ? remote.remove(str(id, "The phone", 40)) : noPhones();
   });
 
   handle("crew:settings", () => settings.get());

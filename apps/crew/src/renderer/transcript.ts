@@ -3,9 +3,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { errorText, invoke, on } from "../shared/api.ts";
-import type { ApprovalSource, HistoryPage, LiveEvent, RunEvent } from "../shared/contract.ts";
-import { chatOfRun, type RunAttachment } from "@opendeck/crew";
-import { wakeLine } from "./util.ts";
+import type { ApprovalSource, ChatSummary, HistoryPage, LiveEvent, RunEvent } from "../shared/contract.ts";
+import { chatOfRun, RUNS_CHAT, type RunAttachment } from "@opendeck/crew";
+import { wakeLine } from "./text.ts";
 
 export interface RunLog {
   key: string;
@@ -50,6 +50,13 @@ export function appToolLine(e: Extract<RunEvent, { type: "app_tool" }>): string 
 export function commandLine(e: Extract<RunEvent, { type: "command" }>): string {
   if (e.background) return `Started ${e.command} in ${e.project}${e.port ? `, on port ${e.port}` : ""}`;
   return `Ran ${e.command} in ${e.project}${e.exitCode === 0 ? "" : ` (exit ${e.exitCode ?? "?"})`}`;
+}
+
+/** A chat's name in the list: the person's first words, or what kind of chat it is. */
+export function chatName(c: ChatSummary): string {
+  if (c.id === RUNS_CHAT) return "Runs";
+  if (c.title) return c.title;
+  return c.startedAt ? "New chat" : "Earlier chat";
 }
 
 const same = (a: RunEvent, b: RunEvent) => a.type === b.type && a.at === b.at && JSON.stringify(a) === JSON.stringify(b);

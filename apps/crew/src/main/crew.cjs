@@ -115,6 +115,7 @@ function codingSandbox(userData) {
  * @param {string} o.resources
  * @param {string} o.repo
  * @param {(channel: string, payload: unknown) => void} o.broadcast  to every page
+ * @param {(slug: string, frame: object) => void} [o.onRemoteFrame]  pictures of a bot's browser for the phones watching it
  * @param {() => Electron.WebFrameMain | null} [o.liveTarget]  the page's frame a bot's live screen is drawn in (GPU frames)
  * @param {object} o.secrets  the system's secure storage (connectors.cjs says what it holds)
  * @param {{ connectServer(spec: object, opts?: object): Promise<object>, signIn(o: object): Promise<{ account: string|null }>, signOut(o: object): Promise<void>, supportsOAuth(url: string): Promise<boolean> }} o.client  the MCP client connectors are started and signed in with
@@ -127,7 +128,7 @@ function codingSandbox(userData) {
  * @param {object} [o.usage]  counts events for the anonymous usage counts (usage.cjs)
  * @param {object | null} [o.sandbox]  runs the bots' scripts (`run` in the terminal); null: scripts aren't available
  */
-function createCrew({ root, userData, packaged, resources, repo, broadcast, liveTarget, secrets, client, openExternal = async () => {}, trash, settings, clipboard = null, waitTimeoutMs, onNeeds = () => {}, sandbox = null, usage = noUsage, electron = null }) {
+function createCrew({ root, userData, packaged, resources, repo, broadcast, onRemoteFrame = () => {}, liveTarget, secrets, client, openExternal = async () => {}, trash, settings, clipboard = null, waitTimeoutMs, onNeeds = () => {}, sandbox = null, usage = noUsage, electron = null }) {
   // Connectors belong to this computer, not to a crew folder, so they live under userData always.
   const connectors = createConnectorStore({ dir: path.join(userData, "Crew", "connectors"), secrets });
   const store = createStore(root, { trash, migrate: (slug, legacy) => connectors.migrate(slug, legacy) });
@@ -185,6 +186,7 @@ function createCrew({ root, userData, packaged, resources, repo, broadcast, live
     diskFree: (slug) => disk.free(slug),
     driveFree: freeOnDrive,
     onFrame: (_slug, frame) => broadcast("crew:frame", frame),
+    onRemoteFrame: (slug, frame) => onRemoteFrame(slug, frame),
     onCursor: (_slug, c) => broadcast("crew:cursor", c),
     onState: (slug, state) => broadcast("crew:browser", { slug, state }),
     onCapture: (slug, login) => offerSave(slug, login),

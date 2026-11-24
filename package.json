@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc -p packages/format && tsc -p packages/render && tsc -p packages/mcp && tsc -p packages/shell && tsc -p packages/doc && tsc -p packages/doc-mcp && tsc -p packages/sheet && tsc -p packages/sheet-mcp && tsc -p packages/board && tsc -p packages/board-mcp && tsc -p packages/artboard && tsc -p packages/artboard-mcp && tsc -p packages/workspace-mcp && tsc -p packages/crew && tsc -p packages/crew-mcp && tsc -p apps/desktop && tsc -p apps/docs && tsc -p apps/sheets && tsc -p apps/whiteboard && tsc -p apps/design && tsc -p apps/workspace && tsc -p apps/crew"
+    "typecheck": "tsc -p packages/format && tsc -p packages/render && tsc -p packages/mcp && tsc -p packages/shell && tsc -p packages/doc && tsc -p packages/doc-mcp && tsc -p packages/sheet && tsc -p packages/sheet-mcp && tsc -p packages/board && tsc -p packages/board-mcp && tsc -p packages/artboard && tsc -p packages/artboard-mcp && tsc -p packages/workspace-mcp && tsc -p packages/crew && tsc -p packages/crew-mcp && tsc -p packages/crew-link && tsc -p apps/desktop && tsc -p apps/docs && tsc -p apps/sheets && tsc -p apps/whiteboard && tsc -p apps/design && tsc -p apps/workspace && tsc -p apps/crew && tsc -p apps/crew-mobile"
   },
   "engines": {
     "node": ">=22"
@@ -16,7 +16,8 @@
   "devDependencies": {
     "@types/node": "^24.19.2",
     "typescript": "5.9",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.0",
+    "ws": "^8.23.0"
   },
   "allowScripts": {
     "esbuild@0.28.2": true,

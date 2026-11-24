@@ -19,7 +19,7 @@ import { openMention } from "./mentions.ts";
 import { Panel } from "./Panel.tsx";
 import { PixelDots } from "./PixelMotion.tsx";
 import { botOf, useBotDetail, useCrew, waitingFor } from "./crew.tsx";
-import { buildItems, useRuns, type Item, type RunLog, type Step } from "./transcript.ts";
+import { buildItems, chatName, useRuns, type Item, type RunLog, type Step } from "./transcript.ts";
 import { PixelField } from "./PixelField.tsx";
 
 /** A bot a message can name with @ in a group chat. */
@@ -452,13 +452,6 @@ export function Messages({ bot, chat, waiting, pending, runState, library = NO_L
 
 /** What the person chose for the details panel this session; until then it follows the window width. */
 let panelChoice: boolean | null = null;
-
-/** A chat's name in the list: the person's first words, or what kind of chat it is. */
-export function chatName(c: ChatSummary): string {
-  if (c.id === RUNS_CHAT) return "Runs";
-  if (c.title) return c.title;
-  return c.startedAt ? "New chat" : "Earlier chat";
-}
 
 const k = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k` : String(n));
 

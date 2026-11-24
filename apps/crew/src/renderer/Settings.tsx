@@ -1,6 +1,6 @@
 // Settings: the few choices that change how Fenna Crew behaves. Every control here is read somewhere.
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, toast, ThemeToggle } from "@opendeck/shell";
 import { CLI_KINDS, CLI_NAMES, type CliKind } from "@opendeck/crew";
 import { errorText, invoke } from "../shared/api.ts";
@@ -8,12 +8,15 @@ import type { Settings } from "../shared/contract.ts";
 import { FeedbackDialog } from "./Feedback.tsx";
 import { ImportMemoryDialog } from "./ImportMemory.tsx";
 import { Pick } from "./Pick.tsx";
+import { PhoneSection } from "./PhoneSection.tsx";
+import { Row } from "./SettingsRow.tsx";
 import { useCrew } from "./crew.tsx";
 
-type Section = "general" | "appearance" | "clis" | "runs" | "data";
+type Section = "general" | "phone" | "appearance" | "clis" | "runs" | "data";
 
 const SECTIONS: { id: Section; label: string }[] = [
   { id: "general", label: "General" },
+  { id: "phone", label: "Phone" },
   { id: "appearance", label: "Appearance" },
   { id: "clis", label: "CLIs" },
   { id: "runs", label: "Runs" },
@@ -23,29 +26,6 @@ const SECTIONS: { id: Section; label: string }[] = [
 const RUNS_AT_ONCE = [1, 2, 3, 4];
 
 const cap = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
-
-function Row({ name, sub, children, htmlFor }: { name: string; sub?: ReactNode; children?: ReactNode; htmlFor?: string }) {
-  const meta = (
-    <div className="settings-meta">
-      <span className="settings-name">{name}</span>
-      {sub ? <span className="settings-sub">{sub}</span> : null}
-    </div>
-  );
-  if (htmlFor !== undefined) {
-    return (
-      <label className="settings-row" htmlFor={htmlFor}>
-        {meta}
-        <div className="settings-ctrl">{children}</div>
-      </label>
-    );
-  }
-  return (
-    <div className="settings-row">
-      {meta}
-      {children ? <div className="settings-ctrl">{children}</div> : null}
-    </div>
-  );
-}
 
 export function SettingsDialog({ onClose }: { onClose(): void }) {
   const { clis, overview } = useCrew();
@@ -130,6 +110,8 @@ export function SettingsDialog({ onClose }: { onClose(): void }) {
                   </Row>
                 </>
               )}
+
+              {section === "phone" && <PhoneSection />}
 
               {section === "appearance" && (
                 <Row name="Theme">

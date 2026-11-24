@@ -43,7 +43,7 @@ const add = (level, file, line, rule, msg) => findings.push({ level, file, line,
 
 function walk(dir, out = []) {
   for (const name of readdirSync(dir)) {
-    if (name === "node_modules" || name === "dist" || name === "build" || name === "test") continue;
+    if (name === "node_modules" || name === "dist" || name === "build" || name === "test" || name === "android" || name === "ios") continue;
     const p = path.join(dir, name);
     if (statSync(p).isDirectory()) walk(p, out);
     else if (/\.(tsx|css)$/.test(name)) out.push(p);

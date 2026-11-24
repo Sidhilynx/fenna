@@ -1,0 +1,18 @@
+/* Bot faces and pixel icons: shared by the desktop page and the phone app. */
+
+.face { position: relative; display: inline-flex; flex: none; }
+.face-ring { outline: 2px solid var(--sel); outline-offset: 2px; border-radius: var(--r-sm); }
+.av { display: block; flex: none; }
+.av-b { fill: var(--av-body); }
+.av-s { fill: var(--av-shade); }
+.av-k { fill: var(--av-ink); }
+.av-m { fill: var(--av-mid); }
+.av-a { fill: var(--av-spark); }
+.av-o { fill: var(--av-glow); }
+.av-y { fill: var(--av-hi); }
+.av-eyes { fill: var(--av-ink); }
+.av-work .av-eyes { animation: av-look 1.6s steps(1, end) infinite; }
+@keyframes av-look { 0%, 100% { transform: translateX(-1px); } 50% { transform: translateX(1px); } }
+@media (prefers-reduced-motion: reduce) { .av-work .av-eyes { animation: none; } }
+.face-dot { position: absolute; right: -2px; bottom: -2px; width: 14px; height: 14px; display: grid; place-items: center; border-radius: 0; background: var(--bg); color: var(--text); }
+.pixel-icon { display: inline-block; flex: none; vertical-align: middle; }

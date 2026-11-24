@@ -52,7 +52,13 @@ const DOWNLOADS_KEPT = 20;
 const VIEW_LIMITS = { minWidth: 360, maxWidth: 3840, minHeight: 240, maxHeight: 2400 };
 const MAX_TABS = LIMITS.browserTabs;
 const CONTROL_MESSAGE = "The person has control of the browser. Wait, then call snapshot again.";
-const FPS = { live: 60, thumb: 1 };
+const FPS = { live: 60, remote: 30, thumb: 1 };
+/** A phone's pictures: at most this many a second, this wide, this JPEG quality. */
+const REMOTE_FPS = 10;
+const REMOTE_MAX_WIDTH = 1080;
+const REMOTE_QUALITY = 70;
+/** Watch modes in which pages lay out at the watcher's view size. */
+const VIEWING = new Set(["live", "remote"]);
 /** Live frames as JPEGs, when the GPU gives no texture: as many as the page can decode. */
 const JPEG_LIVE_FPS = 30;
 const THUMB_WIDTH = 320;
@@ -361,6 +367,8 @@ function originOf(t) {
 /**
  * @param {object} o
  * @param {(slug: string, frame: object) => void} o.onFrame  JPEG frames (thumbnails, and live frames without a GPU texture)
+ * @param {(slug: string, frame: { slug: string, tab: number, jpeg: Buffer, width: number, height: number, viewWidth: number, viewHeight: number }) => void} [o.onRemoteFrame]
+ *   a picture of the active tab for the phones watching (watch mode "remote"), when it changed, at most REMOTE_FPS a second
  * @param {(slug: string, cursor: object) => void} o.onCursor
  * @param {(slug: string, state: object) => void} o.onState
  * @param {() => Electron.WebFrameMain | null} [o.liveTarget]  the page's frame that GPU live frames go to
@@ -380,13 +388,17 @@ function originOf(t) {
  * @param {(slug: string, step: { at: string, action: string, url: string, jpeg: Buffer }) => void} [o.onStep]
  *   a bot action finished: a small JPEG of the active tab after it, for the replay (at most one a bot per 700 ms)
  */
-function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, onCapture = () => {}, controlWaitMs = 15_000, workspaceDir = null, diskFree = null, driveFree = null, onSiteNotification = () => {}, onTitleCount = () => {}, onElementChange = () => {}, onStep = () => {}, onDownload = () => {} }) {
+function createBrowsers({ onFrame, onCursor, onState, onRemoteFrame = () => {}, liveTarget = () => null, onCapture = () => {}, controlWaitMs = 15_000, workspaceDir = null, diskFree = null, driveFree = null, onSiteNotification = () => {}, onTitleCount = () => {}, onElementChange = () => {}, onStep = () => {}, onDownload = () => {} }) {
   /** @type {Map<string, object>} slug → the bot's browser */
   const all = new Map();
-  /** @type {Map<string, Map<number, "live"|"thumb">>} slug → watcher → mode */
+  /** @type {Map<string, Map<number, "live"|"remote"|"thumb">>} slug → watcher → mode ("remote" is a phone) */
   const watchers = new Map();
-  /** @type {Map<string, { width: number, height: number, scale: number|null }>} slug → the person's view size */
+  /**
+   * Each watcher's view size; the page lays out at the newest one among those watching live or from a phone.
+   * @type {Map<string, Map<number, { view: { width: number, height: number, scale: number|null }, at: number }>>}
+   */
   const wanted = new Map();
+  let wantedSeq = 0;
   /** The window the person watches in is on screen (not hidden in the tray or minimized). */
   let hostVisible = true;
   /** @type {Map<string, Set<number>>} slug → pages that have the bot's computer open */
@@ -397,7 +409,24 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
   function modeOf(slug) {
     const w = watchers.get(slug);
     if (!w || !w.size) return "off";
-    return [...w.values()].includes("live") ? "live" : "thumb";
+    const modes = [...w.values()];
+    return modes.includes("live") ? "live" : modes.includes("remote") ? "remote" : "thumb";
+  }
+
+  /** Whether any watcher of this bot has this mode (a phone and the desktop can watch together). */
+  function watchedAs(slug, mode) {
+    const w = watchers.get(slug);
+    return !!w && [...w.values()].includes(mode);
+  }
+
+  /** The view size pages lay out at: the newest among watchers watching live or from a phone, else the newest any watcher set. */
+  function wantedView(slug) {
+    const per = wanted.get(slug);
+    if (!per || !per.size) return null;
+    const w = watchers.get(slug) || new Map();
+    const all = [...per.entries()].sort((x, y) => y[1].at - x[1].at);
+    const viewing = all.find(([id]) => VIEWING.has(w.get(id)));
+    return (viewing || all[0])[1].view;
   }
 
   const displayScale = () => {
@@ -484,7 +513,7 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
   function openBrowser(slug) {
     const partition = `persist:crew-${slug}`;
     const ses = sessionOf(slug);
-    const want = wanted.get(slug);
+    const want = wantedView(slug);
     return { slug, partition, ses, tabs: [], active: null, seq: 0, control: false, view: { ...DEFAULT_VIEW }, scale: (want && want.scale) || displayScale(), lastFrame: 0, trailing: null, sending: false, repaint: false, lastThumb: 0, defaultTimer: null, favicons: new Map(), muted: false, downloads: [], downloadNames: new Set(), notices: [], notifyLimit: rateLimiter(NOTIFY_PER_MINUTE, 60_000), elementWatches: new Map() };
   }
 
@@ -644,11 +673,46 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
       b.lastThumb = now;
       wc.capturePage().then((img) => emit(img, "thumb"), () => {});
     }
+    /**
+     * A picture for the phones watching: the page as it is now, at most
+     * REMOTE_FPS a second; the last change of a burst is captured when its
+     * turn comes, so a phone never misses how the page ended up.
+     */
+    function remoteFrame() {
+      const wait = 1000 / REMOTE_FPS - (Date.now() - (b.lastRemote || 0));
+      if (wait > 0) {
+        if (!b.remoteTrailing) {
+          b.remoteTrailing = setTimeout(() => {
+            b.remoteTrailing = null;
+            if (b.active === t.id && !wc.isDestroyed()) remoteFrame();
+          }, wait);
+        }
+        return;
+      }
+      b.lastRemote = Date.now();
+      wc.capturePage().then(
+        (img) => {
+          if (img.isEmpty() || b.active !== t.id || win.isDestroyed() || !watchedAs(b.slug, "remote")) return;
+          const size = img.getSize();
+          const out = size.width > REMOTE_MAX_WIDTH ? img.resize({ width: REMOTE_MAX_WIDTH, quality: "good" }) : img;
+          const px = out.getSize();
+          onRemoteFrame(b.slug, { slug: b.slug, tab: t.id, jpeg: out.toJPEG(REMOTE_QUALITY), width: px.width, height: px.height, viewWidth: b.view.width, viewHeight: b.view.height });
+        },
+        () => {},
+      );
+    }
+    t.remoteFrame = remoteFrame;
     wc.on("paint", (e, _dirty, image) => {
       const texture = e.texture;
       const mode = modeOf(b.slug);
       if (b.active !== t.id || mode === "off") {
         if (texture) texture.release();
+        return;
+      }
+      if (watchedAs(b.slug, "remote")) remoteFrame();
+      if (mode === "remote") {
+        if (texture) texture.release();
+        if (watchedAs(b.slug, "thumb")) thumb();
         return;
       }
       if (mode === "live") {
@@ -1090,7 +1154,7 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
   /** Point the person's view at where the bot acts, and give them a moment to see it. */
   async function cursor(b, x, y, action, target) {
     onCursor(b.slug, { slug: b.slug, tab: b.active, x, y, action, target });
-    if (modeOf(b.slug) === "live") await sleep(220);
+    if (VIEWING.has(modeOf(b.slug))) await sleep(220);
   }
 
   async function target(b, ref) {
@@ -1318,11 +1382,29 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
     if (b.control) throw new Error(CONTROL_MESSAGE);
   }
 
+  /** Lay pages out for whoever watches now: the viewer's size, or the default size soon after the last viewer leaves. */
+  function fitView(b) {
+    if (!VIEWING.has(modeOf(b.slug))) {
+      scheduleDefault(b);
+      return;
+    }
+    clearTimeout(b.defaultTimer);
+    const v = wantedView(b.slug);
+    if (v) resize(b, v);
+  }
+
+  function forgetView(slug, watcherId) {
+    const per = wanted.get(slug);
+    if (!per) return;
+    per.delete(watcherId);
+    if (!per.size) wanted.delete(slug);
+  }
+
   /** The person's view of this bot's browser went away: back to the default size soon. */
   function scheduleDefault(b) {
     clearTimeout(b.defaultTimer);
     b.defaultTimer = setTimeout(() => {
-      if (modeOf(b.slug) !== "live") resize(b, DEFAULT_VIEW);
+      if (!VIEWING.has(modeOf(b.slug))) resize(b, DEFAULT_VIEW);
     }, DEFAULT_AFTER_MS);
   }
 
@@ -1542,13 +1624,16 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
       else w.set(watcherId, mode);
       if (w.size) watchers.set(slug, w);
       else watchers.delete(slug);
-      const b = mode === "live" ? await get(slug) : all.get(slug);
+      if (mode === "off") forgetView(slug, watcherId);
+      const b = VIEWING.has(mode) ? await get(slug) : all.get(slug);
       if (!b) return stateOf(null);
-      if (modeOf(slug) === "live") {
-        clearTimeout(b.defaultTimer);
-        if (wanted.has(slug)) resize(b, wanted.get(slug));
-      } else scheduleDefault(b);
+      fitView(b);
       applyMode(b);
+      // A phone that starts watching gets the page as it is now, even if it doesn't change.
+      if (mode === "remote") {
+        const t = activeTab(b);
+        if (t && t.remoteFrame && !t.wc.isDestroyed()) t.remoteFrame();
+      }
       return stateOf(b);
     },
 
@@ -1557,15 +1642,17 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
      * screen's pixel ratio). Used while someone watches live; new tabs paint
      * at that pixel ratio.
      */
-    setViewport(slug, view) {
+    setViewport(slug, view, watcherId = 0) {
       const v = viewOf(view);
       if (!v) return;
-      wanted.set(slug, v);
+      const per = wanted.get(slug) || new Map();
+      per.set(watcherId, { view: v, at: ++wantedSeq });
+      wanted.set(slug, per);
       const b = all.get(slug);
       if (!b) return;
       if (v.scale) b.scale = v.scale;
-      if (modeOf(slug) !== "live") return;
-      resize(b, v);
+      if (!VIEWING.has(modeOf(slug))) return;
+      fitView(b);
       // The view (and its canvas) just appeared or changed: paint it now, even if the page hasn't changed.
       const t = activeTab(b);
       if (t && !t.wc.isDestroyed()) {
@@ -1588,12 +1675,13 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
           tell(b);
         }
       }
+      for (const slug of [...wanted.keys()]) forgetView(slug, watcherId);
       for (const [slug, w] of watchers) {
         if (!w.delete(watcherId)) continue;
         if (!w.size) watchers.delete(slug);
         const b = all.get(slug);
         if (!b) continue;
-        if (modeOf(slug) !== "live") scheduleDefault(b);
+        fitView(b);
         applyMode(b);
       }
     },
@@ -1663,6 +1751,8 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
       if (!e) return;
       if (e.type === "keyDown" || e.type === "mouseDown") t.wc.focus();
       t.wc.sendInputEvent(e);
+      // Chromium acts on Enter (submits a form, adds a line) only with its character too.
+      if (e.type === "keyDown" && e.keyCode === "Enter") t.wc.sendInputEvent({ type: "char", keyCode: "\r", modifiers: e.modifiers });
     },
 
     /** The person goes to an address in the active tab, while they have control. */
@@ -1749,6 +1839,7 @@ function createBrowsers({ onFrame, onCursor, onState, liveTarget = () => null, o
       if (!b) return;
       clearTimeout(b.defaultTimer);
       clearTimeout(b.trailing);
+      clearTimeout(b.remoteTrailing);
       for (const rec of b.elementWatches.values()) clearTimeout(rec.timer);
       b.elementWatches.clear();
       for (const t of [...b.tabs]) if (!t.win.isDestroyed()) t.win.destroy();

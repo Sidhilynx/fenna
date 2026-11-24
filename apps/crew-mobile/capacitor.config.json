@@ -1,0 +1,23 @@
+{
+  "appId": "com.sidhilynx.fenna.crew",
+  "appName": "Fenna Crew",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": true
+  },
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 400,
+      "launchAutoHide": true,
+      "backgroundColor": "#0f0f0f",
+      "showSpinner": false
+    },
+    "Keyboard": {
+      "resizeOnFullScreen": true
+    }
+  }
+}

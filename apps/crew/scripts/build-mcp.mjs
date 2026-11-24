@@ -21,6 +21,7 @@ const bundles = [
   ["packages/sheet/src/index.ts", "crew-sheet.cjs"],
   ["packages/doc/src/index.ts", "crew-doc.cjs"],
   ["packages/crew-mcp/src/client.ts", "crew-client.cjs"],
+  ["packages/crew-link/src/index.ts", "crew-link.cjs"],
 ];
 
 for (const [entry, file] of bundles) {

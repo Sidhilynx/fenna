@@ -1,0 +1,144 @@
+/* Fenna Crew's tokens over the shell's base.css: palette, faces, desktops, sizes.
+   Shared by the desktop page and the phone app (apps/crew-mobile). */
+
+:root {
+  /* Crew's palette, over the shell's. The primary action is ink, not a
+     brand blue; the one accent (selected, focus) is a quiet steel. Amber
+     is "waiting on you"; red is "failed or deletes". Nothing else has hue
+     except the bots themselves (their face tone and their desktop). */
+  --bg: #0f0f0f;
+  --panel: #131313;
+  --raised: #1a1a1a;
+  --field: #171717;
+  --hover: #1f1f1f;
+  --line: #222222;
+  --line-strong: #2e2e2e;
+  --pri: #ededed;
+  --pri-ink: #141414;
+  --pri-hover: #ffffff;
+  --sel: #8aa4c4;
+  --sel-soft: rgba(138, 164, 196, 0.14);
+  --danger: #e0685c;
+  --ok: #7fa37a;
+
+  /* The pairing QR code: black on white in both themes, so a phone can read it. */
+  --qr-ink: #000;
+  --qr-paper: #fff;
+
+  /* Pixel faces: each AVATAR_COLORS name has a body and a shade. Eyes are --av-ink. */
+  --av-ink: #161616;
+  --av-clay: #c98b6b; --av-clay-shade: #9c6448;
+  --av-rust: #c46a4a; --av-rust-shade: #93472f;
+  --av-ochre: #d0a24c; --av-ochre-shade: #a07a2e;
+  --av-olive: #a3a45a; --av-olive-shade: #76773a;
+  --av-moss: #7fa66b; --av-moss-shade: #587a49;
+  --av-sea: #5fa3a0; --av-sea-shade: #3f7a77;
+  --av-slate: #7d93b5; --av-slate-shade: #5a6f8f;
+  --av-iris: #9a8fd0; --av-iris-shade: #7166a6;
+  --av-plum: #b07ba3; --av-plum-shade: #86557a;
+  --av-stone: #a8a29a; --av-stone-shade: #7d776f;
+
+
+  /* Each bot's desktop. A bot's screen looks the same in either theme. */
+  --wall-slate: #2c3a52;
+  --wall-teal: #1d4a47;
+  --wall-clay: #55402f;
+  --wall-indigo: #34315a;
+  --wall-graphite: #3a3a3a;
+  --wall-moss: #3a4a2d;
+  --desk-ink: #ffffff;
+  --desk-edge: rgba(0, 0, 0, 0.85);
+  --desk-glass: rgba(14, 14, 14, 0.9);
+  --desk-glass-line: #353535;
+  --desk-icon: rgba(14, 14, 14, 0.55);
+  --desk-dim: rgba(0, 0, 0, 0.22);
+  --desk-hover: rgba(255, 255, 255, 0.1);
+  --desk-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+  --desk-text: #d6d6d6;
+  --desk-text-2: #a8a8a8;
+  --desk-scrim: rgba(14, 14, 14, 0.66);
+
+  /* The page a bot's browser shows, and the browser's own window. */
+  --screen-page: #fbfbfa;
+  --screen-bar: #ececeb;
+  --screen-line: #e6e6e4;
+  --screen-ink: #151515;
+  --screen-ink-2: #5a5a5a;
+  --screen-white: #ffffff;
+  --screen-scrim: rgba(251, 251, 250, 0.7);
+  --screen-hover: rgba(0, 0, 0, 0.07);
+  --cursor-fill: #151515;
+  --cursor-edge: #ffffff;
+
+  --fs-chat: 14px;
+  --fs-title: 22px;
+  --fs-name: 16px;
+  --head-h: 32px;
+  --side-w: 288px;
+  --panel-w: 380px;
+  --thumb-h: 206px;
+  --taskbar-h: 46px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f2f2f1;
+    --panel: #f7f7f6;
+    --line: #e2e2df;
+    --pri: #161616;
+    --pri-ink: #ffffff;
+    --pri-hover: #2a2a2a;
+    --sel: #4a6688;
+    --sel-soft: rgba(74, 102, 136, 0.1);
+    --danger: #b8463b;
+    --ok: #4f7a4a;
+    --av-clay: #b5704f; --av-clay-shade: #8a4f33;
+    --av-rust: #b0533a; --av-rust-shade: #833822;
+    --av-ochre: #b8862f; --av-ochre-shade: #8a6219;
+    --av-olive: #87883f; --av-olive-shade: #5f6026;
+    --av-moss: #5f8a4c; --av-moss-shade: #426633;
+    --av-sea: #3f8582; --av-sea-shade: #2a6260;
+    --av-slate: #5b7499; --av-slate-shade: #405674;
+    --av-iris: #776bb5; --av-iris-shade: #554a8f;
+    --av-plum: #915c86; --av-plum-shade: #6b3e62;
+    --av-stone: #8a847b; --av-stone-shade: #635e56;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f2f2f1;
+  --panel: #f7f7f6;
+  --line: #e2e2df;
+  --pri: #161616;
+  --pri-ink: #ffffff;
+  --pri-hover: #2a2a2a;
+  --sel: #4a6688;
+  --sel-soft: rgba(74, 102, 136, 0.1);
+  --danger: #b8463b;
+  --ok: #4f7a4a;
+  --av-clay: #b5704f; --av-clay-shade: #8a4f33;
+  --av-rust: #b0533a; --av-rust-shade: #833822;
+  --av-ochre: #b8862f; --av-ochre-shade: #8a6219;
+  --av-olive: #87883f; --av-olive-shade: #5f6026;
+  --av-moss: #5f8a4c; --av-moss-shade: #426633;
+  --av-sea: #3f8582; --av-sea-shade: #2a6260;
+  --av-slate: #5b7499; --av-slate-shade: #405674;
+  --av-iris: #776bb5; --av-iris-shade: #554a8f;
+  --av-plum: #915c86; --av-plum-shade: #6b3e62;
+  --av-stone: #8a847b; --av-stone-shade: #635e56;
+}
+:root[data-theme="dark"] {
+  --bg: #0f0f0f;
+  --panel: #131313;
+  --raised: #1a1a1a;
+  --field: #171717;
+  --hover: #1f1f1f;
+  --line: #222222;
+  --line-strong: #2e2e2e;
+  --pri: #ededed;
+  --pri-ink: #141414;
+  --pri-hover: #ffffff;
+  --sel: #8aa4c4;
+  --sel-soft: rgba(138, 164, 196, 0.14);
+  --danger: #e0685c;
+  --ok: #7fa37a;
+}

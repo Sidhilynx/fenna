@@ -56,6 +56,8 @@ Teams are shown to people as group chats; the data stays `team`. A message to on
 | `registry.cjs` | MCP Registry search, each result turned into a connector to fill in and install when it can be |
 | `labels.cjs` | Tool calls in plain words for step lines |
 | `ipc.cjs` | The page's calls, each argument checked |
+| `remote.cjs` | The phone link (docs/plans/crew-mobile.md): this computer's keys and the paired phones (`phones.json`, keys sealed with `safeStorage`), the connection to the relay, the allow list of calls a phone may make (the same handlers as the page), numbered events a phone catches up on, the bot's browser as pictures for a phone, and sealed notifications |
+| `phonelink.cjs` | Loads `@opendeck/crew-link` (from source in development, bundled when packaged) |
 
 ## IPC contract
 
@@ -130,6 +132,10 @@ Electron's prefix).
 | `crew:memoryScan` | | `MemorySource[]` | The memory files that exist on this computer: `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, `~/.gemini/GEMINI.md`, `~/.claude/projects/*/memory/*.md`. Id, group, label, path, size. Nothing is read. |
 | `crew:memoryRead` | ids (from `crew:memoryScan`, at most 20) | `MemoryRead[]` | Reads only the ticked files, by id from a fresh scan (a path from the page is never read). Each file: source label, parsed facts, or an `error`. Files over 1 MB are refused. |
 | `crew:memoryImport` | slugs, `MemoryImportGroup[]` (source, facts) | `{ bots: { slug, added, skipped }[] }` | Appends the approved facts to each bot's memory.md under `## Imported <date> (from <source>)`, as `- fact` lines, skipping any already there. Rejects with what to fix (unknown bot, nothing to add, over 300 facts, a fact over 500 characters). |
+| `crew:phones` | | `PhonesView` | Settings, Phone: paired phones, the relay connection, an open pairing. Desktop only. Also pushed on `crew:phones`. |
+| `crew:phonePair` | | `{ code, expiresAt }` | Shows a pairing code for 2 minutes; the phone that reads it first is paired, and the code is spent. |
+| `crew:phonePairCancel` | | `PhonesView` | Stops pairing. |
+| `crew:phoneRemove` | id | `PhonesView` | Tells the phone, takes it off the relay's list and forgets it. |
 
 ### Events (`on`)
 
@@ -143,6 +149,7 @@ Electron's prefix).
 | `crew:connectors` | `ConnectorView[]` | A connector was added, changed, removed, started, stopped or failed. Coalesced (80 ms). |
 | `crew:vault` | `VaultItemView[]` | A login was added, changed, removed or used. Coalesced (80 ms). |
 | `crew:open` | `{ slug }` | The person clicked a system notification (a bot is waiting on them): the page opens that bot's chat. Sent when Notifications is on, a bot starts waiting and the window is hidden, minimized or not focused. |
+| `crew:phones` | `PhonesView` | A phone paired, connected, left or was removed, or the relay connection changed. |
 
 ### Sends (`send`)
 

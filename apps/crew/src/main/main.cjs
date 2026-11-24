@@ -4,6 +4,7 @@
 
 const { app, BrowserWindow, Menu, Notification, Tray, clipboard, dialog, ipcMain, nativeImage, nativeTheme, net, protocol, safeStorage, session, shell } = require("electron");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const { PRELOAD, registerAssistantSetup, registerShell, applyReviewTheme } = require("@opendeck/shell/main");
 const { assistantCatalog } = require("@opendeck/shell/main/agent.cjs");
@@ -17,6 +18,7 @@ const { createSandbox } = require("./sandbox.cjs");
 const { registerNoticesIpc } = require("./notices.cjs");
 const { createEditors, editorSchemes } = require("./editors.cjs");
 const { createStage } = require("./stage.cjs");
+const { createRemote } = require("./remote.cjs");
 const F = require("./format.cjs");
 
 /**
@@ -58,6 +60,10 @@ let usage = null;
 const usageLocked = () => process.env.FENNA_NO_USAGE === "1";
 /** Runs the bots' scripts (`run` in their terminal), each in a sealed hidden window. */
 let sandbox = null;
+/** The phone link (remote.cjs): paired phones use the crew through the relay. */
+let remote = null;
+/** The page's handlers by channel, for the phone link. */
+const router = new Map();
 
 // Electron takes the privileged schemes in one call: the editors' asset schemes and the bots' disks (crewfile).
 const PRIVILEGED = { standard: true, secure: true, supportFetchAPI: true, stream: true };
@@ -152,6 +158,7 @@ function assertSender(e) {
 
 function broadcast(channel, payload) {
   if (win && !win.isDestroyed() && !win.webContents.isDestroyed()) win.webContents.send(channel, payload);
+  if (remote) remote.publish(channel, payload);
 }
 
 function createWindow({ show }) {
@@ -284,13 +291,17 @@ async function start() {
     resources: process.resourcesPath,
     repo,
     broadcast,
+    onRemoteFrame: (slug, frame) => remote && remote.frame(slug, frame),
     liveTarget: () => (win && !win.isDestroyed() && !win.webContents.isDestroyed() ? win.webContents.mainFrame : null),
     secrets,
     client,
     openExternal: (url) => (/^https?:\/\//i.test(url) ? shell.openExternal(url) : Promise.reject(new Error("The sign-in page isn't a web address."))),
     trash: (dir) => shell.trashItem(dir),
     settings: () => settings.get(),
-    onNeeds: (waiting, offers) => notifier.check(waiting, offers),
+    onNeeds: (waiting, offers) => {
+      notifier.check(waiting, offers);
+      if (remote) remote.needs(waiting, offers);
+    },
     clipboard: { writeText: (t) => clipboard.writeText(t), readText: () => clipboard.readText() },
     sandbox: { run: (slug, o) => (sandbox ? sandbox.run(slug, o) : Promise.resolve({ out: "Scripts aren't available yet.", ok: false })) },
     electron: { session, ipcMain },
@@ -309,10 +320,21 @@ async function start() {
   crew.disk.handleScheme(protocol);
   registerShell({ assertSender: assertShellSender, releases: "Sidhilynx/fenna" });
   registerAssistantSetup({ assertSender });
+  remote = createRemote({
+    dir: path.join(app.getPath("userData"), "Crew"),
+    secrets,
+    calls: router,
+    browsers: crew.browsers,
+    name: os.hostname(),
+    version: app.getVersion(),
+    onPhones: (view) => broadcast("crew:phones", view),
+  });
   registerIpc({
     ipcMain,
     assertSender,
     crew,
+    router,
+    remote,
     disk: crew.disk,
     shell: crew.shell,
     search: crew.search,
@@ -325,6 +347,7 @@ async function start() {
     },
   });
   await crew.start();
+  void remote.start();
   if (crew.apps) crew.apps.sync();
   usage.start();
   createTray();
@@ -338,6 +361,7 @@ app.on("before-quit", () => {
   quitting = true;
   if (sandbox) sandbox.stopAll();
   if (usage) usage.stop();
+  if (remote) remote.stop();
   if (crew) crew.stop();
 });
 
