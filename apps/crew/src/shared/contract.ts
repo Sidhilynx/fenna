@@ -641,6 +641,21 @@ export interface SkillDetail extends SkillView {
   body: string;
 }
 
+/** A starter skill that ships with Crew. Add it with crew:skillLibraryPreview, then crew:skillAdd. */
+export interface SkillLibraryItem {
+  name: string;
+  description: string;
+  /** How long it saves the person, as the skill says, e.g. "about 1 hour". */
+  saves: string;
+}
+
+/** The starter skills of one category, in the order the page shows them. */
+export interface SkillLibraryGroup {
+  category: string;
+  title: string;
+  skills: SkillLibraryItem[];
+}
+
 /** A skill read from a folder, a file or an address, shown in full before it is added. Add it with crew:skillAdd(id). */
 export interface SkillPreview {
   id: string;
@@ -873,6 +888,8 @@ export interface Calls {
   /** The pickers: the preview of what the person chose, or null when they cancel. */
   "crew:skillFolder": { args: []; result: SkillPreview | null };
   "crew:skillFile": { args: []; result: SkillPreview | null };
+  "crew:skillLibrary": { args: []; result: SkillLibraryGroup[] };
+  "crew:skillLibraryPreview": { args: [category: string, name: string]; result: SkillPreview };
   /** An https address: a raw SKILL.md, or a GitHub folder (…/tree/…). */
   "crew:skillUrl": { args: [url: string]; result: SkillPreview };
   "crew:skillAdd": { args: [id: string]; result: SkillView };

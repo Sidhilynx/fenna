@@ -50,6 +50,7 @@
     "files": [
       "src/main/**",
       "dist/**",
+      "skills-library/**/*",
       "build/icon.png",
       "build/tray.png",
       "build/tray@16.png",

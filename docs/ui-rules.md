@@ -156,6 +156,7 @@ rules above still hold; these replace the ones they name.
 - **Icons** in the chrome are the 12×12 pixel set (`pixelIcons.ts`); faces
   are 16×16 sprites. Model and CLI logos are the one exception: they show as
   the vendor's mark wherever a brain is named, with its name in the tooltip.
+  Connector logos are the second: each shows its vendor's simple-icons mark in its brand colour, or in the text color where that colour would vanish (`assets/connectors/LICENSE.md`).
 - **Cards that wait on the person** (questions, approvals) are neutral
   panels with a pixel header; the attention mark is the only "needs you" sign.
 - **Motion** moves in whole pixels with `steps()`. Allowed loops: the

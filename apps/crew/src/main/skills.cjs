@@ -233,6 +233,64 @@ async function fromGithub(owner, repo, branch, at, fetchBytes) {
   return assemble(files, folder);
 }
 
+/** The starter skills that ship with Crew: apps/crew/skills-library/<category>/<name>/, read as a folder source. */
+const LIBRARY_DIR = path.join(__dirname, "..", "..", "skills-library");
+/** The library's categories, folder name → heading, in the order the page shows them. */
+const LIBRARY_CATEGORIES = [
+  ["startups", "Startups"],
+  ["marketing", "Marketing"],
+  ["sales", "Sales"],
+  ["engineering", "Engineering"],
+  ["writing-docs", "Writing and docs"],
+  ["research-ops", "Research and ops"],
+];
+
+/** The "saves" line of a SKILL.md's front matter: how long the skill saves the person, or "". */
+function savesOf(text) {
+  const fm = F.splitFrontMatter(text);
+  if (!fm) return "";
+  const { value } = F.parseYaml(fm.yaml, 2);
+  return typeof value.saves === "string" ? value.saves.trim() : "";
+}
+
+/**
+ * The library, grouped: [{ category, title, skills: [{ name, description, saves }] }].
+ * A skill that doesn't pass the skill format is left out; the tests keep every one passing.
+ */
+function readLibrary(dir = LIBRARY_DIR) {
+  const groups = [];
+  for (const [category, title] of LIBRARY_CATEGORIES) {
+    let names = [];
+    try {
+      names = fs.readdirSync(path.join(dir, category)).sort();
+    } catch {
+      continue;
+    }
+    const skills = [];
+    for (const name of names) {
+      if (F.skillNameProblem(name)) continue;
+      let text;
+      try {
+        text = fs.readFileSync(path.join(dir, category, name, SKILL), "utf8");
+      } catch {
+        continue;
+      }
+      const doc = F.parseSkill(text, name);
+      if (doc.diagnostics.some((d) => d.severity === "error")) continue;
+      skills.push({ name, description: doc.description, saves: savesOf(text) });
+    }
+    if (skills.length) groups.push({ category, title, skills });
+  }
+  return groups;
+}
+
+/** The folder of one library skill, found through the library's own list (a name is never joined into a path unchecked). */
+function libraryPath(category, name, dir = LIBRARY_DIR) {
+  const group = readLibrary(dir).find((g) => g.category === category);
+  if (!group || !group.skills.some((s) => s.name === name)) throw new Error(`There is no library skill "${name}" in ${category}.`);
+  return path.join(dir, category, name);
+}
+
 /**
  * @param {object} o
  * @param {string} o.dir  where installed skills live (<userData>/Crew/skills)
@@ -439,4 +497,4 @@ function revokeAll(store, name) {
   return bots.map((b) => b.name);
 }
 
-module.exports = { createSkillStore, nameFrom, grantsOf, revokeAll };
+module.exports = { createSkillStore, nameFrom, grantsOf, revokeAll, readLibrary, libraryPath, LIBRARY_DIR };

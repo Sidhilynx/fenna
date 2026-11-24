@@ -3,7 +3,7 @@
 // tools, and adding (search the MCP Registry, a command, or an address),
 // testing, editing and removing one. Bots are given connectors, tool by
 // tool, in their Details (Grants.tsx).
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Dialog, toast } from "@opendeck/shell";
 import { connectorNameProblem, connectorUrlProblem, FENNA_APPS, type ConnectorType } from "@opendeck/crew";
 import { errorText, invoke } from "../shared/api.ts";
@@ -93,11 +93,16 @@ export function ConnectorsPage() {
   );
 }
 
-/** A vendor's logo in the text color, or a small plug when we have none. */
-function Logo({ entry }: { entry: Pick<CatalogEntry, "id" | "logo"> }) {
-  const markup = entry.logo ? CONNECTOR_LOGOS[entry.id] : undefined;
-  return markup ? (
-    <span className="conn-logo" aria-hidden dangerouslySetInnerHTML={{ __html: markup }} />
+/** A vendor's logo in its brand colour, or a small plug when we have none. */
+function Logo({ id }: { id: string | undefined }) {
+  const logo = id ? CONNECTOR_LOGOS[id] : undefined;
+  return logo ? (
+    <span
+      className={`conn-logo${logo.clash ? ` clash-${logo.clash}` : ""}`}
+      aria-hidden
+      style={logo.color ? ({ "--logo": logo.color } as CSSProperties) : undefined}
+      dangerouslySetInnerHTML={{ __html: logo.svg }}
+    />
   ) : (
     <span className="conn-logo" aria-hidden>
       <svg viewBox="0 0 16 16" fill="currentColor" shapeRendering="crispEdges" focusable="false">
@@ -142,13 +147,13 @@ function Catalog({ installed, onAdd }: { installed: ConnectorView[]; onAdd(e: Ca
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<"All" | ConnectorCategory>("All");
   const term = query.trim().toLowerCase();
-  const shown = useMemo(
-    () =>
-      CONNECTOR_CATALOG.filter((e) => (category === "All" || e.category === category) && (!term || `${e.name} ${e.vendor} ${e.description}`.toLowerCase().includes(term))).sort(
-        (a, b) => Number(!!b.featured) - Number(!!a.featured),
-      ),
-    [term, category],
-  );
+  const groups = useMemo(() => {
+    const matches = CONNECTOR_CATALOG.filter((e) => (category === "All" || e.category === category) && (!term || `${e.name} ${e.vendor} ${e.description}`.toLowerCase().includes(term)));
+    if (category !== "All") return [{ title: "", items: matches }];
+    const featured = matches.filter((e) => e.featured);
+    const rest = CATEGORIES.map((c) => ({ title: c, items: matches.filter((e) => !e.featured && e.category === c) })).filter((g) => g.items.length);
+    return [...(featured.length ? [{ title: "Featured", items: featured }] : []), ...rest];
+  }, [term, category]);
   return (
     <section className="conn-section" aria-label="Add a connector">
       <h2 className="section-title">Add a connector</h2>
@@ -162,40 +167,45 @@ function Catalog({ installed, onAdd }: { installed: ConnectorView[]; onAdd(e: Ca
           ))}
         </div>
       </div>
-      {shown.length ? (
-        <ul className="conn-grid">
-          {shown.map((e) => {
-            const added = installed.some((c) => sameConnector(e, c));
-            return (
-              <li key={e.id} className="conn-card">
-                <Logo entry={e} />
-                <span className="conn-card-text">
-                  <span className="conn-card-name">
-                    <span className="ell" title={e.name}>
-                      {e.name}
-                    </span>
-                    {e.vendor !== e.name && (
-                      <span className="conn-card-vendor ell" title={e.vendor}>
-                        {e.vendor}
+      {groups.length ? (
+        groups.map((g) => (
+          <div key={g.title || "all"} className="conn-group">
+            {g.title && <h3 className="label">{g.title}</h3>}
+            <ul className="conn-grid">
+              {g.items.map((e) => {
+                const added = installed.some((c) => sameConnector(e, c));
+                return (
+                  <li key={e.id} className="conn-card">
+                    <Logo id={e.id} />
+                    <span className="conn-card-text">
+                      <span className="conn-card-name">
+                        <span className="ell" title={e.name}>
+                          {e.name}
+                        </span>
+                        {e.vendor !== e.name && (
+                          <span className="conn-card-vendor ell" title={e.vendor}>
+                            {e.vendor}
+                          </span>
+                        )}
+                        {e.featured && <span className="px-tag conn-card-featured">Featured</span>}
                       </span>
+                      <span className="conn-card-desc" title={e.description}>
+                        {e.description}
+                      </span>
+                    </span>
+                    {added ? (
+                      <span className="px-tag conn-card-added">Added</span>
+                    ) : (
+                      <button type="button" className="icon-btn px-ibtn" title={`Add ${e.name}`} aria-label={`Add ${e.name}`} onClick={() => onAdd(e)}>
+                        <PixelIcon name="plus" size={12} />
+                      </button>
                     )}
-                    {e.featured && <span className="px-tag conn-card-featured">Featured</span>}
-                  </span>
-                  <span className="conn-card-desc" title={e.description}>
-                    {e.description}
-                  </span>
-                </span>
-                {added ? (
-                  <span className="px-tag conn-card-added">Added</span>
-                ) : (
-                  <button type="button" className="icon-btn px-ibtn" title={`Add ${e.name}`} aria-label={`Add ${e.name}`} onClick={() => onAdd(e)}>
-                    <PixelIcon name="plus" size={12} />
-                  </button>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))
       ) : (
         <PixelEmpty icon="search">No match for “{query.trim()}”. Try Add custom.</PixelEmpty>
       )}
@@ -206,6 +216,7 @@ function Catalog({ installed, onAdd }: { installed: ConnectorView[]; onAdd(e: Ca
 function ConnectorItem({ c, open, toggle, onEdit, onRemove }: { c: ConnectorView; open: boolean; toggle(): void; onEdit(): void; onRemove(): void }) {
   const [testing, setTesting] = useState(false);
   const state = connectorState(c);
+  const entry = CONNECTOR_CATALOG.find((e) => sameConnector(e, c));
   const id = `conn-${c.name}`;
   const values = c.type === "url" ? c.headers : c.env;
 
@@ -224,10 +235,10 @@ function ConnectorItem({ c, open, toggle, onEdit, onRemove }: { c: ConnectorView
   return (
     <li className={`cli-item conn-item${open ? " open" : ""}`}>
       <button type="button" className="cli-tile" aria-expanded={open} aria-controls={id} onClick={toggle}>
-        <Logo entry={CONNECTOR_CATALOG.find((e) => sameConnector(e, c)) ?? { id: c.name, logo: false }} />
+        <Logo id={entry?.id} />
         <span className="cli-text">
-          <span className="cli-name ell" title={c.name}>
-            {c.name}
+          <span className="cli-name ell" title={entry?.name ?? c.name}>
+            {entry?.name ?? c.name}
           </span>
           <span className="cli-sub ell" title={connectorWhere(c)}>
             {connectorWhere(c)}

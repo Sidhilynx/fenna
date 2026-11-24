@@ -7,7 +7,7 @@
 import { useEffect, useState } from "react";
 import { Dialog, MenuButton, toast } from "@opendeck/shell";
 import { errorText, invoke } from "../shared/api.ts";
-import type { SkillDetail, SkillPreview, SkillView } from "../shared/contract.ts";
+import type { SkillDetail, SkillLibraryGroup, SkillPreview, SkillView } from "../shared/contract.ts";
 import { Fact, PixelEmpty } from "./Connectors.tsx";
 import { Markdown } from "./Markdown.tsx";
 import { PixelIcon } from "./PixelIcon.tsx";
@@ -43,12 +43,26 @@ export function SkillsPage() {
   const [address, setAddress] = useState(false);
   const [removing, setRemoving] = useState<SkillView | null>(null);
   const [open, setOpen] = useState<string | null>(null);
+  const [adding, setAdding] = useState<string | null>(null);
 
   const pick = (channel: "crew:skillFolder" | "crew:skillFile") =>
     invoke(channel).then(
       (p) => p && setReview(p),
       (e) => toast(errorText(e)),
     );
+  const addFromLibrary = (category: string, name: string) => {
+    setAdding(name);
+    invoke("crew:skillLibraryPreview", category, name).then(
+      (p) => {
+        setAdding(null);
+        setReview(p);
+      },
+      (e) => {
+        setAdding(null);
+        toast(errorText(e));
+      },
+    );
+  };
   const adds = [
     { label: "From a folder", onSelect: () => void pick("crew:skillFolder") },
     { label: "From a file", onSelect: () => void pick("crew:skillFile") },
@@ -72,7 +86,7 @@ export function SkillsPage() {
         <p className="hint">{error || "Loading"}</p>
       ) : !skills.length ? (
         <>
-          <PixelEmpty icon="skills">No skills yet.</PixelEmpty>
+          <PixelEmpty icon="skills">No skills added yet. Add one from the library below.</PixelEmpty>
           <div className="inline wrap">
             {adds.map((a) => (
               <button key={a.label} type="button" className="btn" onClick={a.onSelect}>
@@ -91,6 +105,7 @@ export function SkillsPage() {
           </ul>
         </>
       )}
+      <Library installed={new Set((skills ?? []).map((s) => s.name))} adding={adding} onAdd={addFromLibrary} />
       {address && (
         <AddressDialog
           onClose={() => setAddress(false)}
@@ -103,6 +118,67 @@ export function SkillsPage() {
       {review && <SkillReview preview={review} onClose={() => setReview(null)} />}
       {removing && <RemoveSkill s={removing} onClose={() => setRemoving(null)} />}
     </main>
+  );
+}
+
+/** The starter skills, by category. Add reads the skill into the same preview as any other source; nothing is added unseen. */
+function Library({ installed, adding, onAdd }: { installed: Set<string>; adding: string | null; onAdd(category: string, name: string): void }) {
+  const [groups, setGroups] = useState<SkillLibraryGroup[] | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+    invoke("crew:skillLibrary").then(
+      (g) => alive && setGroups(g),
+      (e) => alive && setError(errorText(e)),
+    );
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  return (
+    <section className="conn-section library" aria-label="Library">
+      <div className="section-title">Library</div>
+      <p className="hint">Starter skills. Read one before you add it.</p>
+      {!groups ? (
+        <p className="hint">{error || "Loading"}</p>
+      ) : (
+        groups.map((g) => (
+          <div key={g.category} className="library-group">
+            <div className="section-title">{g.title}</div>
+            <ul className="conn-list">
+              {g.skills.map((s) => (
+                <li key={s.name} className="cli-item">
+                  <div className="library-row">
+                    <span className="cli-text">
+                      <span className="cli-name ell">{s.name}</span>
+                      <span className="cli-sub ell" title={s.description}>
+                        {s.description}
+                      </span>
+                    </span>
+                    {s.saves && <span className="hint library-saves">Saves {s.saves}</span>}
+                    {installed.has(s.name) ? (
+                      <span className="hint">Added</span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn small"
+                        disabled={adding !== null}
+                        aria-label={`Add ${s.name}`}
+                        onClick={() => onAdd(g.category, s.name)}
+                      >
+                        {adding === s.name ? "Reading…" : "Add"}
+                      </button>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))
+      )}
+    </section>
   );
 }
 

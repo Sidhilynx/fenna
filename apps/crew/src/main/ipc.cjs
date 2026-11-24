@@ -13,6 +13,7 @@ const { createSiteIcons, originOf } = require("./siteicons.cjs");
 const { noUsage } = require("./usage.cjs");
 const { checkAttachments, forRun } = require("./attachments.cjs");
 const { createTransfer } = require("./transfer.cjs");
+const { libraryPath, readLibrary } = require("./skills.cjs");
 
 const MAX_MESSAGE = 20_000;
 const MAX_PASTE = 200_000;
@@ -327,6 +328,11 @@ function registerIpc({ ipcMain, assertSender, crew, settings, reveal, saveDialog
     if (r.canceled || !r.filePaths.length) return null;
     return crew.skills.prepare({ kind: "file", path: r.filePaths[0] });
   });
+  handle("crew:skillLibrary", () => readLibrary());
+  // A library skill is read as a folder source, so it goes through the same preview and commit as any other.
+  handle("crew:skillLibraryPreview", (_e, category, name) =>
+    crew.skills.prepare({ kind: "folder", path: libraryPath(str(category, "The category", 40), str(name, "The skill's name", 40)) }),
+  );
   handle("crew:skillUrl", (_e, url) => crew.skills.prepare({ kind: "address", url: str(url, "The address", 2000) }));
   handle("crew:skillAdd", (_e, id) => crew.skills.commit(str(id, "The preview", 100)));
   handle("crew:skillRemove", (_e, name) => crew.skills.remove(str(name, "The skill's name", 40)));
