@@ -3,6 +3,7 @@ import type { ElementNode, Theme } from "@opendeck/format";
 import { BASE_CSS, fontFaceCss, googleFontsUrl, slideMarkup } from "@opendeck/render";
 import { SLIDE_HEIGHT, SLIDE_WIDTH } from "@opendeck/format";
 import { assetBase } from "./api.ts";
+import { withoutBundledFonts } from "./fonts/bundled.ts";
 
 interface Props {
   slide: ElementNode;
@@ -56,7 +57,7 @@ export function useSlideStyles(theme: Theme | null) {
       document.head.appendChild(base);
     }
     base.textContent = BASE_CSS + "\n" + fontFaceCss(theme, assetBase());
-    const url = googleFontsUrl(theme);
+    const url = googleFontsUrl(withoutBundledFonts(theme));
     let link = document.getElementById("od-fonts") as HTMLLinkElement | null;
     if (url) {
       if (!link) {
