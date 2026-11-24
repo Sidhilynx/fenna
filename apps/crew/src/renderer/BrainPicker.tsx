@@ -9,6 +9,9 @@ import { PixelIcon } from "./PixelIcon.tsx";
 
 export type Brain = Bot["brain"];
 
+/** Shown in the brain menu when no local model is listed: it covers both a server that isn't running and one with no model pulled. */
+const NO_LOCAL_MODEL = "Start Ollama, then pull a model that’s good at tools (for example gpt-oss:20b).";
+
 const EFFORT_BARS: Record<string, number> = { minimal: 1, low: 1, medium: 2, high: 3, xhigh: 4, max: 4, ultra: 4 };
 
 /** Four pixel bars: as many filled as the effort is high. */
@@ -41,6 +44,13 @@ export function BrainPicker({ value, clis, onChange }: { value: Brain; clis: Cli
   const efforts = model ? model.efforts : [...new Set(models.flatMap((m) => m.efforts))];
   const effort = value.effort || model?.defaultEffort || "";
   const modelName = model?.label ?? (value.model || "Default");
+  // With Codex installed and no local model listed, the group says how to get one (Ollama down, or none pulled).
+  const localEntries: MenuEntry[] = localMenuEntries(codex?.models.filter((m) => m.value) ?? [], {
+    installed: !!codex?.installed,
+    checked: (m) => m.value === value.model,
+    onSelect: (m) => onChange({ cli: "codex", model: m.value, effort: "" }),
+  });
+  if (!localEntries.length && codex?.installed) localEntries.push("separator", { heading: "On this computer" }, { note: NO_LOCAL_MODEL });
 
   const modelMark = (label: string) => {
     const logo = modelLogo(value.cli, label);
@@ -66,11 +76,7 @@ export function BrainPicker({ value, clis, onChange }: { value: Brain; clis: Cli
       checked: m.value === value.model,
       onSelect: () => onChange({ ...value, model: m.value, effort: m.efforts.includes(value.effort) ? value.effort : "" }),
     })),
-    ...localMenuEntries(codex?.models.filter((m) => m.value) ?? [], {
-      installed: !!codex?.installed,
-      checked: (m) => m.value === value.model,
-      onSelect: (m) => onChange({ cli: "codex", model: m.value, effort: "" }),
-    }),
+    ...localEntries,
     ...(efforts.length
       ? [
           "separator" as const,

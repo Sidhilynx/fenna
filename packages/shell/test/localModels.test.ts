@@ -1,5 +1,6 @@
+import { EventEmitter } from "node:events";
 import { createRequire } from "node:module";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 const require = createRequire(import.meta.url);
 
@@ -9,7 +10,9 @@ const local = require("../main/local-models.cjs") as {
   paramsB(text: string | undefined): number | null;
   fromOllama(json: unknown): { id: string; provider: string; name: string; sizeBytes: number | null; paramsB: number | null }[];
   fromLmStudio(json: unknown): { id: string; provider: string; name: string; sizeBytes: number | null; paramsB: number | null }[];
+  discover(timeoutMs?: number): Promise<{ id: string }[]>;
 };
+const http = require("node:http") as { get(opts: unknown, cb: (res: EventEmitter) => void): EventEmitter };
 
 const { _test } = require("../main/agent.cjs") as {
   _test: {
@@ -118,5 +121,51 @@ describe("local models: runs through Codex", () => {
   it("leaves other Codex errors alone", () => {
     expect(_test.friendly("codex", "rate limit exceeded (429)").message).toMatch(/usage limit/);
     expect(_test.friendly("codex", "error sending request").message).toBe("error sending request");
+  });
+});
+
+describe("local models: detection", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  /** A stand-in for http.get: answers with `status` and `body`, or fails to connect when `body` is an Error. */
+  function answerWith(status: number, body: string | Error) {
+    const requests: { port: number; path: string }[] = [];
+    vi.spyOn(http, "get").mockImplementation((opts, cb) => {
+      requests.push(opts as { port: number; path: string });
+      const req = new EventEmitter() as EventEmitter & { setTimeout(ms: number, fn: () => void): void; destroy(): void };
+      req.setTimeout = () => undefined;
+      req.destroy = () => undefined;
+      process.nextTick(() => {
+        if (body instanceof Error) return req.emit("error", body);
+        const res = new EventEmitter() as EventEmitter & { statusCode: number; setEncoding(enc: string): void };
+        res.statusCode = status;
+        res.setEncoding = () => undefined;
+        cb(res);
+        res.emit("data", body);
+        res.emit("end");
+      });
+      return req;
+    });
+    return requests;
+  }
+
+  it("asks Ollama on 127.0.0.1:11434 and lists its chat models", async () => {
+    const requests = answerWith(200, JSON.stringify({ models: [{ name: "qwen3:8b", size: 5_200_000_000, details: { parameter_size: "8.0B" } }, { name: "nomic-embed-text" }] }));
+    const found = await local.discover();
+    expect(requests.some((r) => r.port === 11434 && r.path === "/api/tags")).toBe(true);
+    expect(found.map((m) => m.id)).toEqual(["local:ollama/qwen3:8b"]);
+  });
+
+  it("lists nothing when Ollama isn't running", async () => {
+    answerWith(200, new Error("connect ECONNREFUSED 127.0.0.1:11434"));
+    await expect(local.discover()).resolves.toEqual([]);
+  });
+
+  it("lists nothing when Ollama answers with an error or a body that isn't JSON", async () => {
+    answerWith(500, "oops");
+    await expect(local.discover()).resolves.toEqual([]);
+    vi.restoreAllMocks();
+    answerWith(200, "<html>");
+    await expect(local.discover()).resolves.toEqual([]);
   });
 });
