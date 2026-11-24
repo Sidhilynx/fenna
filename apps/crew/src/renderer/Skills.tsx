@@ -11,6 +11,7 @@ import type { SkillDetail, SkillLibraryGroup, SkillPreview, SkillView } from "..
 import { Fact, PixelEmpty } from "./Connectors.tsx";
 import { Markdown } from "./Markdown.tsx";
 import { PixelIcon } from "./PixelIcon.tsx";
+import type { PixelIconName } from "./pixelIcons.ts";
 import { useCrew, useSkills } from "./crew.tsx";
 import { formatSize } from "./diskPaths.ts";
 import { PixelField } from "./PixelField.tsx";
@@ -122,6 +123,30 @@ export function SkillsPage() {
 }
 
 /** The starter skills, by category. Add reads the skill into the same preview as any other source; nothing is added unseen. */
+/** Each library skill's picture: an icon from the pixel set, on its category's avatar colour (styles.css). */
+const SKILL_ART: Record<string, PixelIconName> = {
+  "investor-update": "usage",
+  "pitch-deck-outline": "slides",
+  "competitor-scan": "search",
+  "customer-interview-notes": "group",
+  "product-announcement": "bell",
+  "seo-brief": "site",
+  "newsletter-draft": "send",
+  "social-calendar": "clock",
+  "cold-email-sequence": "send",
+  "call-prep-brief": "question",
+  "follow-up-after-meeting": "check",
+  "pr-review-checklist": "eye",
+  "bug-report-triage": "attention",
+  "release-notes": "export",
+  "meeting-minutes": "doc",
+  "one-page-memo": "files",
+  "rewrite-for-clarity": "duplicate",
+  "weekly-report-from-sheet": "sheet",
+  "market-research-brief": "browser",
+  "travel-plan": "site",
+};
+
 function Library({ installed, adding, onAdd }: { installed: Set<string>; adding: string | null; onAdd(category: string, name: string): void }) {
   const [groups, setGroups] = useState<SkillLibraryGroup[] | null>(null);
   const [error, setError] = useState("");
@@ -151,6 +176,9 @@ function Library({ installed, adding, onAdd }: { installed: Set<string>; adding:
               {g.skills.map((s) => (
                 <li key={s.name} className="cli-item">
                   <div className="library-row">
+                    <span className={`library-art ${g.category}`} aria-hidden="true">
+                      <PixelIcon name={SKILL_ART[s.name] ?? "skills"} size={24} />
+                    </span>
                     <span className="cli-text">
                       <span className="cli-name ell">{s.name}</span>
                       <span className="cli-sub ell" title={s.description}>
