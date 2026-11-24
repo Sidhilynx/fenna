@@ -49,10 +49,13 @@ function fakeButton(label: string, text = "") {
 }
 
 /** A fake page: buttons for button queries, nothing for other selectors, and body text. */
-function fakePage(buttons: ReturnType<typeof fakeButton>[], bodyText = "", hostname = "meet.google.com") {
+function fakePage(buttons: ReturnType<typeof fakeButton>[], bodyText = "", hostname = "meet.google.com", captionsRegion = false) {
+  const body = { innerText: bodyText };
   const ctx: Record<string, unknown> = {
     document: {
-      body: { innerText: bodyText },
+      body,
+      activeElement: body,
+      querySelector: (sel: string) => (captionsRegion && sel.includes("Captions") ? {} : null),
       querySelectorAll: (sel: string) => (sel.includes("button") ? buttons : []),
     },
     location: { origin: `https://${hostname}`, hostname },
@@ -104,6 +107,16 @@ describe("meet page functions on a fake page", () => {
 
   it("finds no name field to type into on a page without one", () => {
     expect(fakePage([]).run(meetNameFocus)).toEqual({ found: false, focused: false, value: "" });
+  });
+
+  it("asks for Meet's c shortcut when no captions toggle shows", () => {
+    expect(fakePage([fakeButton("Leave call")]).run(meetCaptionsOn)).toEqual({ on: false, key: true });
+  });
+
+  it("knows captions are on from the captions region when the toggle is hidden", () => {
+    const page = fakePage([fakeButton("Leave call")], "", "meet.google.com", true);
+    expect(page.run(meetState)).toMatchObject({ state: "incall", captions: true });
+    expect(page.run(meetCaptionsOn)).toEqual({ on: true });
   });
 
   it("turns captions on only when they are off", () => {

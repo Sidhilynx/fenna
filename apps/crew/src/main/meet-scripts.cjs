@@ -57,7 +57,8 @@ function meetState() {
 
   return {
     state,
-    captions: named("turn off captions"),
+    // A narrow or minimized window moves the toggle into the overflow menu; the captions region still shows they are on.
+    captions: named("turn off captions") || !!document.querySelector('[role="region"][aria-label*="Captions" i]'),
     chatOpen: chatShown,
     presenting: named("stop presenting"),
     people: people ? Number(people[1]) : null,
@@ -126,9 +127,13 @@ function meetCaptionsOn() {
   const live = () => [...document.querySelectorAll('button, [role="button"]')].filter((b) => shown(b) && !b.disabled && b.getAttribute("aria-disabled") !== "true");
   const named = (prefix) => live().find((b) => norm(b.getAttribute("aria-label")).startsWith(prefix)) || null;
 
-  if (named("turn off captions")) return { on: true };
+  if (named("turn off captions") || document.querySelector('[role="region"][aria-label*="Captions" i]')) return { on: true };
   const toggle = named("turn on captions");
-  if (!toggle) return { on: false };
+  if (!toggle) {
+    // No toggle in sight (a narrow or minimized window hides it): Crew presses Meet's "c" shortcut, so nothing may hold the focus.
+    if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+    return { on: false, key: true };
+  }
   toggle.click();
   return { on: true };
 }

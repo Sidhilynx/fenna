@@ -80,13 +80,30 @@ describe("meeting prompts", () => {
  * focused field), not set from script.
  */
 function fakeMeet(start: { state?: string; typedOnly?: boolean } = {}) {
-  const page = { state: start.state ?? "prejoin", name: "", typed: false, focused: false, typedOnly: start.typedOnly ?? true, closed: false, inserted: [] as string[] };
+  const page = {
+    state: start.state ?? "prejoin",
+    name: "",
+    typed: false,
+    focused: false,
+    typedOnly: start.typedOnly ?? true,
+    closed: false,
+    inserted: [] as string[],
+    captions: false,
+    /** The captions toggle is hidden (a minimized window); "keys" takes Meet's c shortcut, "none" ignores it too. */
+    toggle: "shown" as "shown" | "keys" | "none",
+    keys: [] as string[],
+  };
   const tab = {
     alive: () => !page.closed,
     close: () => void (page.closed = true),
     waitForControl: async () => {},
     main: async () => false,
-    cdp: async (method: string, p: { text: string }) => {
+    cdp: async (method: string, p: { text: string; type?: string; key?: string }) => {
+      if (method === "Input.dispatchKeyEvent" && p.type === "keyDown" && p.key) {
+        page.keys.push(p.key);
+        if (p.key === "c" && page.toggle === "keys") page.captions = !page.captions;
+        return {};
+      }
       if (method !== "Input.insertText") return {};
       page.inserted.push(p.text);
       if (page.focused) {
@@ -98,7 +115,7 @@ function fakeMeet(start: { state?: string; typedOnly?: boolean } = {}) {
     evaluate: async (fn: { name: string }, arg: { name?: string } | null) => {
       switch (fn.name) {
         case "meetState":
-          return { state: page.state, captions: false, chatOpen: false, presenting: false, people: page.state === "incall" ? 2 : null };
+          return { state: page.state, captions: page.captions, chatOpen: false, presenting: false, people: page.state === "incall" ? 2 : null };
         case "meetNameFocus":
           if (page.state !== "prejoin") return { found: false, focused: false, value: "" };
           page.focused = true;
@@ -110,6 +127,9 @@ function fakeMeet(start: { state?: string; typedOnly?: boolean } = {}) {
           page.state = "waiting";
           return { clicked: "ask", filled: true, disabled: false, nameField: true };
         case "meetCaptionsOn":
+          if (page.captions) return { on: true };
+          if (page.toggle !== "shown") return { on: false, key: true };
+          page.captions = true;
           return { on: true };
         case "meetChatFocus":
           return { ok: true };
@@ -197,6 +217,37 @@ describe("joining a call", () => {
     const view = meetings.list()[0];
     expect(view.state).toBe("incall");
     expect(fs.readFileSync(path.join(dir, "workspace", "Meetings", view.transcript.split("/").pop()), "utf8")).toContain("Joined the call.");
+    meetings.stopAll();
+  });
+
+  const transcript = (meetings: ReturnType<typeof setup>) => fs.readFileSync(path.join(dir, "workspace", "Meetings", meetings.list()[0].transcript.split("/").pop() as string), "utf8");
+
+  it("turns captions on with Meet's c shortcut when the toggle is hidden, and presses it only once", async () => {
+    const fake = fakeMeet({ state: "incall" });
+    fake.page.toggle = "keys";
+    const meetings = setup(fake);
+    await join(meetings);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(fake.page.captions).toBe(true);
+    expect(fake.page.keys.filter((k) => k === "c")).toEqual(["c"]);
+    expect(transcript(meetings)).not.toContain("could not be turned on");
+    meetings.stopAll();
+  });
+
+  it("says in the transcript when captions can't be turned on, keeps trying, and says when they come on", async () => {
+    const fake = fakeMeet({ state: "incall" });
+    fake.page.toggle = "none";
+    const meetings = setup(fake);
+    await join(meetings);
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(transcript(meetings)).toContain("Meet's captions could not be turned on");
+    const tries = fake.page.keys.length;
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(fake.page.keys.length).toBeGreaterThan(tries);
+    expect(fake.page.keys.length).toBeLessThan(tries + 5);
+    fake.page.captions = true;
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(transcript(meetings)).toContain("Meet's captions are on");
     meetings.stopAll();
   });
 
