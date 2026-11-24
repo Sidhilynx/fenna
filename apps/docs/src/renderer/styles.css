@@ -238,6 +238,8 @@
 /* â”€â”€ Toolbar and Ask â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .tb-wrap { container-type: inline-size; position: sticky; bottom: 16px; z-index: 6; flex: none; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; margin-top: -72px; padding-bottom: 16px; }
 .tb-wrap > * { pointer-events: auto; }
+/* The toolbar grows up from the bottom (the Ask box, open menus), so the toast hangs from the top. */
+.toast { top: 8px; bottom: auto; }
 .tb { display: flex; align-items: center; gap: 2px; padding: 4px; background: var(--raised); border: 1px solid var(--line-strong); border-radius: var(--r-lg); box-shadow: var(--shadow); }
 .tb .icon-btn { min-width: 34px; height: 32px; }
 .tb-sep { width: 1px; height: 18px; margin: 0 4px; background: var(--line-strong); }
