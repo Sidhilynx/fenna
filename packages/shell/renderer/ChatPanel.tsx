@@ -22,6 +22,8 @@ import { useAgents } from "./useAgents.ts";
 import "./chat.css";
 
 const HISTORY_MAX = 30;
+/** Within this many px of the bottom, the list counts as at the bottom and keeps following. */
+const NEAR_BOTTOM = 32;
 const LAST_KIND_KEY = "shell.assistant";
 
 function lastKind(): AgentKind | null {
@@ -100,6 +102,13 @@ export function ChatPanel({ noun, view, suggestions, intro, placeholder, draft: 
     return 360;
   });
   const listRef = useRef<HTMLDivElement>(null);
+  // Follow the newest content only while the person is at the bottom; `away` shows the way back.
+  const pinned = useRef(true);
+  const jumping = useRef(false);
+  const [away, setAway] = useState(false);
+  // Whether the reply being written has been streamed, and the finished message that replaced it.
+  const streamed = useRef(false);
+  const landed = useRef<ChatItem | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const early = useRef<AgentEvent[]>([]);
@@ -255,10 +264,47 @@ export function ChatPanel({ noun, view, suggestions, intro, placeholder, draft: 
   const ready = !!kind && agents.stepOf(kind, !!model?.local).step === "ready";
   const busy = run !== null;
 
-  // Follow the conversation to its newest message; an empty chat (the picker) starts at its top.
+  // Follow the conversation to its newest message while pinned; a chat that is opened starts pinned at its newest.
+  const follow = useCallback(() => {
+    const el = listRef.current;
+    if (el && pinned.current) el.scrollTop = el.scrollHeight;
+  }, []);
   useEffect(() => {
-    if (chat?.items.length) listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
-  }, [chat?.items.length, chat?.id, streaming]);
+    pinned.current = true;
+    setAway(false);
+  }, [chat?.id]);
+  useEffect(() => follow(), [chat?.items.length, chat?.id, streaming, busy, follow]);
+  // The list also changes size when the composer grows or the window resizes.
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(follow);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [follow]);
+
+  const onListScroll = useCallback(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const gap = el.scrollHeight - el.scrollTop - el.clientHeight;
+    // A smooth jump passes through the middle; keep it going until it lands.
+    if (jumping.current && gap > NEAR_BOTTOM) return;
+    jumping.current = false;
+    pinned.current = gap <= NEAR_BOTTOM;
+    setAway(!pinned.current);
+  }, []);
+  const stopJump = useCallback(() => {
+    jumping.current = false;
+  }, []);
+  const jumpToLatest = useCallback(() => {
+    const el = listRef.current;
+    if (!el) return;
+    pinned.current = true;
+    jumping.current = true;
+    setAway(false);
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollTo({ top: el.scrollHeight, behavior: reduced ? "auto" : "smooth" });
+  }, []);
 
   const edit = useCallback((id: string, fn: (c: Chat) => Chat) => setBook((b) => (b ? updateChat(b, id, fn) : b)), []);
   const push = useCallback((id: string, item: ChatItem) => edit(id, (c) => ({ ...c, items: [...c.items, item], at: Date.now() })), [edit]);
@@ -271,10 +317,17 @@ export function ChatPanel({ noun, view, suggestions, intro, placeholder, draft: 
       }
       if (ev.runId !== run.id) return;
       const id = run.chat;
-      if (ev.type === "delta") return setStreaming((s) => s + ev.text);
+      if (ev.type === "delta") {
+        streamed.current = true;
+        return setStreaming((s) => s + ev.text);
+      }
       if (ev.type === "text") {
         setStreaming("");
-        push(id, { role: "assistant", text: ev.text });
+        const item: ChatItem = { role: "assistant", text: ev.text };
+        // The streamed text is already on screen; the finished message takes its place without fading in again.
+        if (streamed.current) landed.current = item;
+        streamed.current = false;
+        push(id, item);
       } else if (ev.type === "session") edit(id, (c) => ({ ...c, sessionId: ev.sessionId, sessionKind: run.kind }));
       else if (ev.type === "tool")
         edit(id, (c) => {
@@ -295,6 +348,7 @@ export function ChatPanel({ noun, view, suggestions, intro, placeholder, draft: 
         onWorking?.(null);
         setRun(null);
         setStreaming("");
+        streamed.current = false;
       }
     },
     [run, edit, push, onWorking, agents],
@@ -322,6 +376,9 @@ export function ChatPanel({ noun, view, suggestions, intro, placeholder, draft: 
     const currentImages = [...attachedImages];
     setDraft("");
     setAttachedImages([]);
+    // The person's own message is always brought into view.
+    pinned.current = true;
+    setAway(false);
     // A conversation belongs to one assistant; switching starts its session over.
     const sessionId = chat.sessionKind === kind ? chat.sessionId : null;
     const userItem: ChatItem = {
@@ -448,7 +505,8 @@ export function ChatPanel({ noun, view, suggestions, intro, placeholder, draft: 
         )}
       </header>
 
-      <div className="as-list" ref={listRef} role="log" aria-live="polite">
+      <div className="as-body">
+      <div className="as-list" ref={listRef} role="log" aria-live="polite" onScroll={onListScroll} onWheel={stopJump} onTouchStart={stopJump}>
         {chat && !chat.items.length && !kind ? (
           <AgentChoice agents={agents} noun={noun} onPick={pick} onMcpGuide={() => setShowMcp(true)} />
         ) : chat && !chat.items.length ? (
@@ -493,7 +551,7 @@ export function ChatPanel({ noun, view, suggestions, intro, placeholder, draft: 
               const first = i === 0 || chat.items[i - 1]!.role === "user";
               const who = chat.sessionKind ?? kind;
               return (
-                <div key={i} className="as-reply">
+                <div key={i} className={it === landed.current ? "as-reply settled" : "as-reply"}>
                   {first && who && (
                     <div className="as-who">
                       <AgentLogo kind={who} size={16} />
@@ -536,6 +594,12 @@ export function ChatPanel({ noun, view, suggestions, intro, placeholder, draft: 
             )}
           </div>
         )}
+      </div>
+      {away && (
+        <button type="button" className="as-jump" onClick={jumpToLatest} title="Jump to latest" aria-label="Jump to latest">
+          <Icon name="chevronDown" size={14} />
+        </button>
+      )}
       </div>
 
       <form
