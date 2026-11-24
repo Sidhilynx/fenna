@@ -85,6 +85,9 @@ function createOutput(max = OUTPUT_MAX - TAIL_RESERVE) {
     get text() {
       return text;
     },
+    get cut() {
+      return cut;
+    },
   };
 }
 
@@ -236,7 +239,10 @@ function createRun({ disk, slug, cwd, args = [], onFinish = () => {} }) {
     },
     print({ text }) {
       live();
-      output.add(String(text ?? ""));
+      // A string of OUTPUT_MAX characters always fills the output's cap, so the rest is never read.
+      output.add(String(text ?? "").slice(0, OUTPUT_MAX));
+      // Past the cap the program is stopped, so a loop that prints cannot keep the app busy.
+      if (output.cut) finish(false);
       return null;
     },
     exit({ code }) {
@@ -299,6 +305,16 @@ function bootstrap(src) {
   const log = (...values) => {
     bridge.print(toText(values)).catch(() => {});
   };
+  // The page's own rules already refuse the network, workers and peer connections; these names
+  // are also taken away from the program, so it finds nothing to call.
+  for (const name of ["fetch", "XMLHttpRequest", "WebSocket", "EventSource", "RTCPeerConnection", "webkitRTCPeerConnection", "Worker", "SharedWorker"]) {
+    try {
+      delete globalThis[name];
+    } catch {}
+  }
+  try {
+    delete Object.getPrototypeOf(globalThis.navigator).sendBeacon;
+  } catch {}
   console.log = log;
   console.error = log;
   const lineOf = (e) => {
@@ -403,6 +419,12 @@ function createSandbox({ disk, BrowserWindow, session, ipcMain, preloadPath }) {
       ses.setPermissionRequestHandler((_web, _perm, cb) => cb(false));
       ses.setPermissionCheckHandler(() => false);
       if (typeof ses.setDevicePermissionHandler === "function") ses.setDevicePermissionHandler(() => false);
+      // A download would be saved to the person's own Downloads folder, outside the bot's disk.
+      ses.on("will-download", (e) => e.preventDefault());
+      // Everything that is not a data: URL is refused above; a proxy that goes nowhere also covers
+      // the browser's own connections (DNS prefetch, preconnect), which the request hook does not see.
+      // The page loads only once the proxy is in place.
+      const proxied = Promise.resolve(ses.setProxy({ mode: "fixed_servers", proxyRules: "127.0.0.1:9" })).catch(() => {});
 
       const config = encodeURIComponent(JSON.stringify({ args: plan.args, cwd: plan.cwd }));
       win = new BrowserWindow({
@@ -427,10 +449,15 @@ function createSandbox({ disk, BrowserWindow, session, ipcMain, preloadPath }) {
       const wc = win.webContents;
       wc.setWindowOpenHandler(() => ({ action: "deny" }));
       wc.on("will-navigate", (e) => e.preventDefault());
+      // Peer connections are not covered by the CSP or the request hook, and a frame brings its own; they may only
+      // go through the proxy, which goes nowhere.
+      if (typeof wc.setWebRTCIPHandlingPolicy === "function") wc.setWebRTCIPHandlingPolicy("disable_non_proxied_udp");
       wc.on("render-process-gone", () => run.finish(false, "The program stopped unexpectedly."));
       win.on("closed", () => run.finish(false, "The program was closed."));
       timer = setTimeout(() => run.finish(false, `Stopped after ${seconds(plan.timeoutMs)} s.`), plan.timeoutMs);
-      Promise.resolve(win.loadURL(pageUrl(programPage(plan.code)))).catch(() => run.finish(false, "The program couldn't start."));
+      proxied
+        .then(() => win.loadURL(pageUrl(programPage(plan.code))))
+        .catch(() => run.finish(false, "The program couldn't start."));
     } catch {
       run.finish(false, "The program couldn't start.");
     }
