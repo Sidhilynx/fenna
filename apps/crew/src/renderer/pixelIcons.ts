@@ -52,7 +52,10 @@ export type PixelIconName =
   | "question"
   | "shield"
   | "usage"
-  | "attention";
+  | "attention"
+  | "back"
+  | "keyboard"
+  | "reload";
 
 export const PIXEL_ICONS: Record<PixelIconName, readonly string[]> = {
   overview: [
@@ -627,6 +630,48 @@ export const PIXEL_ICONS: Record<PixelIconName, readonly string[]> = {
     "............",
     "............",
     "............",
+    "............",
+  ],
+  back: [
+    "............",
+    "............",
+    "....xx......",
+    "...xx.......",
+    "..xx........",
+    ".xxxxxxxxxx.",
+    ".xxxxxxxxxx.",
+    "..xx........",
+    "...xx.......",
+    "....xx......",
+    "............",
+    "............",
+  ],
+  keyboard: [
+    "............",
+    "............",
+    ".xxxxxxxxxx.",
+    ".x........x.",
+    ".x.x.x.x..x.",
+    ".x........x.",
+    ".x.x.x.x..x.",
+    ".x........x.",
+    ".x..xxxx..x.",
+    ".x........x.",
+    ".xxxxxxxxxx.",
+    "............",
+  ],
+  reload: [
+    "............",
+    "....xxxx.x..",
+    "...xx..xxx..",
+    "..xx...xxx..",
+    "..x.........",
+    ".xx.........",
+    ".xx.........",
+    "..x......x..",
+    "..xx....xx..",
+    "...xx..xx...",
+    "....xxxx....",
     "............",
   ],
   send: [

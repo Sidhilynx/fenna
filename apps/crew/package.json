@@ -22,6 +22,7 @@
   },
   "devDependencies": {
     "@opendeck/crew": "0.0.1",
+    "@opendeck/crew-link": "0.0.1",
     "@opendeck/crew-mcp": "0.0.1",
     "@opendeck/sheet": "0.0.1",
     "@opendeck/workspace-mcp": "0.0.1",
@@ -32,6 +33,7 @@
     "electron-builder": "^26.18.0",
     "esbuild": "^0.28.2",
     "pdfjs-dist": "^6.5.438",
+    "qrcode-generator": "^2.0.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "vite": "^8.3.8"

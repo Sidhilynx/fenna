@@ -16,6 +16,8 @@ network, and when.
 
 | Usage counts (Fenna Crew) | `usage.sidhilynx.com` | Once a day for each finished day, from a minute after start. On unless you turn it off in Settings. | Numbers only: the app version, your system, which AI apps are signed in, and counts such as runs and approvals. [The full list](#usage-counts). |
 | Feedback (Fenna Crew) | `usage.sidhilynx.com` | Only when you press Send in the feedback window. | The text you wrote, your good or not good choice, the app version and your system. |
+| Your phone (Fenna Crew) | `relay.sidhilynx.com` | Only after you connect a phone in Settings, Phone, and only while it stays connected. | Messages between Crew and your phone, sealed on one and opened on the other. [What the relay sees](#your-phone). |
+| Notifications on your phone | Google Firebase Cloud Messaging, through `relay.sidhilynx.com` | When a bot starts waiting on you and the phone app isn't open. | A sealed blob that only your phone can open, and the computer's link id. |
 
 That's all.
 
@@ -73,6 +75,25 @@ Feedback is separate. The "Send feedback" window in Settings sends what is
 in it only when you press Send, even if usage counts are off: the text, your
 choice, the app version and your system. With counts off it uses a random
 number that is not kept.
+
+## Your phone
+
+When you connect a phone, Crew and the phone each make keys on the device,
+and agree on a key of their own when the phone reads the code Crew shows.
+Every message between them is encrypted with that key before it leaves the
+device. The relay passes the sealed messages on and can't open them.
+
+The relay sees: a random id for your computer and one for each phone, when
+each is connected, and the size and time of each message. It keeps the list
+of phone ids your computer allows, and nothing else: no message, file, chat
+or name is stored. Removing a phone in Settings takes it off that list.
+
+Notifications go through Google's Firebase Cloud Messaging, because Android
+phones get notifications that way. Crew seals each one for your phone first,
+so Google sees a blob it can't read, not the bot's name or question.
+
+The relay is open source (`services/relay`) and you can run your own: start
+Crew with `FENNA_RELAY_URL` set to its address.
 
 ## Downloads
 

@@ -288,6 +288,20 @@ Files, on the `crew` server (`apps/crew/src/main/files.cjs`):
   text from the zip with `ziplite`. A test walks the attachment kinds, so a
   new kind must be readable or name the copy to ask the person for; a bot
   never asks the person to describe a file they attached. 2026-11-21
+- Crew on the phone (docs/plans/crew-mobile.md, #91): an Android app
+  (`apps/crew-mobile`, Capacitor) that is a second window onto the Crew on
+  the person's computer, through a relay that passes messages it can't read.
+  No account: the phone pairs once by scanning a code in Settings, Phone. It
+  runs the same calls as the desktop page from an allow list; pickers,
+  revealing secrets, the terminal and lowering a bot's limits stay on the
+  computer. A bot's browser reaches the phone as pictures sent when the page
+  changes (the next only after the phone drew the last), laid out at the
+  phone's size; no video. Notifications are sealed for the phone before
+  they go through Firebase. 2026-11-24
+- The phone app is never backed up or copied to a new phone (Android backup
+  and device transfer are off), so its pairing keys can't be restored
+  elsewhere. A new phone pairs again. 2026-11-24
+
 ## Build summary
 
 (Written by the builders.)

@@ -1,4 +1,6 @@
 import "@opendeck/shell/base.css";
+import "./tokens.css";
+import "./faces.css";
 import "./styles.css";
 import "./pixel.css";
 import "./px/chat.css";

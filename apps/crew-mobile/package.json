@@ -1,0 +1,43 @@
+{
+  "name": "@opendeck/crew-mobile",
+  "productName": "Fenna Crew",
+  "version": "0.9.11",
+  "private": true,
+  "description": "Fenna Crew on your phone: your crew on your computer, from Android.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "author": {
+    "name": "Sidhilynx",
+    "url": "https://github.com/Sidhilynx"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "sync": "vite build && cap sync android",
+    "apk": "node scripts/apk.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.6.2",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/barcode-scanner": "3.1.4",
+    "@capacitor/core": "8.6.2",
+    "@capacitor/haptics": "8.0.2",
+    "@capacitor/keyboard": "8.0.6",
+    "@capacitor/network": "8.0.1",
+    "@capacitor/preferences": "8.0.1",
+    "@capacitor/splash-screen": "8.0.2",
+    "@capacitor/status-bar": "8.0.4"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.2",
+    "@opendeck/crew": "0.0.1",
+    "@opendeck/crew-link": "0.0.1",
+    "@opendeck/shell": "0.0.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "vite": "^8.3.8"
+  }
+}

@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Fenna Crew</string>
+    <string name="title_activity_main">Fenna Crew</string>
+    <string name="package_name">com.sidhilynx.fenna.crew</string>
+    <string name="custom_url_scheme">com.sidhilynx.fenna.crew</string>
+    <string name="channel_needs">A bot needs you</string>
+    <string name="channel_needs_about">Questions and approvals from your bots.</string>
+</resources>

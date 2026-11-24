@@ -1,0 +1,69 @@
+/* Details and New bot on the phone. The shell's buttons and fields, and Crew's
+   pixel frames, come from base.css and pixel.css; this file holds only the
+   parts the phone adds. Type sizes are the tokens; spacing is the scale. The
+   switch and the check are drawn here because px/pages.css is the desktop's. */
+
+.dt-loading { display: flex; align-items: center; gap: 12px; padding: 48px 16px; font-size: var(--fs-md); color: var(--text-2); }
+.dt-pad { padding: 8px 16px; }
+.dt-edge { margin: 0 -16px; }
+.dt-error { font-size: var(--fs-md); line-height: 1.4; color: var(--danger); }
+.dt-note { font-size: var(--fs-md); line-height: 1.4; color: var(--text-2); }
+.dt-problems { display: flex; flex-direction: column; gap: 8px; padding: 16px 16px 0; }
+.dt-problem { font-size: var(--fs-md); line-height: 1.4; color: var(--danger); }
+.dt-summary { margin-bottom: 12px; font-size: var(--fs-md); line-height: 1.45; color: var(--text-2); user-select: text; }
+.dt-text { font-size: var(--fs-md); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+
+/* New bot's bottom bar: the error, the note and the button, above the tabs' edge */
+.dt-bar { flex: none; display: flex; flex-direction: column; gap: 8px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); border-top: 2px solid var(--line); background: var(--panel); }
+
+/* Fields and the segmented controls */
+.m-app textarea.field.dt-big { min-height: 240px; }
+.dt-add { display: flex; gap: 8px; align-items: stretch; }
+.dt-add .field { flex: 1; min-width: 0; }
+.m-app .dt-add .btn { min-height: 44px; }
+.dt-line { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.m-app .dt-presets { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.m-app .dt-presets .btn { min-height: 44px; height: auto; padding: 8px 12px; white-space: normal; text-align: left; }
+.m-app .dt-presets .btn[aria-pressed="true"] { --px-c: var(--sel); background: var(--sel-soft); }
+.m-app .btn.dt-pick { display: flex; align-items: center; justify-content: flex-start; gap: 12px; width: 100%; min-height: 48px; height: auto; padding: 8px 12px; }
+.m-app .btn.dt-remove { color: var(--danger); margin-top: 8px; }
+
+/* Faces and colors */
+.dt-face-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.dt-face-opt { display: grid; place-items: center; height: 64px; padding: 0; border: 0; background: transparent; }
+.dt-face-opt[aria-checked="true"] { background: var(--sel-soft); box-shadow: inset 0 -2px 0 0 var(--sel); }
+.dt-colors { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.dt-swatch { width: 40px; height: 40px; padding: 0; border: 0; background: var(--sw); }
+.dt-swatch[aria-checked="true"] { outline: 2px solid var(--sel); outline-offset: 2px; }
+
+/* Switches and checks */
+.dt-switch-row { cursor: pointer; }
+.dt-check:focus-visible { outline: 2px solid var(--sel); outline-offset: 2px; }
+.dt-check:disabled { opacity: 0.5; cursor: default; }
+.dt-check {
+  -webkit-appearance: none;
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin: 2px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--field);
+  box-shadow: 0 -2px 0 0 var(--line-strong), 0 2px 0 0 var(--line-strong), -2px 0 0 0 var(--line-strong), 2px 0 0 0 var(--line-strong);
+  cursor: pointer;
+}
+.dt-check:checked::after { content: ""; position: absolute; inset: 6px; background: var(--sel); }
+.dt-check-row { display: flex; flex: 1; align-items: center; gap: 12px; min-width: 0; cursor: pointer; }
+.dt-todo { align-items: center; }
+.dt-todo-text { font-size: var(--fs-lg); line-height: 1.35; overflow-wrap: anywhere; }
+.dt-todo-text.is-done { color: var(--text-3); text-decoration: line-through; }
+
+/* Edit sheets: a tool's levels, and the list of starting points */
+.dt-tool { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.dt-tool-name { font-size: var(--fs-md); font-weight: 500; overflow-wrap: anywhere; }
+
+@media (prefers-reduced-motion: reduce) {
+}

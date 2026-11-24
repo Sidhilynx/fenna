@@ -6,7 +6,7 @@ const NAMES: PixelIconName[] = [
   "files", "activity", "doc", "sheet", "slides", "board", "design", "library", "share", "download", "export", "duplicate",
   "check", "maximize", "restore", "close", "chevron-down", "chevron-right", "sun", "moon", "lock", "trash", "run", "stop",
   "more", "panel", "collapse", "expand", "bell", "eye", "clock", "send", "question", "shield",
-  "usage", "attention",
+  "usage", "attention", "back", "keyboard", "reload",
 ];
 
 describe("pixel icons", () => {

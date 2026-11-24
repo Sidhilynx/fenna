@@ -805,6 +805,31 @@ export interface MemoryImportGroup {
   facts: MemoryFact[];
 }
 
+// ── Phones (docs/plans/crew-mobile.md) ─────────────────────────────────
+
+export interface PhoneView {
+  id: string;
+  name: string;
+  platform: string;
+  pairedAt: string;
+  /** ISO time it was last connected, or null. */
+  lastSeen: string | null;
+  online: boolean;
+  /** It gave Crew a way to notify it. */
+  notifications: boolean;
+}
+
+export interface PhonesView {
+  /** Why phone access can't work on this computer, in words, or null. */
+  problem: string | null;
+  /** The connection to the relay: "stopped" while no phone is paired. */
+  relay: "connecting" | "online" | "waiting" | "stopped";
+  relayUrl: string;
+  /** While a pairing code is shown: the code (null once a phone used it), when it expires, and the phone that connected. */
+  pairing: { code: string | null; expiresAt: string; connected: string | null } | null;
+  phones: PhoneView[];
+}
+
 // ── Calls ──────────────────────────────────────────────────────────────
 
 /** Every invoke channel: arguments and what it resolves to. Errors reject with a message to show. */
@@ -871,6 +896,12 @@ export interface Calls {
   "crew:account": { args: [slug: string, action: "check" | "sign_in" | "sign_out"]; result: AccountView | null };
   "crew:closeBrowser": { args: [slug: string]; result: boolean };
   "crew:tab": { args: [slug: string, action: "new" | "switch" | "close", id?: number]; result: BrowserState };
+  /** Settings, Phone (the desktop only; a phone can't call these). */
+  "crew:phones": { args: []; result: PhonesView };
+  /** Shows a pairing code for 2 minutes; the phone that reads it first is paired. */
+  "crew:phonePair": { args: []; result: { code: string; expiresAt: string } };
+  "crew:phonePairCancel": { args: []; result: PhonesView };
+  "crew:phoneRemove": { args: [id: string]; result: PhonesView };
   "crew:settings": { args: []; result: Settings };
   "crew:setSettings": { args: [patch: Partial<Settings>]; result: Settings };
   /** The first-start notice about usage counts: OK, Turn off, or open the page that lists what is sent. */
@@ -1015,6 +1046,8 @@ export interface Events {
   "crew:desktop": { slug: string; items: DesktopShortcut[] };
   /** A bot's watches or todos changed. */
   "crew:watches": { slug: string };
+  /** Paired phones, pairing or the relay connection changed. */
+  "crew:phones": PhonesView;
   /** A bot's call changed: joined, people, sharing; null when it left. */
   "crew:meeting": { slug: string; meeting: MeetingView | null };
   "crew:account": { slug: string; account: AccountView | null };
