@@ -114,8 +114,8 @@ function createMeetingEngine({
   const names = [botName, ...aliases].map(clean).filter(Boolean);
   /** block number → the block as it reads now, with its final timer. */
   const open = new Map();
-  /** block numbers already written as lines. */
-  const done = new Set();
+  /** block number → how many of its words are already written as lines. */
+  const done = new Map();
   const lines = [];
   /** How many lines the last wake already carried. */
   let cursor = 0;
@@ -137,19 +137,25 @@ function createMeetingEngine({
     if (!b) return;
     clearTimer(b.timer);
     open.delete(block);
-    done.add(block);
+    done.set(block, b.words);
     emit(b.speaker, b.text);
   }
 
   function caption({ block, speaker, text } = {}) {
-    if (stopped || done.has(block)) return;
-    const body = clean(text);
-    if (!body) return;
+    if (stopped) return;
+    const all = clean(text);
+    if (!all) return;
+    // Meet keeps adding to a speaker's block after a pause: only the words after those already written are new.
+    // Words already written that Meet later corrects stay as they were written.
+    const words = all.split(" ");
+    const written = done.get(block) || 0;
+    if (words.length <= written) return;
+    const body = words.slice(written).join(" ");
     const older = [...open.keys()].filter((k) => k < block).sort((a, b) => a - b);
     for (const k of older) finalize(k);
     const prev = open.get(block);
     if (prev) clearTimer(prev.timer);
-    const entry = { speaker: clean(speaker) || "Someone", text: body, timer: null };
+    const entry = { speaker: clean(speaker) || "Someone", text: body, words: words.length, timer: null };
     entry.timer = setTimer(() => finalize(block), FINAL_MS);
     open.set(block, entry);
   }

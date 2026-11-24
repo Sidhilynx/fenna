@@ -26,6 +26,12 @@ const ADMIT_WAIT_MS = 10 * 60_000;
 const ALONE_MS = 5 * 60_000;
 const LONGEST_MS = 4 * 3_600_000;
 const PRESENT_WAIT_MS = 8000;
+const CAPTIONS_RETRY_MS = 15_000;
+/** How long the bot's own chat message is recognized when Meet shows it back. */
+const SAID_MS = 2 * 60_000;
+const SHARE_SETTLE_MS = 2500;
+
+const oneLine = (s) => String(s).replace(/\s+/g, " ").trim();
 const NAME_MAX = 60;
 const NOTE_MAX = 500;
 /** How each state reads in what the model is told. */
@@ -140,6 +146,7 @@ function createMeetings({ store, runner, browsers, chrome = null, accounts = nul
       await m.tab.cdp("Input.insertText", { text });
       await m.tab.cdp("Input.dispatchKeyEvent", { type: "keyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, text: "\r" });
       await m.tab.cdp("Input.dispatchKeyEvent", { type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
+      m.said.set(oneLine(text), now().getTime());
       append(m, `[${clock(now())}] ${m.botName} (chat): ${text}`);
     });
     m.saying = next.catch(() => {});
@@ -182,7 +189,14 @@ function createMeetings({ store, runner, browsers, chrome = null, accounts = nul
     }
     if (!e || typeof e !== "object") return;
     if (e.kind === "caption" && typeof e.text === "string") m.engine.caption({ block: Number(e.block) || 0, speaker: String(e.speaker || ""), text: e.text });
-    else if (e.kind === "chat" && typeof e.text === "string") m.engine.chat({ sender: String(e.sender || ""), text: e.text });
+    else if (e.kind === "chat" && typeof e.text === "string" && !saidByBot(m, e.text)) m.engine.chat({ sender: String(e.sender || ""), text: e.text });
+  }
+
+  /** The bot's own chat messages come back through the listener, often with no sender; they are already in the transcript. */
+  function saidByBot(m, text) {
+    const t = now().getTime();
+    for (const [said, at] of m.said) if (t - at > SAID_MS) m.said.delete(said);
+    return m.said.has(oneLine(text));
   }
 
   /** The call is over for the bot: everything stops, the tab closes, the transcript ends. */
@@ -211,11 +225,27 @@ The whole transcript: Files/Meetings/${m.file}` });
     }
   }
 
+  /** Turns Meet's captions on: the toggle when it shows, else Meet's "c" shortcut. True when they are on. */
+  async function captionsOn(m) {
+    const r = await run(m, S.meetCaptionsOn).catch(() => null);
+    if (r && r.on) return true;
+    if (!r || !r.key) return false;
+    await m.tab.cdp("Input.dispatchKeyEvent", { type: "keyDown", key: "c", code: "KeyC", windowsVirtualKeyCode: 67, text: "c" }).catch(() => {});
+    await m.tab.cdp("Input.dispatchKeyEvent", { type: "keyUp", key: "c", code: "KeyC", windowsVirtualKeyCode: 67 }).catch(() => {});
+    await sleep(1000);
+    const s = await run(m, S.meetState).catch(() => null);
+    return !!(s && s.captions);
+  }
+
   async function admitted(m) {
     for (let i = 0; i < 5 && !m.captions; i++) {
-      const r = await run(m, S.meetCaptionsOn).catch(() => null);
-      m.captions = !!(r && r.on);
+      m.captions = await captionsOn(m);
       if (!m.captions) await sleep(1000);
+    }
+    m.captionsTried = now().getTime();
+    if (!m.captions) {
+      m.captionsMissing = true;
+      append(m, `[${clock(now())}] Meet's captions could not be turned on, so spoken words are not in this transcript yet; chat is.`);
     }
     await say(m, consentText(m.botName)).catch(() => {});
     tell(m);
@@ -251,9 +281,17 @@ The whole transcript: Files/Meetings/${m.file}` });
       }
       else if (s.state === "ended" && m.state === "incall") return finish(m, "The call ended.");
       if (m.state === "incall") {
-        if (s.captions === false && m.captions) {
+        if (s.captions) {
+          m.captions = true;
+          if (m.captionsMissing) {
+            m.captionsMissing = false;
+            append(m, `[${clock(now())}] Meet's captions are on; spoken words are in the transcript from here.`);
+          }
+        } else if (s.captions === false && m.captionsTried && t - m.captionsTried >= CAPTIONS_RETRY_MS) {
+          // Off, or never came on: try again now and then, never every check (the toggle must not flip back and forth).
           m.captions = false;
-          void run(m, S.meetCaptionsOn).then((r) => (m.captions = !!(r && r.on)), () => {});
+          m.captionsTried = t;
+          void captionsOn(m).then((on) => (m.captions = on), () => {});
         }
         if (m.sharing && s.presenting === false && t - m.sharing.since > PRESENT_WAIT_MS) {
           m.sharing.stop();
@@ -319,6 +357,9 @@ The whole transcript: Files/Meetings/${m.file}` });
       state: "joining",
       people: null,
       captions: false,
+      captionsTried: 0,
+      captionsMissing: false,
+      said: new Map(),
       sharing: null,
       startedAt: at.toISOString(),
       startedMs: at.getTime(),
@@ -439,6 +480,15 @@ The whole transcript: Files/Meetings/${m.file}` });
       on = !!(await m.tab.main("!!(globalThis.__fennaStage && globalThis.__fennaStage.active())").catch(() => false));
       if (!on) await sleep(300);
     }
+    if (on) {
+      // Meet takes the stream first and may still fail a moment later ("Can't share your screen").
+      await sleep(SHARE_SETTLE_MS);
+      const s = await run(m, S.meetState).catch(() => null);
+      if (s && s.shareFailed) {
+        on = false;
+        await run(m, S.meetDismiss).catch(() => null);
+      }
+    }
     if (!r || !r.clicked || !on) {
       shown.stop();
       m.sharing = null;
@@ -501,8 +551,11 @@ The whole transcript: Files/Meetings/${m.file}` });
     },
 
     list: () => [...all.values()].map(view),
+    /** Called while the ended run still counts as running, so the waiting wakes go out a moment later. */
     runEnded() {
-      for (const m of all.values()) m.engine.runEnded();
+      setTimeout(() => {
+        for (const m of all.values()) m.engine.runEnded();
+      }, 0);
     },
     forget(slug) {
       const m = all.get(slug);

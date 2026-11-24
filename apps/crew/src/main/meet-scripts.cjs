@@ -57,9 +57,11 @@ function meetState() {
 
   return {
     state,
-    captions: named("turn off captions"),
+    // A narrow or minimized window moves the toggle into the overflow menu; the captions region still shows they are on.
+    captions: named("turn off captions") || !!document.querySelector('[role="region"][aria-label*="Captions" i]'),
     chatOpen: chatShown,
     presenting: named("stop presenting"),
+    shareFailed: says(["Can't share your screen"]),
     people: people ? Number(people[1]) : null,
   };
 }
@@ -126,9 +128,13 @@ function meetCaptionsOn() {
   const live = () => [...document.querySelectorAll('button, [role="button"]')].filter((b) => shown(b) && !b.disabled && b.getAttribute("aria-disabled") !== "true");
   const named = (prefix) => live().find((b) => norm(b.getAttribute("aria-label")).startsWith(prefix)) || null;
 
-  if (named("turn off captions")) return { on: true };
+  if (named("turn off captions") || document.querySelector('[role="region"][aria-label*="Captions" i]')) return { on: true };
   const toggle = named("turn on captions");
-  if (!toggle) return { on: false };
+  if (!toggle) {
+    // No toggle in sight (a narrow or minimized window hides it): Crew presses Meet's "c" shortcut, so nothing may hold the focus.
+    if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+    return { on: false, key: true };
+  }
   toggle.click();
   return { on: true };
 }
@@ -159,6 +165,18 @@ function meetPresent() {
   const share = named("share screen") || named("present now");
   if (!share) return { clicked: false };
   share.click();
+  return { clicked: true };
+}
+
+/** Closes Meet's error dialog (its OK button), so it doesn't sit over the call. */
+function meetDismiss() {
+  const norm = (s) => String(s || "").replace(/\s+/g, " ").trim().toLowerCase();
+  const shown = (el) => el.getClientRects().length > 0;
+  const dialog = [...document.querySelectorAll('[role="dialog"], [role="alertdialog"]')].find(shown);
+  if (!dialog) return { clicked: false };
+  const ok = [...dialog.querySelectorAll('button, [role="button"]')].find((b) => shown(b) && norm(b.textContent) === "ok");
+  if (!ok) return { clicked: false };
+  ok.click();
   return { clicked: true };
 }
 
@@ -266,6 +284,10 @@ function meetMediaMain(arg) {
         t.dispatchEvent(new Event("ended"));
       };
       Object.defineProperty(t, "stop", { value: stop, writable: true, configurable: true });
+      // Meet reads what a shared screen is; a canvas track says nothing, so it answers like a shared screen does.
+      const nativeSettings = Object.getPrototypeOf(t).getSettings;
+      const settings = () => ({ ...nativeSettings.call(t), displaySurface: "monitor", logicalSurface: true, cursor: "never" });
+      Object.defineProperty(t, "getSettings", { value: settings, writable: true, configurable: true });
       track = t;
       clearInterval(timer);
       timer = setInterval(paintStage, 500);
@@ -291,6 +313,14 @@ function meetMediaMain(arg) {
       ]);
     });
     define(proto, "getDisplayMedia", displayMedia);
+    // Meet passes a CaptureController and then sets its focus behavior, which throws for a stream the browser didn't capture.
+    if (typeof CaptureController === "function") {
+      for (const key of ["setFocusBehavior", "forwardWheel", "increaseZoomLevel", "decreaseZoomLevel", "resetZoomLevel"]) {
+        if (typeof CaptureController.prototype[key] === "function") define(CaptureController.prototype, key, function () {
+          return key === "setFocusBehavior" ? undefined : Promise.resolve();
+        });
+      }
+    }
 
     const perms = navigator.permissions;
     if (perms) {
@@ -394,6 +424,8 @@ function meetListenIsolated(arg) {
       const region = document.querySelector('[role="region"][aria-label*="Captions" i]');
       if (!region) return;
       for (const block of region.children) {
+        // Meet's own controls in the region ("Jump to bottom") are not captions.
+        if (block.matches('button, [role="button"]') || block.querySelector('button, [role="button"]')) continue;
         const parts = leafTexts(block);
         if (parts.length) caption(block, parts[0], clip(parts.slice(1).join(" ")));
       }
@@ -448,4 +480,4 @@ function meetListenSource({ binding }) {
   return "(" + meetListenIsolated.toString() + ")(" + JSON.stringify({ binding }) + ")";
 }
 
-module.exports = { MEET_LABELS, meetMediaSource, meetState, meetNameFocus, meetPrejoin,meetCaptionsOn, meetChatFocus, meetPresent, meetStopPresenting, meetLeave, meetListenSource };
+module.exports = { MEET_LABELS, meetMediaSource, meetState, meetNameFocus, meetPrejoin,meetCaptionsOn, meetChatFocus, meetPresent, meetDismiss, meetStopPresenting, meetLeave, meetListenSource };

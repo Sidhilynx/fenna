@@ -49,10 +49,13 @@ function fakeButton(label: string, text = "") {
 }
 
 /** A fake page: buttons for button queries, nothing for other selectors, and body text. */
-function fakePage(buttons: ReturnType<typeof fakeButton>[], bodyText = "", hostname = "meet.google.com") {
+function fakePage(buttons: ReturnType<typeof fakeButton>[], bodyText = "", hostname = "meet.google.com", captionsRegion = false) {
+  const body = { innerText: bodyText };
   const ctx: Record<string, unknown> = {
     document: {
-      body: { innerText: bodyText },
+      body,
+      activeElement: body,
+      querySelector: (sel: string) => (captionsRegion && sel.includes("Captions") ? {} : null),
       querySelectorAll: (sel: string) => (sel.includes("button") ? buttons : []),
     },
     location: { origin: `https://${hostname}`, hostname },
@@ -65,14 +68,15 @@ function fakePage(buttons: ReturnType<typeof fakeButton>[], bodyText = "", hostn
 describe("meet page functions on a fake page", () => {
   it("reads the call state from the Leave call button and the captions toggle", () => {
     const { run } = fakePage([fakeButton("Leave call"), fakeButton("Turn off captions"), fakeButton("Stop presenting"), fakeButton("People (3)")], "");
-    expect(run(meetState)).toEqual({ state: "incall", captions: true, chatOpen: false, presenting: true, people: 3 });
+    expect(run(meetState)).toEqual({ state: "incall", captions: true, chatOpen: false, presenting: true, shareFailed: false, people: 3 });
   });
 
   it("reads the waiting and ended states from page text", () => {
     expect(fakePage([], "Asking to be let in").run(meetState)).toMatchObject({ state: "waiting" });
     expect(fakePage([], "You left the meeting").run(meetState)).toMatchObject({ state: "ended" });
     expect(fakePage([], "You can't join this video call").run(meetState)).toMatchObject({ state: "denied" });
-    expect(fakePage([]).run(meetState)).toEqual({ state: "unknown", captions: false, chatOpen: false, presenting: false, people: null });
+    expect(fakePage([]).run(meetState)).toEqual({ state: "unknown", captions: false, chatOpen: false, presenting: false, shareFailed: false, people: null });
+    expect(fakePage([fakeButton("Leave call")], "Can't share your screen. Something went wrong").run(meetState)).toMatchObject({ state: "incall", shareFailed: true });
   });
 
   it("knows Google's sign-in page, whatever it says", () => {
@@ -104,6 +108,16 @@ describe("meet page functions on a fake page", () => {
 
   it("finds no name field to type into on a page without one", () => {
     expect(fakePage([]).run(meetNameFocus)).toEqual({ found: false, focused: false, value: "" });
+  });
+
+  it("asks for Meet's c shortcut when no captions toggle shows", () => {
+    expect(fakePage([fakeButton("Leave call")]).run(meetCaptionsOn)).toEqual({ on: false, key: true });
+  });
+
+  it("knows captions are on from the captions region when the toggle is hidden", () => {
+    const page = fakePage([fakeButton("Leave call")], "", "meet.google.com", true);
+    expect(page.run(meetState)).toMatchObject({ state: "incall", captions: true });
+    expect(page.run(meetCaptionsOn)).toEqual({ on: true });
   });
 
   it("turns captions on only when they are off", () => {

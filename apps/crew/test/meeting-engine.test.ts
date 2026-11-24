@@ -65,6 +65,17 @@ describe("captions", () => {
     expect(onLine.mock.calls[1][0]).toContain("Priya: Second");
   });
 
+  it("writes what a speaker adds to a block after a pause as a new line, without repeating what was written", () => {
+    const { engine, onLine } = setup();
+    engine.caption({ block: 1, speaker: "Sam", text: "Can you hear me" });
+    vi.advanceTimersByTime(1500);
+    engine.caption({ block: 1, speaker: "Sam", text: "Can you hear me now Scout" });
+    vi.advanceTimersByTime(1500);
+    engine.caption({ block: 1, speaker: "Sam", text: "Can you hear me now Scout" });
+    vi.advanceTimersByTime(1500);
+    expect(onLine.mock.calls.map((c) => c[0].split(": ")[1])).toEqual(["Can you hear me", "now Scout"]);
+  });
+
   it("finalizes several open lower blocks in order when a newer one starts", () => {
     const { engine, onLine } = setup();
     engine.caption({ block: 5, speaker: "Sam", text: "five" });
