@@ -27,6 +27,10 @@ const ALONE_MS = 5 * 60_000;
 const LONGEST_MS = 4 * 3_600_000;
 const PRESENT_WAIT_MS = 8000;
 const CAPTIONS_RETRY_MS = 15_000;
+/** How long the bot's own chat message is recognized when Meet shows it back. */
+const SAID_MS = 2 * 60_000;
+
+const oneLine = (s) => String(s).replace(/\s+/g, " ").trim();
 const NAME_MAX = 60;
 const NOTE_MAX = 500;
 /** How each state reads in what the model is told. */
@@ -141,6 +145,7 @@ function createMeetings({ store, runner, browsers, chrome = null, accounts = nul
       await m.tab.cdp("Input.insertText", { text });
       await m.tab.cdp("Input.dispatchKeyEvent", { type: "keyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, text: "\r" });
       await m.tab.cdp("Input.dispatchKeyEvent", { type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
+      m.said.set(oneLine(text), now().getTime());
       append(m, `[${clock(now())}] ${m.botName} (chat): ${text}`);
     });
     m.saying = next.catch(() => {});
@@ -183,7 +188,14 @@ function createMeetings({ store, runner, browsers, chrome = null, accounts = nul
     }
     if (!e || typeof e !== "object") return;
     if (e.kind === "caption" && typeof e.text === "string") m.engine.caption({ block: Number(e.block) || 0, speaker: String(e.speaker || ""), text: e.text });
-    else if (e.kind === "chat" && typeof e.text === "string") m.engine.chat({ sender: String(e.sender || ""), text: e.text });
+    else if (e.kind === "chat" && typeof e.text === "string" && !saidByBot(m, e.text)) m.engine.chat({ sender: String(e.sender || ""), text: e.text });
+  }
+
+  /** The bot's own chat messages come back through the listener, often with no sender; they are already in the transcript. */
+  function saidByBot(m, text) {
+    const t = now().getTime();
+    for (const [said, at] of m.said) if (t - at > SAID_MS) m.said.delete(said);
+    return m.said.has(oneLine(text));
   }
 
   /** The call is over for the bot: everything stops, the tab closes, the transcript ends. */
@@ -346,6 +358,7 @@ The whole transcript: Files/Meetings/${m.file}` });
       captions: false,
       captionsTried: 0,
       captionsMissing: false,
+      said: new Map(),
       sharing: null,
       startedAt: at.toISOString(),
       startedMs: at.getTime(),
@@ -528,8 +541,11 @@ The whole transcript: Files/Meetings/${m.file}` });
     },
 
     list: () => [...all.values()].map(view),
+    /** Called while the ended run still counts as running, so the waiting wakes go out a moment later. */
     runEnded() {
-      for (const m of all.values()) m.engine.runEnded();
+      setTimeout(() => {
+        for (const m of all.values()) m.engine.runEnded();
+      }, 0);
     },
     forget(slug) {
       const m = all.get(slug);

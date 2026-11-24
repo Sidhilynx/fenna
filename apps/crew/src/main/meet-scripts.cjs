@@ -399,6 +399,8 @@ function meetListenIsolated(arg) {
       const region = document.querySelector('[role="region"][aria-label*="Captions" i]');
       if (!region) return;
       for (const block of region.children) {
+        // Meet's own controls in the region ("Jump to bottom") are not captions.
+        if (block.matches('button, [role="button"]') || block.querySelector('button, [role="button"]')) continue;
         const parts = leafTexts(block);
         if (parts.length) caption(block, parts[0], clip(parts.slice(1).join(" ")));
       }
