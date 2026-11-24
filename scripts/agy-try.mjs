@@ -13,10 +13,9 @@
 // model did with node scripts/agy-trace.mjs.
 
 import { spawn } from "node:child_process";
-import { mkdirSync, realpathSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { forwardSignals, startAgyHome } from "./agy-home.mjs";
 
 const args = process.argv.slice(2);
 const opt = (name, dflt) => {
@@ -49,19 +48,14 @@ const server = deckArg
       : boardArg
         ? { name: "fenna-whiteboard", cli: "packages/board-mcp/src/cli.ts", flag: `--board=${path.resolve(boardArg)}` }
         : { name: "fenna-design", cli: "packages/artboard-mcp/src/cli.ts", flag: `--design=${path.resolve(designArg)}` };
-// The long form of the path: Windows' TEMP is often an 8.3 short name
-// (JORDAN~1), and Antigravity's permission rules match the long one.
-const home = path.join(realpathSync.native(tmpdir()), "opendeck-agy-home");
-const cfgDir = path.join(home, ".gemini", "config");
-mkdirSync(cfgDir, { recursive: true });
-writeFileSync(
-  path.join(cfgDir, "mcp_config.json"),
-  JSON.stringify({ mcpServers: { [server.name]: { command: process.execPath, args: [path.join(repo, server.cli), server.flag] } } }),
-);
-const work = path.join(home, "work");
-mkdirSync(work, { recursive: true });
+// The home is this run's own (its config is removed when the run ends; the
+// conversation stays for agy-trace). The long form of the path: Windows' TEMP
+// is often an 8.3 short name (JORDAN~1), and Antigravity's permission rules
+// match the long one.
+const { home, work } = startAgyHome("opendeck-agy-try-", {
+  [server.name]: { command: process.execPath, args: [path.join(repo, server.cli), server.flag] },
+});
 
-const toolDocs = path.join(home, ".gemini", "antigravity-cli", "mcp", server.name).split(path.sep).join("/");
 const settings = {
   permissions: {
     allow: [`mcp(${server.name}/*)`, `read_file(**)`],
@@ -84,6 +78,7 @@ const child = spawn(agy, ["--disable-slash-commands", "--settings", JSON.stringi
   env,
   stdio: ["ignore", "inherit", "inherit"],
 });
+forwardSignals(child);
 child.on("exit", (code) => {
   console.error(`\n[agy exited ${code} after ${((Date.now() - started) / 1000).toFixed(1)}s]`);
   process.exit(code ?? 1);

@@ -15,16 +15,27 @@ import { DatabaseSync } from "node:sqlite";
 const args = process.argv.slice(2);
 const full = args.includes("--full");
 const named = args.find((a) => !a.startsWith("--"));
-const dir = path.join(realpathSync.native(tmpdir()), "opendeck-agy-home", ".gemini", "antigravity-cli", "conversations");
-const runs = readdirSync(dir)
-  .filter((f) => f.endsWith(".db"))
-  .map((f) => ({ id: f.slice(0, -3), at: statSync(path.join(dir, f)).mtimeMs }))
+// Each run of agy-try.mjs has its own home folder (see agy-home.mjs).
+const root = realpathSync.native(tmpdir());
+const runs = readdirSync(root)
+  .filter((d) => d.startsWith("opendeck-agy-try-"))
+  .flatMap((d) => {
+    const dir = path.join(root, d, ".gemini", "antigravity-cli", "conversations");
+    try {
+      return readdirSync(dir)
+        .filter((f) => f.endsWith(".db"))
+        .map((f) => ({ dir, id: f.slice(0, -3), at: statSync(path.join(dir, f)).mtimeMs }));
+    } catch {
+      return [];
+    }
+  })
   .sort((a, b) => b.at - a.at);
-const id = named ?? runs[0]?.id;
-if (!id) {
-  console.error(`no runs in ${dir}`);
+const run = named ? runs.find((r) => r.id === named) : runs[0];
+if (!run) {
+  console.error(named ? `no run ${named} in ${root}` : `no runs in ${root}`);
   process.exit(1);
 }
+const id = run.id;
 
 const clean = (b) =>
   Buffer.from(b ?? [])
@@ -35,7 +46,7 @@ const clean = (b) =>
 // Errors a server returns as a tool result: the call went through, the change did not.
 const REFUSED = /Nothing was saved[^"]{0,200}|Nothing was changed[^"]{0,200}|has no argument[^"]{0,200}|There is no [^"]{0,200}/;
 
-const db = new DatabaseSync(path.join(dir, `${id}.db`), { readOnly: true });
+const db = new DatabaseSync(path.join(run.dir, `${id}.db`), { readOnly: true });
 const found = [];
 console.log(`run ${id}`);
 for (const row of db.prepare("select idx, error_details as e, step_payload as d from steps order by idx").all()) {

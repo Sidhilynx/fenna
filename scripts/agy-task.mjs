@@ -8,10 +8,10 @@
 // Writes the builder's log next to the worktree: <worktree>.log
 
 import { execFileSync, spawn } from "node:child_process";
-import { createWriteStream, existsSync, mkdirSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { createWriteStream, existsSync, mkdirSync, symlinkSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { forwardSignals, startAgyHome } from "./agy-home.mjs";
 
 const args = process.argv.slice(2);
 const mi = args.indexOf("--model");
@@ -36,9 +36,8 @@ if (!existsSync(wt)) {
 }
 
 const fwd = (p) => p.split(path.sep).join("/");
-const home = path.join(realpathSync.native(tmpdir()), "opendeck-agy-builder");
-mkdirSync(path.join(home, ".gemini", "config"), { recursive: true });
-writeFileSync(path.join(home, ".gemini", "config", "mcp_config.json"), JSON.stringify({ mcpServers: {} }));
+// A builder uses no MCP servers; its home folder is removed when it ends.
+const { home } = startAgyHome("opendeck-agy-builder-", {}, { wholeHome: true });
 
 const settings = {
   permissions: {
@@ -68,6 +67,7 @@ log.write(`[${new Date().toISOString()}] ${name} with ${model}\n`);
 const child = spawn(agy, ["--disable-slash-commands", "--sandbox", "--settings", JSON.stringify(settings), "--model", model, "--mode", "accept-edits", "--print-timeout", "3000s", "-p", prompt], { cwd: wt, env, stdio: ["ignore", "pipe", "pipe"] });
 child.stdout.pipe(log, { end: false });
 child.stderr.pipe(log, { end: false });
+forwardSignals(child);
 child.on("exit", (code) => {
   log.end(`\n[exit ${code} after ${((Date.now() - started) / 60000).toFixed(1)} min]\n`);
   console.log(`${name}: exit ${code}; log ${wt}.log; branch ${branch}`);
