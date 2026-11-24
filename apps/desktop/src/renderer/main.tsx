@@ -3,6 +3,7 @@ import { installTooltips } from "@opendeck/shell";
 import { App } from "./App.tsx";
 import { PrintView } from "./PrintView.tsx";
 import "@opendeck/shell/base.css";
+import "./fonts/fonts.css";
 import "./styles.css";
 
 // A hidden export window loads the same page with #print.
