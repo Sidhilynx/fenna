@@ -68,14 +68,15 @@ function fakePage(buttons: ReturnType<typeof fakeButton>[], bodyText = "", hostn
 describe("meet page functions on a fake page", () => {
   it("reads the call state from the Leave call button and the captions toggle", () => {
     const { run } = fakePage([fakeButton("Leave call"), fakeButton("Turn off captions"), fakeButton("Stop presenting"), fakeButton("People (3)")], "");
-    expect(run(meetState)).toEqual({ state: "incall", captions: true, chatOpen: false, presenting: true, people: 3 });
+    expect(run(meetState)).toEqual({ state: "incall", captions: true, chatOpen: false, presenting: true, shareFailed: false, people: 3 });
   });
 
   it("reads the waiting and ended states from page text", () => {
     expect(fakePage([], "Asking to be let in").run(meetState)).toMatchObject({ state: "waiting" });
     expect(fakePage([], "You left the meeting").run(meetState)).toMatchObject({ state: "ended" });
     expect(fakePage([], "You can't join this video call").run(meetState)).toMatchObject({ state: "denied" });
-    expect(fakePage([]).run(meetState)).toEqual({ state: "unknown", captions: false, chatOpen: false, presenting: false, people: null });
+    expect(fakePage([]).run(meetState)).toEqual({ state: "unknown", captions: false, chatOpen: false, presenting: false, shareFailed: false, people: null });
+    expect(fakePage([fakeButton("Leave call")], "Can't share your screen. Something went wrong").run(meetState)).toMatchObject({ state: "incall", shareFailed: true });
   });
 
   it("knows Google's sign-in page, whatever it says", () => {

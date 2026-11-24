@@ -61,6 +61,7 @@ function meetState() {
     captions: named("turn off captions") || !!document.querySelector('[role="region"][aria-label*="Captions" i]'),
     chatOpen: chatShown,
     presenting: named("stop presenting"),
+    shareFailed: says(["Can't share your screen"]),
     people: people ? Number(people[1]) : null,
   };
 }
@@ -164,6 +165,18 @@ function meetPresent() {
   const share = named("share screen") || named("present now");
   if (!share) return { clicked: false };
   share.click();
+  return { clicked: true };
+}
+
+/** Closes Meet's error dialog (its OK button), so it doesn't sit over the call. */
+function meetDismiss() {
+  const norm = (s) => String(s || "").replace(/\s+/g, " ").trim().toLowerCase();
+  const shown = (el) => el.getClientRects().length > 0;
+  const dialog = [...document.querySelectorAll('[role="dialog"], [role="alertdialog"]')].find(shown);
+  if (!dialog) return { clicked: false };
+  const ok = [...dialog.querySelectorAll('button, [role="button"]')].find((b) => shown(b) && norm(b.textContent) === "ok");
+  if (!ok) return { clicked: false };
+  ok.click();
   return { clicked: true };
 }
 
@@ -271,6 +284,10 @@ function meetMediaMain(arg) {
         t.dispatchEvent(new Event("ended"));
       };
       Object.defineProperty(t, "stop", { value: stop, writable: true, configurable: true });
+      // Meet reads what a shared screen is; a canvas track says nothing, so it answers like a shared screen does.
+      const nativeSettings = Object.getPrototypeOf(t).getSettings;
+      const settings = () => ({ ...nativeSettings.call(t), displaySurface: "monitor", logicalSurface: true, cursor: "never" });
+      Object.defineProperty(t, "getSettings", { value: settings, writable: true, configurable: true });
       track = t;
       clearInterval(timer);
       timer = setInterval(paintStage, 500);
@@ -296,6 +313,14 @@ function meetMediaMain(arg) {
       ]);
     });
     define(proto, "getDisplayMedia", displayMedia);
+    // Meet passes a CaptureController and then sets its focus behavior, which throws for a stream the browser didn't capture.
+    if (typeof CaptureController === "function") {
+      for (const key of ["setFocusBehavior", "forwardWheel", "increaseZoomLevel", "decreaseZoomLevel", "resetZoomLevel"]) {
+        if (typeof CaptureController.prototype[key] === "function") define(CaptureController.prototype, key, function () {
+          return key === "setFocusBehavior" ? undefined : Promise.resolve();
+        });
+      }
+    }
 
     const perms = navigator.permissions;
     if (perms) {
@@ -455,4 +480,4 @@ function meetListenSource({ binding }) {
   return "(" + meetListenIsolated.toString() + ")(" + JSON.stringify({ binding }) + ")";
 }
 
-module.exports = { MEET_LABELS, meetMediaSource, meetState, meetNameFocus, meetPrejoin,meetCaptionsOn, meetChatFocus, meetPresent, meetStopPresenting, meetLeave, meetListenSource };
+module.exports = { MEET_LABELS, meetMediaSource, meetState, meetNameFocus, meetPrejoin,meetCaptionsOn, meetChatFocus, meetPresent, meetDismiss, meetStopPresenting, meetLeave, meetListenSource };

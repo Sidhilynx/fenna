@@ -29,6 +29,7 @@ const PRESENT_WAIT_MS = 8000;
 const CAPTIONS_RETRY_MS = 15_000;
 /** How long the bot's own chat message is recognized when Meet shows it back. */
 const SAID_MS = 2 * 60_000;
+const SHARE_SETTLE_MS = 2500;
 
 const oneLine = (s) => String(s).replace(/\s+/g, " ").trim();
 const NAME_MAX = 60;
@@ -478,6 +479,15 @@ The whole transcript: Files/Meetings/${m.file}` });
     for (const until = Date.now() + PRESENT_WAIT_MS; Date.now() < until && !on; ) {
       on = !!(await m.tab.main("!!(globalThis.__fennaStage && globalThis.__fennaStage.active())").catch(() => false));
       if (!on) await sleep(300);
+    }
+    if (on) {
+      // Meet takes the stream first and may still fail a moment later ("Can't share your screen").
+      await sleep(SHARE_SETTLE_MS);
+      const s = await run(m, S.meetState).catch(() => null);
+      if (s && s.shareFailed) {
+        on = false;
+        await run(m, S.meetDismiss).catch(() => null);
+      }
     }
     if (!r || !r.clicked || !on) {
       shown.stop();
