@@ -1,0 +1,40 @@
+/* Chat polish: the spacing and wrapping of a bot's reply, code and tables that
+   scroll sideways, the composer's growth, and tool steps folded into one line.
+   It comes after styles.css and px/chat.css, so it wins where they differ. */
+
+/* Replies: a little more air between blocks, and nothing wider than the message. */
+.md { min-width: 0; max-width: 100%; }
+.md > * { margin: 0 0 12px; }
+.md > :last-child { margin-bottom: 0; }
+.md li + li { margin-top: 4px; }
+.md code { overflow-wrap: anywhere; }
+
+/* Code: a copy button above, the code in the monospace token font, and a
+   scroll bar for long lines instead of wrapping them. */
+.md-code-head { display: flex; justify-content: flex-end; margin-bottom: 4px; }
+.md .md-pre { margin: 0; padding: 8px 12px; font-family: var(--font-mono); font-size: var(--fs-sm); line-height: 1.5; white-space: pre; overflow-x: auto; overflow-wrap: normal; word-break: normal; }
+.md-pre code { padding: 0; background: none; font: inherit; color: inherit; overflow-wrap: normal; }
+.md-pre:focus-visible, .md-table:focus-visible { outline: 2px solid var(--sel); outline-offset: 2px; }
+
+/* Tables: as wide as their cells want, scrolled inside the message. */
+.md-table { max-width: 100%; overflow-x: auto; }
+.md-table table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: var(--fs-sm); line-height: 1.45; }
+.md-table th, .md-table td { padding: 6px 16px 6px 0; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+.md-table th { font-weight: 500; color: var(--text-2); }
+
+/* Composer: it grows line by line; Chat.tsx sets the height and the scroll. */
+.composer textarea { max-height: none; }
+
+/* Tool steps: one muted line that opens to the list. */
+.steps { gap: 2px; }
+.steps-list { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.step-fold { align-self: flex-start; gap: 8px; min-width: 0; max-width: 100%; font-size: var(--fs-sm); color: var(--text-3); }
+.step-fold .ell { min-width: 0; }
+.step-fold.running { color: var(--text); }
+.step-fold[aria-expanded="true"] { color: var(--text-2); }
+.step-fold:focus-visible { outline: 2px solid var(--sel); outline-offset: 2px; }
+.step-chev { display: inline-flex; flex: none; }
+.step-fold[aria-expanded="true"] .step-chev { transform: rotate(180deg); }
+@media (prefers-reduced-motion: no-preference) {
+  .step-chev { transition: transform 160ms ease-out; }
+}

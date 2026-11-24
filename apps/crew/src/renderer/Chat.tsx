@@ -21,6 +21,10 @@ import { PixelDots } from "./PixelMotion.tsx";
 import { botOf, useBotDetail, useCrew, waitingFor } from "./crew.tsx";
 import { buildItems, chatName, useRuns, type Item, type RunLog, type Step } from "./transcript.ts";
 import { PixelField } from "./PixelField.tsx";
+import "./chat-polish.css";
+
+/** The composer grows to this many lines, then scrolls. */
+const COMPOSER_LINES = 8;
 
 /** A bot a message can name with @ in a group chat. */
 export interface Mentionable {
@@ -78,8 +82,11 @@ export function Composer({ name, running, onSend, onStop, mentions, hint, attach
       setCaret(landing.current);
       landing.current = null;
     }
+    const cs = getComputedStyle(el);
+    const room = parseFloat(cs.lineHeight) * COMPOSER_LINES + parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
     el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
+    el.style.height = `${Math.min(el.scrollHeight, room)}px`;
+    el.style.overflowY = el.scrollHeight > room ? "auto" : "hidden";
   }, [text]);
 
   const submit = async () => {
@@ -95,6 +102,8 @@ export function Composer({ name, running, onSend, onStop, mentions, hint, attach
       setError(errorText(e));
     } finally {
       setBusy(false);
+      // The send button is disabled while sending, so the focus goes back to the message.
+      ta.current?.focus();
     }
   };
 
@@ -253,27 +262,53 @@ export function BrainNotice({ bot }: { bot: BotSummary }) {
   );
 }
 
-function Steps({ steps, last }: { steps: Step[]; last: boolean }) {
-  const [open, setOpen] = useState(false);
-  const folded = steps.length > 5 && !last && !open;
+/** A run of tool steps on one line: the running step's label, or how many ran and how many failed. */
+export function stepsSummary(steps: Step[]): { text: string; failed: number; running: boolean } {
   const failed = steps.filter((s) => s.status === "failed").length;
+  const current = steps.filter((s) => s.status === "running").pop();
+  if (current) return { text: current.label, failed, running: true };
+  const n = steps.length;
+  return { text: `Used ${n} ${n === 1 ? "tool" : "tools"}${failed ? `, ${failed} failed` : ""}`, failed, running: false };
+}
+
+function StepLine({ step }: { step: Step }) {
+  return (
+    <div className={`step ${step.status}`}>
+      {step.status === "done" ? <PixelIcon name="check" size={12} /> : step.status === "failed" ? <PixelIcon name="close" size={12} /> : <span className="step-dot" aria-hidden />}
+      <span className="ell" title={step.label}>
+        {step.label}
+        {step.status === "failed" ? " (failed)" : ""}
+      </span>
+    </div>
+  );
+}
+
+/** Consecutive tool steps: one step shows its line; more fold into "Used N tools", and Enter or a click lists them. */
+function Steps({ steps }: { steps: Step[] }) {
+  const [open, setOpen] = useState(false);
+  if (steps.length === 1) {
+    return (
+      <div className="steps">
+        <StepLine step={steps[0]!} />
+      </div>
+    );
+  }
+  const sum = stepsSummary(steps);
   return (
     <div className="steps">
-      {folded ? (
-        <button type="button" className="step step-fold" onClick={() => setOpen(true)}>
+      <button type="button" className={sum.running ? "step step-fold running" : "step step-fold"} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        {sum.running && <span className="step-dot" aria-hidden />}
+        <span className="ell">{sum.text}</span>
+        <span className="step-chev" aria-hidden>
           <PixelIcon name="chevron-down" size={12} />
-          {steps.length} steps{failed ? `, ${failed} failed` : ""}
-        </button>
-      ) : (
-        steps.map((s) => (
-          <div key={s.id} className={`step ${s.status}`}>
-            {s.status === "done" ? <PixelIcon name="check" size={12} /> : s.status === "failed" ? <PixelIcon name="close" size={12} /> : <span className="step-dot" aria-hidden />}
-            <span className="ell" title={s.label}>
-              {s.label}
-              {s.status === "failed" ? " (failed)" : ""}
-            </span>
-          </div>
-        ))
+        </span>
+      </button>
+      {open && (
+        <div className="steps-list">
+          {steps.map((s, n) => (
+            <StepLine key={`${s.id}:${n}`} step={s} />
+          ))}
+        </div>
       )}
     </div>
   );
@@ -336,10 +371,7 @@ export function Messages({ bot, chat, waiting, pending, runState, library = NO_L
     if (el && stick.current) el.scrollTop = el.scrollHeight;
   }, [items, delta, shownPending.length, bot.running, loaded]);
 
-  const lastIndex = items.length - 1;
-  const lastStepsAt = items.map((i) => i.kind).lastIndexOf("steps");
-
-  const draw = (it: Item, i: number) => {
+  const draw = (it: Item) => {
     switch (it.kind) {
       case "you":
         return (
@@ -364,7 +396,7 @@ export function Messages({ bot, chat, waiting, pending, runState, library = NO_L
           </div>
         );
       case "steps":
-        return <Steps key={it.key} steps={it.steps} last={i === lastStepsAt && i >= lastIndex - 1} />;
+        return <Steps key={it.key} steps={it.steps} />;
       case "ask":
         return <AskCard key={it.key} item={it} waiting={waitIds.has(it.askId)} />;
       case "approval":
@@ -411,9 +443,9 @@ export function Messages({ bot, chat, waiting, pending, runState, library = NO_L
             </div>
           ))}
         {error && <p className="composer-error">{error}</p>}
-        {items.map((it, i) => (
+        {items.map((it) => (
           <Fragment key={it.key}>
-            {draw(it, i)}
+            {draw(it)}
             {cardsAt.has(it.key) && <DocCards slug={bot.slug} items={cardsAt.get(it.key)!} indent={compact ? "dock" : "chat"} />}
           </Fragment>
         ))}
