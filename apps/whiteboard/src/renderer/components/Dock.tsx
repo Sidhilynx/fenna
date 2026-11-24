@@ -6,8 +6,9 @@ import { useEffect, useRef, useState } from "react";
 import { COLOR_LABELS, INK_COLORS, INK_VALUES, SHAPE_LABELS, STICKERS, stickerSvg, type ShapeKind, type StickerId } from "@opendeck/board";
 import { Icon, type IconName, isEmbedded, shortcut } from "@opendeck/shell";
 import { useAssistant } from "../assistant.ts";
-import { addItems, getState, insertImages, makeItem, setState, setTool, toggleFlyout, useBoard, viewCenter, type Tool } from "../store.ts";
+import { addItems, getState, insertImages, makeItem, setPanel, setState, setTool, toggleFlyout, useBoard, viewCenter, type Tool } from "../store.ts";
 import { useTheme } from "../theme.ts";
+import { STICKER_WORDS_MAX, stickerRequest } from "../stickerRequest.ts";
 import { ShapeIcon } from "./ShapeIcon.tsx";
 
 /** Single-key shortcuts for the tools (when turned on). */
@@ -129,7 +130,9 @@ function ShapeFlyout() {
 
 function StickerFlyout() {
   const [query, setQuery] = useState("");
+  const [words, setWords] = useState("");
   const input = useRef<HTMLInputElement>(null);
+  const ai = useAssistant();
   useEffect(() => input.current?.focus(), []);
   const q = query.trim().toLowerCase();
   const list = STICKERS.filter((s) => !q || s.label.toLowerCase().includes(q) || s.id.includes(q));
@@ -137,6 +140,12 @@ function StickerFlyout() {
     const it = makeItem("sticker", viewCenter(), { sticker: id } as never);
     addItems("Add sticker", [it]);
     setState({ flyout: null, tool: "select" });
+  };
+  const make = () => {
+    const t = words.trim();
+    if (!t || !ai.kind) return;
+    const n = (getState().askRequest?.n ?? 0) + 1;
+    setState({ flyout: null, tool: "select", asking: true, askRequest: { text: stickerRequest(t), n } });
   };
   return (
     <div
@@ -184,6 +193,37 @@ function StickerFlyout() {
         ))}
         {!list.length && <p className="wb-sticker-none">No sticker matches “{query.trim()}”.</p>}
       </div>
+      {!isEmbedded() && (
+        <div className="wb-make">
+          <div className="wb-sticker-search">
+            <input
+              value={words}
+              placeholder="Make a sticker, e.g. a sleepy cat"
+              aria-label="Make a sticker"
+              maxLength={STICKER_WORDS_MAX}
+              disabled={!ai.kind}
+              onChange={(e) => setWords(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  make();
+                }
+              }}
+            />
+            <button className="wb-make-send" type="button" disabled={!words.trim() || !ai.kind} aria-label="Make sticker" title="Make sticker (Enter)" onClick={make}>
+              <Icon name="send" size={14} />
+            </button>
+          </div>
+          {!ai.kind && (
+            <p className="wb-make-note" role="status">
+              Connect an AI to make stickers.{" "}
+              <button className="wb-make-link" type="button" onClick={() => setPanel("chat")}>
+                Open chat
+              </button>
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
