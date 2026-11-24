@@ -21,8 +21,12 @@ const LOAD_MS = 20_000;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const COMMON_ARGS = ["--no-first-run", "--no-default-browser-check"];
-/** A driven Chrome runs minimized; calls must keep running there (timers, captions, the shared screen). */
-const DRIVEN_ARGS = ["--remote-debugging-pipe", "--disable-background-timer-throttling", "--disable-backgrounding-occluded-windows", "--disable-renderer-backgrounding"];
+/**
+ * A driven Chrome runs minimized; calls must keep running there (timers, captions, the shared screen).
+ * It plays no sound: it runs on the person's computer, so a call's audio would come out of their speakers
+ * and echo their own voice back to them. Captions come from Meet's servers, not from the sound.
+ */
+const DRIVEN_ARGS = ["--remote-debugging-pipe", "--disable-background-timer-throttling", "--disable-backgrounding-occluded-windows", "--disable-renderer-backgrounding", "--mute-audio"];
 
 /**
  * @param {object} o
