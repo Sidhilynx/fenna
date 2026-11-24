@@ -30,7 +30,7 @@ const PHONE_CALLS = new Set([
   "crew:answer", "crew:decide", "crew:saveOffer",
   "crew:teamCreate", "crew:teamUpdate", "crew:teamDelete", "crew:teamSend", "crew:teamThread",
   "crew:registrySearch", "crew:connectors", "crew:connectorSave", "crew:connectorTest", "crew:connectorRemove", "crew:connectorSignOut",
-  "crew:skills", "crew:skill", "crew:skillUrl", "crew:skillAdd", "crew:skillRemove",
+  "crew:skills", "crew:skill", "crew:skillUrl", "crew:skillAdd", "crew:skillRemove", "crew:skillLibrary", "crew:skillLibraryPreview",
   "crew:vault", "crew:vaultSave", "crew:vaultRemove",
   "crew:libraryText", "crew:watches", "crew:removeWatch", "crew:setTodo",
   "crew:watch", "crew:control", "crew:navigate", "crew:browserGo", "crew:tab", "crew:siteIcon",
