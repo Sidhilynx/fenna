@@ -74,6 +74,15 @@ function fakeElectron() {
         setPermissionCheckHandler(fn: any) {
           s.permissionCheck = fn;
         },
+        listeners: {} as Record<string, any>,
+        on(ev: string, fn: any) {
+          s.listeners[ev] = fn;
+        },
+        proxy: null as any,
+        setProxy(opts: object) {
+          s.proxy = opts;
+          return Promise.resolve();
+        },
         async clearStorageData() {
           s.cleared += 1;
         },
@@ -400,8 +409,9 @@ describe("the sandbox window", () => {
     expect(s.opts).toEqual({ cache: false });
   });
 
-  it("loads the program page under the strict CSP, with the code base64 inside", () => {
+  it("loads the program page under the strict CSP, with the code base64 inside, once the proxy is set", async () => {
     void sb.run(SLUG, { code: "fenna.print('x')", cwd: "Files" });
+    await new Promise((r) => setImmediate(r));
     const [win] = e.windows;
     expect(win.url.startsWith("data:text/html;charset=utf-8;base64,")).toBe(true);
     const page = pageOf(win);
@@ -545,9 +555,10 @@ describe("the sandbox window", () => {
     expect(e.windows).toHaveLength(0);
   });
 
-  it("runs a program from a disk file", () => {
+  it("runs a program from a disk file", async () => {
     writeFileSync(path.join(base, "workspace", "notes", "prog.js"), "fenna.print('from disk')");
     void sb.run(SLUG, { file: "prog.js", cwd: "Files/notes" });
+    await new Promise((r) => setImmediate(r));
     expect(pageOf(e.windows[0])).toContain(Buffer.from("fenna.print('from disk')").toString("base64"));
   });
 });
