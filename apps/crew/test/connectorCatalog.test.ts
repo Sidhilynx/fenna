@@ -4,8 +4,17 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { connectorNameProblem } from "@opendeck/crew";
 import { CATEGORIES, CONNECTOR_CATALOG } from "../src/renderer/connectorCatalog.ts";
+import { CONNECTOR_LOGOS } from "../src/renderer/connectorLogos.ts";
 
 const logos = join(dirname(fileURLToPath(import.meta.url)), "../src/renderer/assets/connectors");
+/** WCAG relative luminance of a #RRGGBB colour. */
+function luminance(hex: string): number {
+  const lin = (i: number) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * lin(0) + 0.7152 * lin(2) + 0.0722 * lin(4);
+}
 const MARKETING = /unleash|supercharge|seamless|powerful|effortless|magic|elevate|empower|robust|intuitive|comprehensive|recipes|launch|best-in-class|world-class/i;
 
 describe("connector catalog", () => {
@@ -28,8 +37,29 @@ describe("connector catalog", () => {
     }
   });
 
-  it("has a logo file exactly when it says so", () => {
-    for (const e of CONNECTOR_CATALOG) expect(existsSync(join(logos, `${e.id}.svg`)), e.id).toBe(e.logo);
+  it("has a catalog entry and a logo file for each logo", () => {
+    const ids = CONNECTOR_CATALOG.map((e) => e.id);
+    for (const id of Object.keys(CONNECTOR_LOGOS)) {
+      expect(ids, id).toContain(id);
+      expect(existsSync(join(logos, `${id}.svg`)), id).toBe(true);
+    }
+  });
+
+  it("shows a brand colour only where the logo has one, and hides a colour that would vanish on a theme", () => {
+    for (const [id, logo] of Object.entries(CONNECTOR_LOGOS)) {
+      if (!logo.color) {
+        expect(logo.clash, id).toBeUndefined();
+        continue;
+      }
+      expect(logo.color, id).toMatch(/^#[0-9A-F]{6}$/);
+      const L = luminance(logo.color.slice(1));
+      expect(logo.clash, id).toBe(L < 0.05 ? "dark" : L > 0.6 ? "light" : undefined);
+    }
+  });
+
+  it("keeps each category together, in CATEGORIES order, after the featured entries", () => {
+    const plain = CONNECTOR_CATALOG.filter((e) => !e.featured).map((e) => CATEGORIES.indexOf(e.category));
+    expect(plain).toEqual([...plain].sort((a, b) => a - b));
   });
 
   it("has 37 entries, with Arsaze as the one featured entry, first", () => {
@@ -46,7 +76,7 @@ describe("connector catalog", () => {
 
   it("gives Arsaze a remote address with sign-in in the Design category", () => {
     const arsaze = CONNECTOR_CATALOG[0]!;
-    expect(arsaze).toMatchObject({ name: "Arsaze", vendor: "Sidhilynx", kind: "url", url: "https://api.arsaze.com/mcp", auth: "oauth", category: "Design", logo: true });
+    expect(arsaze).toMatchObject({ name: "Arsaze", vendor: "Sidhilynx", kind: "url", url: "https://api.arsaze.com/mcp", auth: "oauth", category: "Design" });
   });
 
   it("names each required environment value as an upper-case variable", () => {
